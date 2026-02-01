@@ -97,6 +97,7 @@ class VirtualBoxEmitter:
             commands.append(self._create_storage_controller(controller))
         
         # Create and attach disks
+        # Disks are created in the VM's folder using VirtualBox's path resolution
         for disk in vm.disks:
             # Map disk format to VirtualBox format and file extension
             format_map = {
@@ -106,7 +107,10 @@ class VirtualBoxEmitter:
                 DiskFormat.RAW: ('RAW', 'img'),
             }
             vbox_format, ext = format_map.get(disk.format, ('VDI', 'vdi'))
-            disk_filename = f"{vm.name}_{disk.name}.{ext}"
+
+            # Use VM name as folder to place disk in VM's directory
+            # VirtualBox will resolve this to the full path in the default machine folder
+            disk_filename = f"{vm.name}/{vm.name}_{disk.name}.{ext}"
 
             # Map our variant to VirtualBox variant
             vbox_variant = "Standard"  # Thin/dynamic by default
