@@ -116,6 +116,9 @@ class VirtualBoxEmitter:
             vbox_variant = "Standard"  # Thin/dynamic by default
             if disk.variant == DiskVariant.THICK:
                 vbox_variant = "Fixed"
+            # RAW format doesn't support dynamic storage - must use Fixed
+            if disk.format == DiskFormat.RAW:
+                vbox_variant = "Fixed"
 
             commands.append([
                 "VBoxManage", "createhd",

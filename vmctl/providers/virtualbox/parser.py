@@ -227,6 +227,9 @@ class VirtualBoxParser:
                 # This filters out metadata entries like ImageUUID, nonrotational, discard, etc.
                 if value and value.lower().endswith(disk_extensions):
                     controller_name, port, device = match.groups()
+                    # Skip floppy controller - not a real disk to recreate
+                    if controller_name.lower() == 'floppy':
+                        continue
                     disk_attachments[f"{controller_name}-{port}-{device}"] = value
         
         # Build controller name to type mapping

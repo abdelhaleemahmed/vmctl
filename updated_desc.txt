@@ -1,0 +1,242 @@
+✅ Updated Scope (Locked)
+
+Included now
+
+Validator layer
+
+JSON/YAML export & import
+
+Batch VM creation
+
+CLI only
+
+VirtualBox backend only
+
+New empty disk only
+
+Explicitly deferred
+
+TUI / GUI
+
+Cross-provider creation
+
+Disk cloning strategies
+
+Live migration
+
+Policy engines
+
+This keeps the architecture clean without overengineering.
+
+1️⃣ Updated High-Level Architecture
+┌────────────────────────────┐
+│            CLI             │
+│  (argparse / click)        │
+└──────────────┬─────────────┘
+               │
+┌──────────────▼─────────────┐
+│        Core Engine         │
+│                            │
+│  - load VMConfig           │
+│  - edit via CLI            │
+│  - validate                │
+│  - batch processing        │
+│  - serialize/deserialize   │
+└──────────────┬─────────────┘
+               │
+┌──────────────▼─────────────┐
+│       Validator Layer      │
+│  - schema validation       │
+│  - provider constraints    │
+└──────────────┬─────────────┘
+               │
+┌──────────────▼─────────────┐
+│   VirtualBox Backend       │
+│  - read config             │
+│  - create VM               │
+│  - create disk             │
+└────────────────────────────┘
+
+2️⃣ Canonical Internal Model (VMConfig)
+
+This is the center of gravity.
+
+@dataclass
+class VMConfig:
+    name: str
+    cpu: CPUConfig
+    memory: MemoryConfig
+    firmware: FirmwareConfig
+    disks: list[DiskConfig]
+    networks: list[NetworkConfig]
+    boot: BootConfig
+    metadata: dict = field(default_factory=dict)
+
+
+Key rule:
+
+Everything goes through VMConfig — even batch creation and imports.
+
+3️⃣ Validator Layer (NEW)
+Purpose
+
+Catch bad configs early, before VBoxManage is called.
+
+Structure
+class ValidationError(Exception):
+    pass
+
+class VMValidator:
+    def validate(self, vm: VMConfig, provider):
+        self._validate_schema(vm)
+        self._validate_provider_limits(vm, provider)
+
+Schema validation
+def _validate_schema(self, vm):
+    if vm.cpu.count < 1:
+        raise ValidationError("CPU count must be >= 1")
+
+    if vm.memory.mb < 128:
+        raise ValidationError("Memory too small")
+
+Provider validation (VirtualBox)
+def _validate_provider_limits(self, vm, provider):
+    caps = provider.capabilities
+
+    if vm.cpu.count > caps.max_cpus:
+        raise ValidationError("CPU exceeds VirtualBox limits")
+
+    if vm.firmware.efi and not caps.supports_efi:
+        raise ValidationError("EFI not supported")
+
+
+✔ Centralized
+✔ Deterministic
+✔ Reusable for batch mode
+
+4️⃣ JSON / YAML Import & Export (NEW)
+Why this matters
+
+This turns your tool into:
+
+A VM template system
+
+A config-as-code engine
+
+Serializer Layer
+class VMConfigSerializer:
+    def to_dict(vm: VMConfig) -> dict: ...
+    def from_dict(data: dict) -> VMConfig: ...
+
+JSON
+class JSONSerializer(VMConfigSerializer):
+    def save(vm, path):
+        json.dump(self.to_dict(vm), open(path, "w"), indent=2)
+
+    def load(path):
+        return self.from_dict(json.load(open(path)))
+
+YAML
+class YAMLSerializer(VMConfigSerializer):
+    def save(vm, path):
+        yaml.safe_dump(self.to_dict(vm), open(path, "w"))
+
+    def load(path):
+        return self.from_dict(yaml.safe_load(open(path)))
+
+CLI Examples
+vmtool export ubuntu-base --format yaml --out ubuntu.yaml
+vmtool import ubuntu.yaml --new-name ubuntu-test
+
+
+Batch-compatible by design 👇
+
+5️⃣ Batch VM Creation (NEW)
+Concept
+
+Batch is just:
+
+Multiple VMConfig objects processed in a loop
+
+No special logic needed.
+
+Batch File Example (YAML)
+base_vm: ubuntu-base
+instances:
+  - name: ubuntu-test-01
+    memory: 2048
+  - name: ubuntu-test-02
+    memory: 4096
+  - name: ubuntu-test-03
+    cpu: 4
+
+Batch Engine
+class BatchCreator:
+    def run(self, base_vm: VMConfig, batch_def):
+        for entry in batch_def["instances"]:
+            vm = copy.deepcopy(base_vm)
+            vm.name = entry["name"]
+            self.apply_overrides(vm, entry)
+            validator.validate(vm, provider)
+            provider.create_vm(vm)
+
+
+✔ Reuses validation
+✔ Reuses serialization
+✔ Reuses backend
+
+CLI Example
+vmtool batch create batch.yaml
+
+6️⃣ CLI Commands (Final for This Phase)
+vmtool read <vm-name>
+vmtool edit <vm-name>
+vmtool create <vm-name> --new-name <name>
+vmtool export <vm-name> --format json|yaml
+vmtool import <file> --new-name <name>
+vmtool batch create <file>
+
+
+No UI ambiguity. Everything explicit.
+
+7️⃣ Updated Project Directory Layout
+vmtool/
+├── cli/
+│   └── main.py
+│
+├── core/
+│   ├── engine.py
+│   ├── vmconfig.py
+│   ├── batch.py
+│
+├── validators/
+│   └── vm_validator.py
+│
+├── serializers/
+│   ├── json_serializer.py
+│   └── yaml_serializer.py
+│
+├── providers/
+│   └── virtualbox/
+│       ├── parser.py
+│       ├── emitter.py
+│       └── capabilities.py
+│
+└── utils/
+    └── shell.py
+
+🧠 Why This Is the Right Cut
+
+You now have:
+
+A safe core (validator)
+
+A portable format (JSON/YAML)
+
+A scalable workflow (batch)
+
+A simple interface (CLI)
+
+And most importantly:
+
+Nothing you added today will need to be rewritten later.

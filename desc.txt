@@ -1,0 +1,314 @@
+VMCTL — Portable Virtual Machine Hardware Replication Tool
+Overview
+
+VMCTL is a modular, hypervisor-agnostic virtual machine provisioning tool designed to replicate VM hardware configurations, not VM state.
+
+Instead of cloning disks or copying runtime artifacts, VMCTL introspects an existing virtual machine, extracts its hardware profile, allows the user to review and modify that configuration, and then creates a brand-new, empty virtual machine ready for fresh OS installation.
+
+The project is intentionally designed to treat virtual machines as reproducible infrastructure units, not pets.
+
+Core Philosophy
+
+Infrastructure should be described, reviewed, and recreated — not copied blindly.
+
+VMCTL follows these principles:
+
+No state cloning
+
+No disk reuse
+
+No UUID, MAC, or identity reuse
+
+Explicit, inspectable hardware definitions
+
+Clean abstraction between orchestration and hypervisor backends
+
+This makes VMCTL ideal for labs, CI environments, testing, education, and future automation workflows.
+
+Key Capabilities
+1. Hardware Profile Introspection
+
+VMCTL reads the configuration of an existing running or powered-off VM and extracts a normalized hardware profile, including:
+
+Memory size
+
+CPU count
+
+Firmware type (BIOS / EFI)
+
+Video memory
+
+Network mode (NAT, bridged, host-only)
+
+Boot order
+
+Default disk size (for new empty disks)
+
+For VirtualBox, this is done via:
+
+VBoxManage showvminfo --machinereadable
+
+
+The result is converted into a hypervisor-neutral hardware model.
+
+2. Human-Readable Configuration Display
+
+Before any VM is created, the detected hardware profile is:
+
+Displayed clearly to the user
+
+Presented as explicit key/value pairs
+
+Free of runtime noise (UUIDs, logs, state flags)
+
+This ensures:
+
+Transparency
+
+Auditability
+
+Predictable outcomes
+
+3. Interactive Configuration Editing
+
+Users can interactively modify any aspect of the hardware profile before creation:
+
+Change memory or CPU count
+
+Adjust disk size
+
+Switch firmware mode
+
+Change network mode
+
+Override boot order
+
+Attach an installation ISO
+
+Defaults are preserved unless explicitly changed.
+
+This interaction model keeps the tool:
+
+Safe
+
+Script-friendly
+
+Automation-ready (non-interactive mode planned)
+
+4. Creation of a Brand-New Empty VM
+
+VMCTL does not clone disks.
+
+Instead, it:
+
+Creates a new VM with a new identity
+
+Allocates a fresh empty disk
+
+Attaches optional ISO media
+
+Leaves the VM ready for OS installation
+
+This guarantees:
+
+No shared storage
+
+No filesystem corruption
+
+No unintended state leakage
+
+5. Modular Hypervisor Architecture
+
+VMCTL is built around a clean driver interface:
+
+HypervisorDriver
+ ├─ read_hardware_profile()
+ ├─ create_empty_vm()
+ ├─ attach_iso()
+ └─ start_vm()
+
+
+The orchestration logic is completely decoupled from the hypervisor implementation.
+
+Currently supported:
+
+✅ VirtualBox
+
+Planned:
+
+🔜 KVM / libvirt
+
+🔜 VMware (Workstation / ESXi)
+
+Adding a new hypervisor requires implementing a single driver class.
+
+6. Safe Defaults by Design
+
+VMCTL intentionally avoids dangerous or ambiguous behaviors:
+
+No MAC address reuse
+
+No disk reuse
+
+No snapshot inheritance
+
+No state copying
+
+No hidden cloning behavior
+
+Every VM created is:
+
+Deterministic
+
+Clean
+
+Isolated
+
+Use Cases
+
+VMCTL is well-suited for:
+
+Virtual lab environments
+
+CI/CD build runners
+
+Teaching operating systems or virtualization
+
+Infrastructure experimentation
+
+VM templating without vendor lock-in
+
+Reproducible test environments
+
+It is not intended for:
+
+Stateful production servers
+
+Database cloning
+
+Live migration
+
+Backup or restore workflows
+
+Example Workflow
+vmctl.py source-vm new-vm --iso ubuntu.iso
+
+
+Reads hardware configuration from source-vm
+
+Displays detected profile
+
+Allows interactive modification
+
+Creates new-vm with:
+
+Fresh empty disk
+
+New identity
+
+Optional ISO attached
+
+Starts the VM for installation
+
+Internal Architecture
+Hardware Model
+
+At the core is a portable data model:
+
+VMHardwareProfile
+ ├─ memory_mb
+ ├─ cpus
+ ├─ firmware
+ ├─ vram_mb
+ ├─ network_mode
+ ├─ disk_mb
+ ├─ boot_order
+ └─ iso_path
+
+
+This model is the contract between all hypervisors.
+
+Execution Flow
+Source VM
+   ↓
+Hardware Introspection
+   ↓
+Normalized Profile
+   ↓
+User Review / Edit
+   ↓
+Empty VM Creation
+   ↓
+Fresh OS Install
+
+Extensibility Roadmap
+
+Planned enhancements:
+
+JSON / YAML profile export & import
+
+Non-interactive mode for automation
+
+Profile templates registry
+
+ncurses-based TUI
+
+KVM backend (virt-install)
+
+VMware backend
+
+Multi-VM orchestration
+
+Snapshot-aware template mode (optional)
+
+Project Positioning
+
+VMCTL is not a wrapper script.
+
+It is a foundation for:
+
+Portable VM definitions
+
+Reproducible infrastructure
+
+Hypervisor-agnostic provisioning
+
+Educational and experimental environments
+
+In spirit, it sits somewhere between:
+
+VBoxManage
+
+virt-install
+
+Terraform-style declarative infrastructure
+
+—but without cloud assumptions or external dependencies.
+
+Summary
+
+VMCTL gives you:
+
+Control instead of cloning
+
+Introspection instead of guessing
+
+Clean machines instead of inherited state
+
+Architecture instead of hacks
+
+It’s a tool for people who care about how systems are built, not just that they run.
+
+If you want, next we can:
+
+Turn this into a polished README.md
+
+Add diagrams
+
+Define contribution guidelines
+
+Write a KVM driver spec
+
+Or formalize the profile schema
+
+Just tell me where you want to take it next.
