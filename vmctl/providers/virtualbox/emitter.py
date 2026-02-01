@@ -157,11 +157,20 @@ class VirtualBoxEmitter:
                     f"--boot{i}", device
                 ])
         
-        # Audio
+        # Audio - use platform-appropriate driver
         if vm.audio_enabled:
+            import sys
+            if sys.platform == 'win32':
+                audio_driver = 'dsound'  # DirectSound for Windows
+            elif sys.platform == 'darwin':
+                audio_driver = 'coreaudio'  # CoreAudio for macOS
+            else:
+                audio_driver = 'pulse'  # PulseAudio for Linux
+
             commands.append([
                 "VBoxManage", "modifyvm", vm.name,
-                "--audio", "pulse",
+                "--audio-driver", audio_driver,
+                "--audio-enabled", "on",
                 "--audiocontroller", "hda"
             ])
         

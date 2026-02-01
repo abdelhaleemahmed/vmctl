@@ -34,8 +34,8 @@ class VMValidator:
         if vm.cpu.count < 1:
             raise ValidationError("CPU count must be >= 1")
         
-        if vm.memory.mb < 128:
-            raise ValidationError("Memory must be at least 128 MB")
+        if vm.memory.mb < 4:
+            raise ValidationError("Memory must be at least 4 MB")
         
         if vm.memory.vram_mb < 1:
             raise ValidationError("VRAM must be at least 1 MB")
