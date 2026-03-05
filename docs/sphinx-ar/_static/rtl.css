@@ -1,0 +1,68 @@
+/* RTL support for Arabic Sphinx documentation */
+
+body {
+    direction: rtl;
+    text-align: right;
+}
+
+/* Navigation sidebar — keep LTR for code/commands */
+.wy-nav-side,
+.wy-side-nav-search,
+.wy-menu-vertical {
+    direction: rtl;
+    text-align: right;
+}
+
+/* Code blocks stay LTR */
+pre, code, .highlight, .code-block,
+kbd, tt, .docutils.literal {
+    direction: ltr !important;
+    text-align: left !important;
+    unicode-bidi: embed;
+}
+
+/* Tables */
+table {
+    direction: rtl;
+}
+
+th, td {
+    text-align: right;
+}
+
+/* Admonitions */
+.admonition, .note, .warning, .tip {
+    text-align: right;
+}
+
+/* Breadcrumbs and nav links */
+.wy-breadcrumbs {
+    direction: rtl;
+}
+
+/* Content area */
+.rst-content {
+    direction: rtl;
+    text-align: right;
+}
+
+/* Section headers */
+h1, h2, h3, h4, h5, h6 {
+    text-align: right;
+}
+
+/* Lists */
+ul, ol {
+    padding-right: 1.5em;
+    padding-left: 0;
+}
+
+/* Field lists (parameters, returns, etc.) */
+.field-list {
+    direction: rtl;
+}
+
+/* Search box */
+.wy-side-nav-search input[type=text] {
+    direction: rtl;
+}
