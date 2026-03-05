@@ -67,7 +67,7 @@ TEST_ENV=$(mktemp -d)
 python3 -m venv "$TEST_ENV"
 source "$TEST_ENV/bin/activate"
 pip install dist/vmctl-*.whl -q
-INSTALLED_VERSION=$(vmctl --version 2>&1 | awk '{print $2}')
+INSTALLED_VERSION=$(vmctl --version 2>&1 | awk '{print $NF}')
 deactivate
 rm -rf "$TEST_ENV"
 
