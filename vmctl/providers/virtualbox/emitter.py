@@ -241,8 +241,15 @@ class VirtualBoxEmitter:
             f"--cableconnected{adapter_num}", "on"
         ]
 
-        if network.network_type == NetworkType.BRIDGED and network.adapter_name:
-            cmd.extend([f"--bridgeadapter{adapter_num}", network.adapter_name])
+        if network.adapter_name:
+            if network.network_type == NetworkType.BRIDGED:
+                cmd.extend([f"--bridgeadapter{adapter_num}", network.adapter_name])
+            elif network.network_type == NetworkType.HOSTONLY:
+                cmd.extend([f"--hostonlyadapter{adapter_num}", network.adapter_name])
+            elif network.network_type == NetworkType.INTERNAL:
+                cmd.extend([f"--intnet{adapter_num}", network.adapter_name])
+            elif network.network_type == NetworkType.NATNETWORK:
+                cmd.extend([f"--nat-network{adapter_num}", network.adapter_name])
         
         if network.mac_address:
             cmd.extend([f"--macaddress{adapter_num}", network.mac_address])

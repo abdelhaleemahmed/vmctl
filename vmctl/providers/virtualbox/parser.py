@@ -289,10 +289,22 @@ class VirtualBoxParser:
                 network_type = vbox_network_map.get(nic_type, NetworkType.NAT)
                 adapter_type = config.get(f'nictype{i+1}', '82540EM')
                 
+                # Read the adapter/network name from the correct key for each type
+                if nic_type == 'bridged':
+                    adapter_name = config.get(f'bridgeadapter{i+1}')
+                elif nic_type == 'hostonly':
+                    adapter_name = config.get(f'hostonlyif{i+1}')
+                elif nic_type == 'intnet':
+                    adapter_name = config.get(f'intnet{i+1}')
+                elif nic_type == 'natnetwork':
+                    adapter_name = config.get(f'natnetwork{i+1}')
+                else:
+                    adapter_name = None
+
                 network = NetworkConfig(
                     adapter_type=adapter_type,
                     network_type=network_type,
-                    adapter_name=config.get(f'bridgeadapter{i+1}'),
+                    adapter_name=adapter_name,
                     mac_address=config.get(f'macaddress{i+1}')
                 )
                 networks.append(network)
