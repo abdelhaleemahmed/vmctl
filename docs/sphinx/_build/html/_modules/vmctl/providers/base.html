@@ -1,0 +1,458 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vmctl.providers.base &mdash; vmctl 1.1.8</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=df104e6e"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            vmctl
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#from-source">From Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#verify-the-installation">Verify the installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#list-vms">List VMs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#export-a-vm">Export a VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#import-recreate-from-file">Import (recreate from file)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#clone-from-an-existing-vm">Clone from an existing VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#lifecycle-commands">Lifecycle commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#validate-a-config-file">Validate a config file</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/configuration.html">VM Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#minimal-example">Minimal example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#top-level-fields">Top-level fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#cpu">cpu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#memory">memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#firmware">firmware</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#disks">disks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#networks">networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#boot">boot</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/batch.html">Batch VM Creation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#generate-a-template">Generate a template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#batch-file-structure">Batch file structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#dry-run">Dry-run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#execute">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#inline-base-vm">Inline base VM</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/completion.html">Shell Tab Completion</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#bash">Bash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#zsh">Zsh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#fish">Fish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#what-gets-completed">What gets completed</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">CLI Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli/index.html">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../cli/index.html#vmctl">vmctl</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-batch">batch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../cli/index.html#vmctl-batch-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../cli/index.html#vmctl-batch-template">template</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-completion">completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-create">create</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-delete">delete</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-edit">edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-export">export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-import">import</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-list">list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-read">read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-start">start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-status">status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-stop">stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-validate">validate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html">vmctl.core</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmconfig-data-models">VMConfig — Data Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#module-vmctl.core.engine">Engine</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#module-vmctl.core.batch">Batch Creator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.batch.BatchCreator"><code class="docutils literal notranslate"><span class="pre">BatchCreator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#module-vmctl.core.exceptions">Exceptions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ErrorSeverity"><code class="docutils literal notranslate"><span class="pre">ErrorSeverity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMToolError"><code class="docutils literal notranslate"><span class="pre">VMToolError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.SchemaValidationError"><code class="docutils literal notranslate"><span class="pre">SchemaValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ProviderValidationError"><code class="docutils literal notranslate"><span class="pre">ProviderValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.SerializationError"><code class="docutils literal notranslate"><span class="pre">SerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.JSONSerializationError"><code class="docutils literal notranslate"><span class="pre">JSONSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.YAMLSerializationError"><code class="docutils literal notranslate"><span class="pre">YAMLSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ProviderError"><code class="docutils literal notranslate"><span class="pre">ProviderError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMNotFoundError"><code class="docutils literal notranslate"><span class="pre">VMNotFoundError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMAlreadyExistsError"><code class="docutils literal notranslate"><span class="pre">VMAlreadyExistsError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMStateError"><code class="docutils literal notranslate"><span class="pre">VMStateError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.BatchError"><code class="docutils literal notranslate"><span class="pre">BatchError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.DiskError"><code class="docutils literal notranslate"><span class="pre">DiskError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.NetworkError"><code class="docutils literal notranslate"><span class="pre">NetworkError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.PermissionError"><code class="docutils literal notranslate"><span class="pre">PermissionError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.DependencyError"><code class="docutils literal notranslate"><span class="pre">DependencyError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.TimeoutError"><code class="docutils literal notranslate"><span class="pre">TimeoutError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ResourceExhaustedError"><code class="docutils literal notranslate"><span class="pre">ResourceExhaustedError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.create_error_context"><code class="docutils literal notranslate"><span class="pre">create_error_context()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.wrap_exception"><code class="docutils literal notranslate"><span class="pre">wrap_exception()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.is_recoverable_error"><code class="docutils literal notranslate"><span class="pre">is_recoverable_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.get_error_summary"><code class="docutils literal notranslate"><span class="pre">get_error_summary()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/providers.html">vmctl.providers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.base">Base Provider</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.base.BaseProvider"><code class="docutils literal notranslate"><span class="pre">BaseProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.backend">VirtualBox Backend</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.parser">VirtualBox Parser</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.emitter">VirtualBox Emitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.capabilities">VirtualBox Capabilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities"><code class="docutils literal notranslate"><span class="pre">VirtualBoxCapabilities</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/validators.html">vmctl.validators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator"><code class="docutils literal notranslate"><span class="pre">VMValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.__init__"><code class="docutils literal notranslate"><span class="pre">VMValidator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.validate"><code class="docutils literal notranslate"><span class="pre">VMValidator.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/serializers.html">vmctl.serializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#module-vmctl.serializers.base">Base Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.base.VMConfigSerializer"><code class="docutils literal notranslate"><span class="pre">VMConfigSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#module-vmctl.serializers.yaml_serializer">YAML Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#module-vmctl.serializers.json_serializer">JSON Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer"><code class="docutils literal notranslate"><span class="pre">JSONSerializer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/cli.html">vmctl.cli</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/cli.html#vmctl.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#v1-1-8-2025">v1.1.8 (2025)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#v1-1-7-and-earlier">v1.1.7 and earlier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">vmctl</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">vmctl.providers.base</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vmctl.providers.base</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Base provider interface for hypervisor backends.</span>
+
+<span class="sd">All hypervisor providers (VirtualBox, libvirt, QEMU, etc.) must implement</span>
+<span class="sd">this abstract base class to ensure consistent API across providers.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..core.vmconfig</span><span class="w"> </span><span class="kn">import</span> <span class="n">VMConfig</span>
+
+
+<div class="viewcode-block" id="BaseProvider">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseProvider</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for hypervisor providers.&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the provider name (e.g., &#39;virtualbox&#39;, &#39;libvirt&#39;).&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return provider capabilities and limits.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+<div class="viewcode-block" id="BaseProvider.list_vms">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.list_vms">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_vms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List all VM names managed by this provider.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.read_vm">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.read_vm">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMConfig</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read VM configuration from the provider.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm_name: Name of the VM to read</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            VMConfig object with the VM&#39;s configuration</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ProviderError: If VM doesn&#39;t exist or cannot be read</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.create_vm">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.create_vm">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm</span><span class="p">:</span> <span class="n">VMConfig</span><span class="p">,</span> <span class="n">execute</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a new VM from configuration.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm: VMConfig object defining the VM</span>
+<span class="sd">            execute: If True, actually create the VM. If False, return commands only (dry-run)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of commands that were/would be executed</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ProviderError: If VM creation fails</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.delete_vm">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.delete_vm">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">delete_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Delete a VM and its associated resources.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm_name: Name of the VM to delete</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if deletion was successful</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ProviderError: If VM doesn&#39;t exist or deletion fails</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.start_vm">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.start_vm">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Start a VM.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm_name: Name of the VM to start</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if VM was started successfully</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ProviderError: If VM doesn&#39;t exist or cannot be started</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.stop_vm">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.stop_vm">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stop a running VM.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm_name: Name of the VM to stop</span>
+<span class="sd">            force: If True, force power off. If False, attempt graceful shutdown</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if VM was stopped successfully</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ProviderError: If VM doesn&#39;t exist or cannot be stopped</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.get_vm_status">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.get_vm_status">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_vm_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the current status of a VM.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm_name: Name of the VM</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Status string (e.g., &#39;running&#39;, &#39;stopped&#39;, &#39;paused&#39;)</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ProviderError: If VM doesn&#39;t exist</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.vm_exists">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.vm_exists">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">vm_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if a VM exists.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm_name: Name of the VM to check</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if VM exists, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BaseProvider.edit_vm">
+<a class="viewcode-back" href="../../../api/providers.html#vmctl.providers.base.BaseProvider.edit_vm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">edit_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">new_config</span><span class="p">:</span> <span class="n">VMConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Edit an existing VM&#39;s configuration.</span>
+
+<span class="sd">        Default implementation deletes and recreates the VM.</span>
+<span class="sd">        Providers can override this with more efficient implementations.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm_name: Name of the VM to edit</span>
+<span class="sd">            new_config: New configuration to apply</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of commands that were executed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delete_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_vm</span><span class="p">(</span><span class="n">new_config</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Ahmed Abdelhaleem Ahmed.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

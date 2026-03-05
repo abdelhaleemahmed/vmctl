@@ -17,6 +17,15 @@ class VirtualBoxBackend(BaseProvider):
     """VirtualBox provider backend"""
 
     def __init__(self):
+        """Initialise the VirtualBox backend.
+
+        Creates a :class:`VirtualBoxParser` instance for reading VM
+        configurations and loads the static provider capabilities dict.
+
+        Raises:
+            ProviderError: If ``VBoxManage`` is not found during the first
+                operation (deferred until actual use).
+        """
         self.parser = VirtualBoxParser()
         self._capabilities = VirtualBoxCapabilities.get_capabilities()
 

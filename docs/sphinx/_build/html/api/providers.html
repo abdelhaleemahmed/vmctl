@@ -1,0 +1,616 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vmctl.providers &mdash; vmctl 1.1.8</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=df104e6e"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vmctl.validators" href="validators.html" />
+    <link rel="prev" title="vmctl.core" href="core.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            vmctl
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#from-source">From Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#verify-the-installation">Verify the installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#list-vms">List VMs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#export-a-vm">Export a VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#import-recreate-from-file">Import (recreate from file)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#clone-from-an-existing-vm">Clone from an existing VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#lifecycle-commands">Lifecycle commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#validate-a-config-file">Validate a config file</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">VM Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#minimal-example">Minimal example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#top-level-fields">Top-level fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#cpu">cpu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#memory">memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#firmware">firmware</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#disks">disks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#networks">networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#boot">boot</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/batch.html">Batch VM Creation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#generate-a-template">Generate a template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#batch-file-structure">Batch file structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#dry-run">Dry-run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#execute">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#inline-base-vm">Inline base VM</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/completion.html">Shell Tab Completion</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#bash">Bash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#zsh">Zsh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#fish">Fish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#what-gets-completed">What gets completed</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">CLI Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cli/index.html">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#vmctl">vmctl</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-batch">batch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../cli/index.html#vmctl-batch-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../cli/index.html#vmctl-batch-template">template</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-completion">completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-create">create</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-delete">delete</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-edit">edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-export">export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-import">import</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-list">list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-read">read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-start">start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-status">status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-stop">stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-validate">validate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="core.html">vmctl.core</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="core.html#vmconfig-data-models">VMConfig — Data Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="core.html#module-vmctl.core.engine">Engine</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.engine.VMCtlEngine"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="core.html#module-vmctl.core.batch">Batch Creator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.batch.BatchCreator"><code class="docutils literal notranslate"><span class="pre">BatchCreator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="core.html#module-vmctl.core.exceptions">Exceptions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.ErrorSeverity"><code class="docutils literal notranslate"><span class="pre">ErrorSeverity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.VMToolError"><code class="docutils literal notranslate"><span class="pre">VMToolError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.SchemaValidationError"><code class="docutils literal notranslate"><span class="pre">SchemaValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderValidationError"><code class="docutils literal notranslate"><span class="pre">ProviderValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.SerializationError"><code class="docutils literal notranslate"><span class="pre">SerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.JSONSerializationError"><code class="docutils literal notranslate"><span class="pre">JSONSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.YAMLSerializationError"><code class="docutils literal notranslate"><span class="pre">YAMLSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError"><code class="docutils literal notranslate"><span class="pre">ProviderError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.VMNotFoundError"><code class="docutils literal notranslate"><span class="pre">VMNotFoundError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.VMAlreadyExistsError"><code class="docutils literal notranslate"><span class="pre">VMAlreadyExistsError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.VMStateError"><code class="docutils literal notranslate"><span class="pre">VMStateError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.BatchError"><code class="docutils literal notranslate"><span class="pre">BatchError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.DiskError"><code class="docutils literal notranslate"><span class="pre">DiskError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.NetworkError"><code class="docutils literal notranslate"><span class="pre">NetworkError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.PermissionError"><code class="docutils literal notranslate"><span class="pre">PermissionError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.DependencyError"><code class="docutils literal notranslate"><span class="pre">DependencyError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.TimeoutError"><code class="docutils literal notranslate"><span class="pre">TimeoutError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.ResourceExhaustedError"><code class="docutils literal notranslate"><span class="pre">ResourceExhaustedError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.create_error_context"><code class="docutils literal notranslate"><span class="pre">create_error_context()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.wrap_exception"><code class="docutils literal notranslate"><span class="pre">wrap_exception()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.is_recoverable_error"><code class="docutils literal notranslate"><span class="pre">is_recoverable_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="core.html#vmctl.core.exceptions.get_error_summary"><code class="docutils literal notranslate"><span class="pre">get_error_summary()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">vmctl.providers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-vmctl.providers.base">Base Provider</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.providers.base.BaseProvider"><code class="docutils literal notranslate"><span class="pre">BaseProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-vmctl.providers.virtualbox.backend">VirtualBox Backend</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-vmctl.providers.virtualbox.parser">VirtualBox Parser</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.providers.virtualbox.parser.VirtualBoxParser"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-vmctl.providers.virtualbox.emitter">VirtualBox Emitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-vmctl.providers.virtualbox.capabilities">VirtualBox Capabilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities"><code class="docutils literal notranslate"><span class="pre">VirtualBoxCapabilities</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="validators.html">vmctl.validators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="validators.html#vmctl.validators.vm_validator.VMValidator"><code class="docutils literal notranslate"><span class="pre">VMValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="validators.html#vmctl.validators.vm_validator.VMValidator.__init__"><code class="docutils literal notranslate"><span class="pre">VMValidator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="validators.html#vmctl.validators.vm_validator.VMValidator.validate"><code class="docutils literal notranslate"><span class="pre">VMValidator.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="serializers.html">vmctl.serializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="serializers.html#module-vmctl.serializers.base">Base Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.base.VMConfigSerializer"><code class="docutils literal notranslate"><span class="pre">VMConfigSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="serializers.html#module-vmctl.serializers.yaml_serializer">YAML Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="serializers.html#module-vmctl.serializers.json_serializer">JSON Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.json_serializer.JSONSerializer"><code class="docutils literal notranslate"><span class="pre">JSONSerializer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">vmctl.cli</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cli.html#vmctl.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#v1-1-8-2025">v1.1.8 (2025)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#v1-1-7-and-earlier">v1.1.7 and earlier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">vmctl</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">vmctl.providers</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/providers.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vmctl-providers">
+<h1>vmctl.providers<a class="headerlink" href="#vmctl-providers" title="Link to this heading"></a></h1>
+<p>Provider backends translate between the provider-neutral <code class="xref py py-class docutils literal notranslate"><span class="pre">VMConfig</span></code>
+model and the hypervisor-specific APIs.</p>
+<section id="module-vmctl.providers.base">
+<span id="base-provider"></span><h2>Base Provider<a class="headerlink" href="#module-vmctl.providers.base" title="Link to this heading"></a></h2>
+<p>Base provider interface for hypervisor backends.</p>
+<p>All hypervisor providers (VirtualBox, libvirt, QEMU, etc.) must implement
+this abstract base class to ensure consistent API across providers.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.providers.base.</span></span><span class="sig-name descname"><span class="pre">BaseProvider</span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Abstract base class for hypervisor providers.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.name">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><a class="headerlink" href="#vmctl.providers.base.BaseProvider.name" title="Link to this definition"></a></dt>
+<dd><p>Return the provider name (e.g., ‘virtualbox’, ‘libvirt’).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.capabilities">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">capabilities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#vmctl.providers.base.BaseProvider.capabilities" title="Link to this definition"></a></dt>
+<dd><p>Return provider capabilities and limits.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.list_vms">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">list_vms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.list_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.list_vms" title="Link to this definition"></a></dt>
+<dd><p>List all VM names managed by this provider.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.read_vm">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">read_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">VMConfig</span></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.read_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.read_vm" title="Link to this definition"></a></dt>
+<dd><p>Read VM configuration from the provider.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> – Name of the VM to read</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>VMConfig object with the VM’s configuration</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError" title="vmctl.core.exceptions.ProviderError"><strong>ProviderError</strong></a> – If VM doesn’t exist or cannot be read</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.create_vm">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">VMConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">execute</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.create_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.create_vm" title="Link to this definition"></a></dt>
+<dd><p>Create a new VM from configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm</strong> – VMConfig object defining the VM</p></li>
+<li><p><strong>execute</strong> – If True, actually create the VM. If False, return commands only (dry-run)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of commands that were/would be executed</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError" title="vmctl.core.exceptions.ProviderError"><strong>ProviderError</strong></a> – If VM creation fails</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.delete_vm">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delete_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.delete_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.delete_vm" title="Link to this definition"></a></dt>
+<dd><p>Delete a VM and its associated resources.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> – Name of the VM to delete</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if deletion was successful</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError" title="vmctl.core.exceptions.ProviderError"><strong>ProviderError</strong></a> – If VM doesn’t exist or deletion fails</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.start_vm">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">start_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.start_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.start_vm" title="Link to this definition"></a></dt>
+<dd><p>Start a VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> – Name of the VM to start</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if VM was started successfully</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError" title="vmctl.core.exceptions.ProviderError"><strong>ProviderError</strong></a> – If VM doesn’t exist or cannot be started</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.stop_vm">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stop_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.stop_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.stop_vm" title="Link to this definition"></a></dt>
+<dd><p>Stop a running VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> – Name of the VM to stop</p></li>
+<li><p><strong>force</strong> – If True, force power off. If False, attempt graceful shutdown</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if VM was stopped successfully</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError" title="vmctl.core.exceptions.ProviderError"><strong>ProviderError</strong></a> – If VM doesn’t exist or cannot be stopped</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.get_vm_status">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_vm_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.get_vm_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.get_vm_status" title="Link to this definition"></a></dt>
+<dd><p>Get the current status of a VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> – Name of the VM</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Status string (e.g., ‘running’, ‘stopped’, ‘paused’)</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError" title="vmctl.core.exceptions.ProviderError"><strong>ProviderError</strong></a> – If VM doesn’t exist</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.vm_exists">
+<span class="sig-name descname"><span class="pre">vm_exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.vm_exists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.vm_exists" title="Link to this definition"></a></dt>
+<dd><p>Check if a VM exists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> – Name of the VM to check</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if VM exists, False otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.base.BaseProvider.edit_vm">
+<span class="sig-name descname"><span class="pre">edit_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">VMConfig</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/base.html#BaseProvider.edit_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.base.BaseProvider.edit_vm" title="Link to this definition"></a></dt>
+<dd><p>Edit an existing VM’s configuration.</p>
+<p>Default implementation deletes and recreates the VM.
+Providers can override this with more efficient implementations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> – Name of the VM to edit</p></li>
+<li><p><strong>new_config</strong> – New configuration to apply</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of commands that were executed</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vmctl.providers.virtualbox.backend">
+<span id="virtualbox-backend"></span><h2>VirtualBox Backend<a class="headerlink" href="#module-vmctl.providers.virtualbox.backend" title="Link to this heading"></a></h2>
+<p>VirtualBox backend implementation</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.providers.virtualbox.backend.</span></span><span class="sig-name descname"><span class="pre">VirtualBoxBackend</span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vmctl.providers.base.BaseProvider" title="vmctl.providers.base.BaseProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseProvider</span></code></a></p>
+<p>VirtualBox provider backend</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialise the VirtualBox backend.</p>
+<p>Creates a <code class="xref py py-class docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code> instance for reading VM
+configurations and loads the static provider capabilities dict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#vmctl.core.exceptions.ProviderError" title="vmctl.core.exceptions.ProviderError"><strong>ProviderError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> is not found during the first
+    operation (deferred until actual use).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.name" title="Link to this definition"></a></dt>
+<dd><p>Return provider name.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.capabilities">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">capabilities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.capabilities" title="Link to this definition"></a></dt>
+<dd><p>Return provider capabilities.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.list_vms">
+<span class="sig-name descname"><span class="pre">list_vms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.list_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.list_vms" title="Link to this definition"></a></dt>
+<dd><p>List all VMs managed by VirtualBox.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.read_vm">
+<span class="sig-name descname"><span class="pre">read_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">VMConfig</span></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.read_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.read_vm" title="Link to this definition"></a></dt>
+<dd><p>Read VM configuration from VirtualBox.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.create_vm">
+<span class="sig-name descname"><span class="pre">create_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">VMConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">execute</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.create_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.create_vm" title="Link to this definition"></a></dt>
+<dd><p>Create a new VM from VMConfig.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.delete_vm">
+<span class="sig-name descname"><span class="pre">delete_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.delete_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.delete_vm" title="Link to this definition"></a></dt>
+<dd><p>Delete a VM and its associated files.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.start_vm">
+<span class="sig-name descname"><span class="pre">start_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.start_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.start_vm" title="Link to this definition"></a></dt>
+<dd><p>Start a VM.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.stop_vm">
+<span class="sig-name descname"><span class="pre">stop_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.stop_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.stop_vm" title="Link to this definition"></a></dt>
+<dd><p>Stop a running VM.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.backend.VirtualBoxBackend.get_vm_status">
+<span class="sig-name descname"><span class="pre">get_vm_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/backend.html#VirtualBoxBackend.get_vm_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.backend.VirtualBoxBackend.get_vm_status" title="Link to this definition"></a></dt>
+<dd><p>Get current VM status.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vmctl.providers.virtualbox.parser">
+<span id="virtualbox-parser"></span><h2>VirtualBox Parser<a class="headerlink" href="#module-vmctl.providers.virtualbox.parser" title="Link to this heading"></a></h2>
+<p>Parse VirtualBox VM configuration into VMConfig</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.parser.VirtualBoxParser">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.providers.virtualbox.parser.</span></span><span class="sig-name descname"><span class="pre">VirtualBoxParser</span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/parser.html#VirtualBoxParser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.parser.VirtualBoxParser" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Parse VirtualBox VM configuration</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.parser.VirtualBoxParser.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/parser.html#VirtualBoxParser.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.parser.VirtualBoxParser.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialise the parser.</p>
+<p>Sets <code class="docutils literal notranslate"><span class="pre">vboxmanage_cmd</span></code> to <code class="docutils literal notranslate"><span class="pre">&quot;VBoxManage&quot;</span></code>, which must be available
+on the system <code class="docutils literal notranslate"><span class="pre">PATH</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.parser.VirtualBoxParser.get_vm_info">
+<span class="sig-name descname"><span class="pre">get_vm_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/parser.html#VirtualBoxParser.get_vm_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_vm_info" title="Link to this definition"></a></dt>
+<dd><p>Get raw VM info from VirtualBox</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.parser.VirtualBoxParser.get_disk_info">
+<span class="sig-name descname"><span class="pre">get_disk_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">disk_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/parser.html#VirtualBoxParser.get_disk_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_disk_info" title="Link to this definition"></a></dt>
+<dd><p>Get disk size, format, and variant from VirtualBox</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.parser.VirtualBoxParser.parse_vm">
+<span class="sig-name descname"><span class="pre">parse_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">VMConfig</span></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/parser.html#VirtualBoxParser.parse_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.parser.VirtualBoxParser.parse_vm" title="Link to this definition"></a></dt>
+<dd><p>Parse VirtualBox VM into VMConfig</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vmctl.providers.virtualbox.emitter">
+<span id="virtualbox-emitter"></span><h2>VirtualBox Emitter<a class="headerlink" href="#module-vmctl.providers.virtualbox.emitter" title="Link to this heading"></a></h2>
+<p>Emit VirtualBox commands from VMConfig</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.emitter.VirtualBoxEmitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.providers.virtualbox.emitter.</span></span><span class="sig-name descname"><span class="pre">VirtualBoxEmitter</span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/emitter.html#VirtualBoxEmitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Emit VBoxManage commands to create/configure VMs</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/emitter.html#VirtualBoxEmitter.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialise the emitter for a specific VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> – Name of the VM that will be referenced in every
+<code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> command this emitter generates.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.emit_create_vm">
+<span class="sig-name descname"><span class="pre">emit_create_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">VMConfig</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/emitter.html#VirtualBoxEmitter.emit_create_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.emit_create_vm" title="Link to this definition"></a></dt>
+<dd><p>Generate commands to create a VM from VMConfig</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vmctl.providers.virtualbox.capabilities">
+<span id="virtualbox-capabilities"></span><h2>VirtualBox Capabilities<a class="headerlink" href="#module-vmctl.providers.virtualbox.capabilities" title="Link to this heading"></a></h2>
+<p>VirtualBox capabilities and constraints</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.providers.virtualbox.capabilities.</span></span><span class="sig-name descname"><span class="pre">VirtualBoxCapabilities</span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/capabilities.html#VirtualBoxCapabilities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>VirtualBox-specific capabilities and limits</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities.get_capabilities">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_capabilities</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/providers/virtualbox/capabilities.html#VirtualBoxCapabilities.get_capabilities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities.get_capabilities" title="Link to this definition"></a></dt>
+<dd><p>Get VirtualBox capabilities</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="core.html" class="btn btn-neutral float-left" title="vmctl.core" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="validators.html" class="btn btn-neutral float-right" title="vmctl.validators" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Ahmed Abdelhaleem Ahmed.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

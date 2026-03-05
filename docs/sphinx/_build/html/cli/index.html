@@ -1,0 +1,783 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLI Reference &mdash; vmctl 1.1.8</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=df104e6e"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API Reference" href="../api/index.html" />
+    <link rel="prev" title="Shell Tab Completion" href="../guide/completion.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            vmctl
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#from-source">From Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#verify-the-installation">Verify the installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#list-vms">List VMs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#export-a-vm">Export a VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#import-recreate-from-file">Import (recreate from file)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#clone-from-an-existing-vm">Clone from an existing VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#lifecycle-commands">Lifecycle commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#validate-a-config-file">Validate a config file</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">VM Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#minimal-example">Minimal example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#top-level-fields">Top-level fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#cpu">cpu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#memory">memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#firmware">firmware</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#disks">disks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#networks">networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#boot">boot</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/batch.html">Batch VM Creation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#generate-a-template">Generate a template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#batch-file-structure">Batch file structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#dry-run">Dry-run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#execute">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#inline-base-vm">Inline base VM</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/completion.html">Shell Tab Completion</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#bash">Bash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#zsh">Zsh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#fish">Fish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#what-gets-completed">What gets completed</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">CLI Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#vmctl">vmctl</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-batch">batch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl-batch-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl-batch-template">template</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-completion">completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-create">create</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-delete">delete</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-edit">edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-export">export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-import">import</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-list">list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-read">read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-start">start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-status">status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-stop">stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl-validate">validate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html">vmctl.core</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#vmconfig-data-models">VMConfig — Data Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#module-vmctl.core.engine">Engine</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.engine.VMCtlEngine"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#module-vmctl.core.batch">Batch Creator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.batch.BatchCreator"><code class="docutils literal notranslate"><span class="pre">BatchCreator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#module-vmctl.core.exceptions">Exceptions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.ErrorSeverity"><code class="docutils literal notranslate"><span class="pre">ErrorSeverity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.VMToolError"><code class="docutils literal notranslate"><span class="pre">VMToolError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.SchemaValidationError"><code class="docutils literal notranslate"><span class="pre">SchemaValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.ProviderValidationError"><code class="docutils literal notranslate"><span class="pre">ProviderValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.SerializationError"><code class="docutils literal notranslate"><span class="pre">SerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.JSONSerializationError"><code class="docutils literal notranslate"><span class="pre">JSONSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.YAMLSerializationError"><code class="docutils literal notranslate"><span class="pre">YAMLSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.ProviderError"><code class="docutils literal notranslate"><span class="pre">ProviderError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.VMNotFoundError"><code class="docutils literal notranslate"><span class="pre">VMNotFoundError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.VMAlreadyExistsError"><code class="docutils literal notranslate"><span class="pre">VMAlreadyExistsError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.VMStateError"><code class="docutils literal notranslate"><span class="pre">VMStateError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.BatchError"><code class="docutils literal notranslate"><span class="pre">BatchError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.DiskError"><code class="docutils literal notranslate"><span class="pre">DiskError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.NetworkError"><code class="docutils literal notranslate"><span class="pre">NetworkError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.PermissionError"><code class="docutils literal notranslate"><span class="pre">PermissionError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.DependencyError"><code class="docutils literal notranslate"><span class="pre">DependencyError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.TimeoutError"><code class="docutils literal notranslate"><span class="pre">TimeoutError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.ResourceExhaustedError"><code class="docutils literal notranslate"><span class="pre">ResourceExhaustedError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.create_error_context"><code class="docutils literal notranslate"><span class="pre">create_error_context()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.wrap_exception"><code class="docutils literal notranslate"><span class="pre">wrap_exception()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.is_recoverable_error"><code class="docutils literal notranslate"><span class="pre">is_recoverable_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/core.html#vmctl.core.exceptions.get_error_summary"><code class="docutils literal notranslate"><span class="pre">get_error_summary()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/providers.html">vmctl.providers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/providers.html#module-vmctl.providers.base">Base Provider</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/providers.html#vmctl.providers.base.BaseProvider"><code class="docutils literal notranslate"><span class="pre">BaseProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/providers.html#module-vmctl.providers.virtualbox.backend">VirtualBox Backend</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/providers.html#module-vmctl.providers.virtualbox.parser">VirtualBox Parser</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/providers.html#module-vmctl.providers.virtualbox.emitter">VirtualBox Emitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/providers.html#module-vmctl.providers.virtualbox.capabilities">VirtualBox Capabilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/providers.html#vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities"><code class="docutils literal notranslate"><span class="pre">VirtualBoxCapabilities</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/validators.html">vmctl.validators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/validators.html#vmctl.validators.vm_validator.VMValidator"><code class="docutils literal notranslate"><span class="pre">VMValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/validators.html#vmctl.validators.vm_validator.VMValidator.__init__"><code class="docutils literal notranslate"><span class="pre">VMValidator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/validators.html#vmctl.validators.vm_validator.VMValidator.validate"><code class="docutils literal notranslate"><span class="pre">VMValidator.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/serializers.html">vmctl.serializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/serializers.html#module-vmctl.serializers.base">Base Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/serializers.html#vmctl.serializers.base.VMConfigSerializer"><code class="docutils literal notranslate"><span class="pre">VMConfigSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/serializers.html#module-vmctl.serializers.yaml_serializer">YAML Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/serializers.html#module-vmctl.serializers.json_serializer">JSON Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer"><code class="docutils literal notranslate"><span class="pre">JSONSerializer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/cli.html">vmctl.cli</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/cli.html#vmctl.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#v1-1-8-2025">v1.1.8 (2025)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#v1-1-7-and-earlier">v1.1.7 and earlier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">vmctl</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">CLI Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/cli/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cli-reference">
+<h1>CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this heading"></a></h1>
+<p>Complete reference for all vmctl commands, generated from the source code.</p>
+<section id="vmctl">
+<h2>vmctl<a class="headerlink" href="#vmctl" title="Link to this heading"></a></h2>
+<p>vmctl — Virtual Machine Management Tool.</p>
+<p>Manage VirtualBox VMs with config-as-code support.  Export any VM to YAML
+or JSON, recreate it anywhere, and spin up entire clusters from a single
+batch file.</p>
+<div class="line-block">
+<div class="line">Quick start:</div>
+<div class="line-block">
+<div class="line">vmctl list</div>
+<div class="line">vmctl export my-vm -o my-vm.yaml</div>
+<div class="line">vmctl import my-vm.yaml –new-name test-vm</div>
+<div class="line">vmctl import my-vm.yaml –new-name test-vm –execute</div>
+<div class="line">vmctl batch create cluster.yaml –execute</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>COMMAND<span class="w"> </span><span class="o">[</span>ARGS<span class="o">]</span>...
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-V">
+<span id="cmdoption-vmctl-version"></span><span class="sig-name descname"><span class="pre">-V</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--version</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-V" title="Link to this definition"></a></dt>
+<dd><p>Show the version and exit.</p>
+</dd></dl>
+
+<section id="vmctl-batch">
+<h3>batch<a class="headerlink" href="#vmctl-batch" title="Link to this heading"></a></h3>
+<p>Create multiple VMs from a batch definition file.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>batch<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>COMMAND<span class="w"> </span><span class="o">[</span>ARGS<span class="o">]</span>...
+</pre></div>
+</div>
+<section id="vmctl-batch-create">
+<h4>create<a class="headerlink" href="#vmctl-batch-create" title="Link to this heading"></a></h4>
+<p>Create VMs from a batch definition file.</p>
+<p>The batch file defines a base VM and a list of named instances with
+optional per-instance overrides for CPU, memory, and disks.</p>
+<p>Without –execute the command summarises what would be created.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl batch create cluster.yaml</div>
+<div class="line">vmctl batch create cluster.yaml –execute</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>batch<span class="w"> </span>create<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>BATCH_FILE
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-batch-create-execute">
+<span class="sig-name descname"><span class="pre">--execute</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-batch-create-execute" title="Link to this definition"></a></dt>
+<dd><p>Actually create the VMs (dry-run by default).</p>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-batch-create-arg-BATCH_FILE">
+<span class="sig-name descname"><span class="pre">BATCH_FILE</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-batch-create-arg-BATCH_FILE" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-batch-template">
+<h4>template<a class="headerlink" href="#vmctl-batch-template" title="Link to this heading"></a></h4>
+<p>Generate a starter batch template file.</p>
+<p>The generated file contains a working example with three VM instances
+that can be customised and used with ‘vmctl batch create’.</p>
+<div class="line-block">
+<div class="line">Example:</div>
+<div class="line-block">
+<div class="line">vmctl batch template -o my-cluster.yaml</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>batch<span class="w"> </span>template<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-batch-template-o">
+<span id="cmdoption-vmctl-batch-template-output"></span><span class="sig-name descname"><span class="pre">-o</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--output</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;output&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-batch-template-o" title="Link to this definition"></a></dt>
+<dd><p>Output file path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Default<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">PosixPath('batch-template.yaml')</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-batch-template-format">
+<span class="sig-name descname"><span class="pre">--format</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;fmt&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-batch-template-format" title="Link to this definition"></a></dt>
+<dd><p>Output format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Default<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">'yaml'</span></code></p>
+</dd>
+<dt class="field-even">Options<span class="colon">:</span></dt>
+<dd class="field-even"><p>yaml | json</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="vmctl-completion">
+<h3>completion<a class="headerlink" href="#vmctl-completion" title="Link to this heading"></a></h3>
+<p>Print shell completion script to stdout.</p>
+<p>Source the output to enable tab completion for vmctl commands and
+VM names in your current shell session.</p>
+<div class="line-block">
+<div class="line">Setup:</div>
+<div class="line-block">
+<div class="line"># Bash (add to ~/.bashrc for permanent activation):</div>
+<div class="line">eval “$(vmctl completion bash)”</div>
+</div>
+</div>
+<blockquote>
+<div><p># Zsh (add to ~/.zshrc):
+eval “$(vmctl completion zsh)”</p>
+<p># Fish (add to ~/.config/fish/config.fish):
+vmctl completion fish | source</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>completion<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span><span class="o">{</span>bash<span class="p">|</span>zsh<span class="p">|</span>fish<span class="o">}</span>
+</pre></div>
+</div>
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-completion-arg-SHELL">
+<span class="sig-name descname"><span class="pre">SHELL</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-completion-arg-SHELL" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-create">
+<h3>create<a class="headerlink" href="#vmctl-create" title="Link to this heading"></a></h3>
+<p>Clone a VM configuration from an existing VirtualBox VM.</p>
+<p>Reads the source VM’s configuration live from VirtualBox, applies
+any overrides, and creates a new blank VM with the same hardware
+profile.  Disk contents are NOT copied.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl create ubuntu-server –new-name ubuntu-clone</div>
+<div class="line">vmctl create ubuntu-server –new-name ubuntu-clone –execute</div>
+<div class="line">vmctl create ubuntu-server –new-name small-clone –cpus 2 –memory 2048 –execute</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>create<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>SOURCE_VM
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-create-new-name">
+<span class="sig-name descname"><span class="pre">--new-name</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;new_name&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-create-new-name" title="Link to this definition"></a></dt>
+<dd><p><strong>Required</strong> Name for the new VM.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-create-memory">
+<span class="sig-name descname"><span class="pre">--memory</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;memory&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-create-memory" title="Link to this definition"></a></dt>
+<dd><p>Override memory in MB.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-create-cpus">
+<span class="sig-name descname"><span class="pre">--cpus</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;cpus&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-create-cpus" title="Link to this definition"></a></dt>
+<dd><p>Override CPU count.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-create-execute">
+<span class="sig-name descname"><span class="pre">--execute</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-create-execute" title="Link to this definition"></a></dt>
+<dd><p>Actually create the VM (dry-run by default).</p>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-create-arg-SOURCE_VM">
+<span class="sig-name descname"><span class="pre">SOURCE_VM</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-create-arg-SOURCE_VM" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-delete">
+<h3>delete<a class="headerlink" href="#vmctl-delete" title="Link to this heading"></a></h3>
+<p>Unregister a VM and delete all associated disk files.</p>
+<p>This action is irreversible.  Without –force, you will be asked to
+confirm before anything is deleted.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl delete old-vm</div>
+<div class="line">vmctl delete old-vm –force</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>delete<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>VM_NAME
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-delete-f">
+<span id="cmdoption-vmctl-delete-force"></span><span class="sig-name descname"><span class="pre">-f</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--force</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-delete-f" title="Link to this definition"></a></dt>
+<dd><p>Skip confirmation prompt.</p>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-delete-arg-VM_NAME">
+<span class="sig-name descname"><span class="pre">VM_NAME</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-delete-arg-VM_NAME" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-edit">
+<h3>edit<a class="headerlink" href="#vmctl-edit" title="Link to this heading"></a></h3>
+<p>Modify CPU, memory, or name of an existing VM.</p>
+<p>The VM should be stopped before changing CPU or memory settings.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl edit my-vm –cpus 8</div>
+<div class="line">vmctl edit my-vm –memory 16384</div>
+<div class="line">vmctl edit my-vm –new-name renamed-vm</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>edit<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>VM_NAME
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-edit-new-name">
+<span class="sig-name descname"><span class="pre">--new-name</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;new_name&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-edit-new-name" title="Link to this definition"></a></dt>
+<dd><p>Rename the VM.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-edit-memory">
+<span class="sig-name descname"><span class="pre">--memory</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;memory&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-edit-memory" title="Link to this definition"></a></dt>
+<dd><p>Set memory in MB.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-edit-cpus">
+<span class="sig-name descname"><span class="pre">--cpus</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;cpus&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-edit-cpus" title="Link to this definition"></a></dt>
+<dd><p>Set CPU count.</p>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-edit-arg-VM_NAME">
+<span class="sig-name descname"><span class="pre">VM_NAME</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-edit-arg-VM_NAME" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-export">
+<h3>export<a class="headerlink" href="#vmctl-export" title="Link to this heading"></a></h3>
+<p>Save a VM’s configuration to a YAML or JSON file.</p>
+<p>The VM does not need to be stopped before exporting.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl export ubuntu-server -o ubuntu-server.yaml</div>
+<div class="line">vmctl export ubuntu-server -o ubuntu-server.json –format json</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>VM_NAME
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-export-o">
+<span id="cmdoption-vmctl-export-output"></span><span class="sig-name descname"><span class="pre">-o</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--output</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;output&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-export-o" title="Link to this definition"></a></dt>
+<dd><p><strong>Required</strong> Output file path (.yaml or .json).</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-export-format">
+<span class="sig-name descname"><span class="pre">--format</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;fmt&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-export-format" title="Link to this definition"></a></dt>
+<dd><p>Output format (inferred from extension if not specified).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Default<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">'yaml'</span></code></p>
+</dd>
+<dt class="field-even">Options<span class="colon">:</span></dt>
+<dd class="field-even"><p>yaml | json</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-export-arg-VM_NAME">
+<span class="sig-name descname"><span class="pre">VM_NAME</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-export-arg-VM_NAME" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-import">
+<h3>import<a class="headerlink" href="#vmctl-import" title="Link to this heading"></a></h3>
+<p>Create a VM from a YAML or JSON configuration file.</p>
+<p>Without –execute the command prints the VBoxManage commands that
+would be run but does not touch VirtualBox (dry-run mode).</p>
+<p>Note: import creates a new VM with a blank disk.  It does not copy
+disk contents.  Use Bareos, rsync, or a similar tool to restore data.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl import ubuntu-server.yaml –new-name test-server</div>
+<div class="line">vmctl import ubuntu-server.yaml –new-name test-server –execute</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>import<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>CONFIG_FILE
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-import-new-name">
+<span class="sig-name descname"><span class="pre">--new-name</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;new_name&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-import-new-name" title="Link to this definition"></a></dt>
+<dd><p>Override the VM name from the file.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-import-execute">
+<span class="sig-name descname"><span class="pre">--execute</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-import-execute" title="Link to this definition"></a></dt>
+<dd><p>Actually create the VM (dry-run by default).</p>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-import-arg-CONFIG_FILE">
+<span class="sig-name descname"><span class="pre">CONFIG_FILE</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-import-arg-CONFIG_FILE" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-list">
+<h3>list<a class="headerlink" href="#vmctl-list" title="Link to this heading"></a></h3>
+<p>List all VMs registered in VirtualBox.</p>
+<p>TABLE format (default) shows each VM name alongside its current status.
+SIMPLE format prints only the names, one per line — useful for scripting.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl list</div>
+<div class="line">vmctl list –format simple</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>list<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-list-format">
+<span class="sig-name descname"><span class="pre">--format</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;fmt&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-list-format" title="Link to this definition"></a></dt>
+<dd><p>Output format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Default<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">'table'</span></code></p>
+</dd>
+<dt class="field-even">Options<span class="colon">:</span></dt>
+<dd class="field-even"><p>table | simple</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="vmctl-read">
+<h3>read<a class="headerlink" href="#vmctl-read" title="Link to this heading"></a></h3>
+<p>Print a VM’s configuration to stdout.</p>
+<p>Reads the live configuration directly from VirtualBox and outputs
+it as YAML (default) or JSON.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl read ubuntu-server</div>
+<div class="line">vmctl read ubuntu-server –format json</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span><span class="nb">read</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>VM_NAME
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-read-format">
+<span class="sig-name descname"><span class="pre">--format</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;fmt&gt;</span></span><a class="headerlink" href="#cmdoption-vmctl-read-format" title="Link to this definition"></a></dt>
+<dd><p>Output format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Default<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">'yaml'</span></code></p>
+</dd>
+<dt class="field-even">Options<span class="colon">:</span></dt>
+<dd class="field-even"><p>yaml | json</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-read-arg-VM_NAME">
+<span class="sig-name descname"><span class="pre">VM_NAME</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-read-arg-VM_NAME" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-start">
+<h3>start<a class="headerlink" href="#vmctl-start" title="Link to this heading"></a></h3>
+<p>Start a VM in headless mode.</p>
+<p>The VM has no GUI window.  Use VirtualBox GUI or SSH to interact
+with the guest once it has booted.</p>
+<div class="line-block">
+<div class="line">Example:</div>
+<div class="line-block">
+<div class="line">vmctl start ubuntu-server</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>start<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>VM_NAME
+</pre></div>
+</div>
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-start-arg-VM_NAME">
+<span class="sig-name descname"><span class="pre">VM_NAME</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-start-arg-VM_NAME" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-status">
+<h3>status<a class="headerlink" href="#vmctl-status" title="Link to this heading"></a></h3>
+<p>Show the current state of a VM.</p>
+<p>Possible states: running, stopped, paused, saved, aborted,
+starting, stopping, unknown.</p>
+<div class="line-block">
+<div class="line">Example:</div>
+<div class="line-block">
+<div class="line">vmctl status ubuntu-server</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>status<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>VM_NAME
+</pre></div>
+</div>
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-status-arg-VM_NAME">
+<span class="sig-name descname"><span class="pre">VM_NAME</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-status-arg-VM_NAME" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-stop">
+<h3>stop<a class="headerlink" href="#vmctl-stop" title="Link to this heading"></a></h3>
+<p>Stop a running VM.</p>
+<p>Without –force, sends an ACPI shutdown signal so the guest OS can
+shut down cleanly.  Use –force only when the guest is unresponsive.</p>
+<div class="line-block">
+<div class="line">Examples:</div>
+<div class="line-block">
+<div class="line">vmctl stop ubuntu-server</div>
+<div class="line">vmctl stop ubuntu-server –force</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>stop<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>VM_NAME
+</pre></div>
+</div>
+<p class="rubric">Options</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-stop-f">
+<span id="cmdoption-vmctl-stop-force"></span><span class="sig-name descname"><span class="pre">-f</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--force</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-stop-f" title="Link to this definition"></a></dt>
+<dd><p>Force power-off (equivalent to pulling the power cord).</p>
+</dd></dl>
+
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-stop-arg-VM_NAME">
+<span class="sig-name descname"><span class="pre">VM_NAME</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-stop-arg-VM_NAME" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+<section id="vmctl-validate">
+<h3>validate<a class="headerlink" href="#vmctl-validate" title="Link to this heading"></a></h3>
+<p>Validate a YAML or JSON VM configuration file.</p>
+<p>Runs four validation phases: schema, provider limits, logical
+constraints, and warnings.  Exits with code 1 on error.</p>
+<div class="line-block">
+<div class="line">Example:</div>
+<div class="line-block">
+<div class="line">vmctl validate my-config.yaml</div>
+</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>vmctl<span class="w"> </span>validate<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>CONFIG_FILE
+</pre></div>
+</div>
+<p class="rubric">Arguments</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-vmctl-validate-arg-CONFIG_FILE">
+<span class="sig-name descname"><span class="pre">CONFIG_FILE</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-vmctl-validate-arg-CONFIG_FILE" title="Link to this definition"></a></dt>
+<dd><p>Required argument</p>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../guide/completion.html" class="btn btn-neutral float-left" title="Shell Tab Completion" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/index.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Ahmed Abdelhaleem Ahmed.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

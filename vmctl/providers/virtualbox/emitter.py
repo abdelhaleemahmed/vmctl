@@ -14,6 +14,12 @@ class VirtualBoxEmitter:
     """Emit VBoxManage commands to create/configure VMs"""
     
     def __init__(self, vm_name: str):
+        """Initialise the emitter for a specific VM.
+
+        Args:
+            vm_name: Name of the VM that will be referenced in every
+                ``VBoxManage`` command this emitter generates.
+        """
         self.vm_name = vm_name
         self.commands = []
     

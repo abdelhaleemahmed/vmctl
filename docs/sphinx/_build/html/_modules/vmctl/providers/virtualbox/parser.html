@@ -1,0 +1,600 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vmctl.providers.virtualbox.parser &mdash; vmctl 1.1.8</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=df104e6e"></script>
+      <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            vmctl
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/install.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/install.html#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/install.html#from-source">From Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/install.html#verify-the-installation">Verify the installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/quickstart.html#list-vms">List VMs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/quickstart.html#export-a-vm">Export a VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/quickstart.html#import-recreate-from-file">Import (recreate from file)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/quickstart.html#clone-from-an-existing-vm">Clone from an existing VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/quickstart.html#lifecycle-commands">Lifecycle commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/quickstart.html#validate-a-config-file">Validate a config file</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">VM Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#minimal-example">Minimal example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#top-level-fields">Top-level fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#cpu">cpu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#memory">memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#firmware">firmware</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#disks">disks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#networks">networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/configuration.html#boot">boot</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/batch.html">Batch VM Creation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/batch.html#generate-a-template">Generate a template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/batch.html#batch-file-structure">Batch file structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/batch.html#dry-run">Dry-run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/batch.html#execute">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/batch.html#inline-base-vm">Inline base VM</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/completion.html">Shell Tab Completion</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/completion.html#bash">Bash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/completion.html#zsh">Zsh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/completion.html#fish">Fish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guide/completion.html#what-gets-completed">What gets completed</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">CLI Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli/index.html">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../cli/index.html#vmctl">vmctl</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-batch">batch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../cli/index.html#vmctl-batch-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../cli/index.html#vmctl-batch-template">template</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-completion">completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-create">create</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-delete">delete</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-edit">edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-export">export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-import">import</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-list">list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-read">read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-start">start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-status">status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-stop">stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../cli/index.html#vmctl-validate">validate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/core.html">vmctl.core</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/core.html#vmconfig-data-models">VMConfig — Data Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/core.html#module-vmctl.core.engine">Engine</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.engine.VMCtlEngine"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/core.html#module-vmctl.core.batch">Batch Creator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.batch.BatchCreator"><code class="docutils literal notranslate"><span class="pre">BatchCreator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/core.html#module-vmctl.core.exceptions">Exceptions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.ErrorSeverity"><code class="docutils literal notranslate"><span class="pre">ErrorSeverity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.VMToolError"><code class="docutils literal notranslate"><span class="pre">VMToolError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.SchemaValidationError"><code class="docutils literal notranslate"><span class="pre">SchemaValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.ProviderValidationError"><code class="docutils literal notranslate"><span class="pre">ProviderValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.SerializationError"><code class="docutils literal notranslate"><span class="pre">SerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.JSONSerializationError"><code class="docutils literal notranslate"><span class="pre">JSONSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.YAMLSerializationError"><code class="docutils literal notranslate"><span class="pre">YAMLSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.ProviderError"><code class="docutils literal notranslate"><span class="pre">ProviderError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.VMNotFoundError"><code class="docutils literal notranslate"><span class="pre">VMNotFoundError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.VMAlreadyExistsError"><code class="docutils literal notranslate"><span class="pre">VMAlreadyExistsError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.VMStateError"><code class="docutils literal notranslate"><span class="pre">VMStateError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.BatchError"><code class="docutils literal notranslate"><span class="pre">BatchError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.DiskError"><code class="docutils literal notranslate"><span class="pre">DiskError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.NetworkError"><code class="docutils literal notranslate"><span class="pre">NetworkError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.PermissionError"><code class="docutils literal notranslate"><span class="pre">PermissionError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.DependencyError"><code class="docutils literal notranslate"><span class="pre">DependencyError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.TimeoutError"><code class="docutils literal notranslate"><span class="pre">TimeoutError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.ResourceExhaustedError"><code class="docutils literal notranslate"><span class="pre">ResourceExhaustedError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.create_error_context"><code class="docutils literal notranslate"><span class="pre">create_error_context()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.wrap_exception"><code class="docutils literal notranslate"><span class="pre">wrap_exception()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.is_recoverable_error"><code class="docutils literal notranslate"><span class="pre">is_recoverable_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/core.html#vmctl.core.exceptions.get_error_summary"><code class="docutils literal notranslate"><span class="pre">get_error_summary()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/providers.html">vmctl.providers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/providers.html#module-vmctl.providers.base">Base Provider</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/providers.html#vmctl.providers.base.BaseProvider"><code class="docutils literal notranslate"><span class="pre">BaseProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/providers.html#module-vmctl.providers.virtualbox.backend">VirtualBox Backend</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/providers.html#module-vmctl.providers.virtualbox.parser">VirtualBox Parser</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/providers.html#module-vmctl.providers.virtualbox.emitter">VirtualBox Emitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/providers.html#module-vmctl.providers.virtualbox.capabilities">VirtualBox Capabilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/providers.html#vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities"><code class="docutils literal notranslate"><span class="pre">VirtualBoxCapabilities</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/validators.html">vmctl.validators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/validators.html#vmctl.validators.vm_validator.VMValidator"><code class="docutils literal notranslate"><span class="pre">VMValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.__init__"><code class="docutils literal notranslate"><span class="pre">VMValidator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.validate"><code class="docutils literal notranslate"><span class="pre">VMValidator.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/serializers.html">vmctl.serializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/serializers.html#module-vmctl.serializers.base">Base Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/serializers.html#vmctl.serializers.base.VMConfigSerializer"><code class="docutils literal notranslate"><span class="pre">VMConfigSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/serializers.html#module-vmctl.serializers.yaml_serializer">YAML Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/serializers.html#module-vmctl.serializers.json_serializer">JSON Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer"><code class="docutils literal notranslate"><span class="pre">JSONSerializer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/cli.html">vmctl.cli</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/cli.html#vmctl.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../changelog.html#v1-1-8-2025">v1.1.8 (2025)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../changelog.html#v1-1-7-and-earlier">v1.1.7 and earlier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">vmctl</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">vmctl.providers.virtualbox.parser</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vmctl.providers.virtualbox.parser</h1><div class="highlight"><pre>
+<span></span><span class="c1"># providers/virtualbox/parser.py</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Parse VirtualBox VM configuration into VMConfig</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...core.vmconfig</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">VMConfig</span><span class="p">,</span> <span class="n">CPUConfig</span><span class="p">,</span> <span class="n">MemoryConfig</span><span class="p">,</span> <span class="n">FirmwareConfig</span><span class="p">,</span> <span class="n">FirmwareType</span><span class="p">,</span>
+    <span class="n">DiskConfig</span><span class="p">,</span> <span class="n">DiskType</span><span class="p">,</span> <span class="n">DiskFormat</span><span class="p">,</span> <span class="n">DiskVariant</span><span class="p">,</span> <span class="n">NetworkConfig</span><span class="p">,</span> <span class="n">NetworkType</span><span class="p">,</span>
+    <span class="n">BootConfig</span><span class="p">,</span> <span class="n">StorageControllerConfig</span><span class="p">,</span> <span class="n">StorageControllerType</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...core.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProviderError</span>
+
+
+<div class="viewcode-block" id="VirtualBoxParser">
+<a class="viewcode-back" href="../../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VirtualBoxParser</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse VirtualBox VM configuration&quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="VirtualBoxParser.__init__">
+<a class="viewcode-back" href="../../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise the parser.</span>
+
+<span class="sd">        Sets ``vboxmanage_cmd`` to ``&quot;VBoxManage&quot;``, which must be available</span>
+<span class="sd">        on the system ``PATH``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vboxmanage_cmd</span> <span class="o">=</span> <span class="s2">&quot;VBoxManage&quot;</span></div>
+
+    
+<div class="viewcode-block" id="VirtualBoxParser.get_vm_info">
+<a class="viewcode-back" href="../../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_vm_info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_vm_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get raw VM info from VirtualBox&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">vboxmanage_cmd</span><span class="p">,</span> <span class="s2">&quot;showvminfo&quot;</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">,</span> <span class="s2">&quot;--machinereadable&quot;</span><span class="p">],</span>
+                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">check</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span>
+        <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ProviderError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to get VM info for </span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ProviderError</span><span class="p">(</span><span class="s2">&quot;VBoxManage not found. Is VirtualBox installed?&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="VirtualBoxParser.get_disk_info">
+<a class="viewcode-back" href="../../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_disk_info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_disk_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">disk_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get disk size, format, and variant from VirtualBox&quot;&quot;&quot;</span>
+        <span class="c1"># Detect format from file extension as fallback</span>
+        <span class="n">format_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;.vdi&#39;</span><span class="p">:</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VDI</span><span class="p">,</span>
+            <span class="s1">&#39;.vmdk&#39;</span><span class="p">:</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VMDK</span><span class="p">,</span>
+            <span class="s1">&#39;.vhd&#39;</span><span class="p">:</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VHD</span><span class="p">,</span>
+            <span class="s1">&#39;.raw&#39;</span><span class="p">:</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">RAW</span><span class="p">,</span>
+            <span class="s1">&#39;.img&#39;</span><span class="p">:</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">RAW</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">disk_path</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;.&#39;</span> <span class="ow">in</span> <span class="n">disk_path</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">default_format</span> <span class="o">=</span> <span class="n">format_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;.</span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VDI</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">vboxmanage_cmd</span><span class="p">,</span> <span class="s2">&quot;showmediuminfo&quot;</span><span class="p">,</span> <span class="n">disk_path</span><span class="p">],</span>
+                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">check</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+            <span class="n">disk_info</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;size_mb&#39;</span><span class="p">:</span> <span class="mi">20480</span><span class="p">,</span>  <span class="c1"># Default 20GB</span>
+                <span class="s1">&#39;format&#39;</span><span class="p">:</span> <span class="n">default_format</span><span class="p">,</span>
+                <span class="s1">&#39;variant&#39;</span><span class="p">:</span> <span class="n">DiskVariant</span><span class="o">.</span><span class="n">THIN</span>
+            <span class="p">}</span>
+
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="c1"># Capacity: 20480 MBytes</span>
+                <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;Capacity:&#39;</span><span class="p">):</span>
+                    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;(\d+)\s*MBytes&#39;</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                        <span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;size_mb&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+                <span class="c1"># Storage format: VMDK or VDI</span>
+                <span class="k">elif</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;Storage format:&#39;</span><span class="p">):</span>
+                    <span class="n">fmt_str</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">fmt_str</span> <span class="o">==</span> <span class="s1">&#39;VMDK&#39;</span><span class="p">:</span>
+                        <span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VMDK</span>
+                    <span class="k">elif</span> <span class="n">fmt_str</span> <span class="o">==</span> <span class="s1">&#39;VDI&#39;</span><span class="p">:</span>
+                        <span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VDI</span>
+                    <span class="k">elif</span> <span class="n">fmt_str</span> <span class="o">==</span> <span class="s1">&#39;VHD&#39;</span><span class="p">:</span>
+                        <span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VHD</span>
+                    <span class="k">elif</span> <span class="n">fmt_str</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;RAW&#39;</span><span class="p">,</span> <span class="s1">&#39;IMG&#39;</span><span class="p">):</span>
+                        <span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">RAW</span>
+                <span class="c1"># Variant: Standard (dynamic)</span>
+                <span class="k">elif</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;Variant:&#39;</span><span class="p">):</span>
+                    <span class="n">variant_str</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="s1">&#39;fixed&#39;</span> <span class="ow">in</span> <span class="n">variant_str</span><span class="p">:</span>
+                        <span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;variant&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskVariant</span><span class="o">.</span><span class="n">THICK</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;variant&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskVariant</span><span class="o">.</span><span class="n">THIN</span>
+
+            <span class="k">return</span> <span class="n">disk_info</span>
+
+        <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">:</span>
+            <span class="c1"># If we can&#39;t get disk info, return defaults with format from extension</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;size_mb&#39;</span><span class="p">:</span> <span class="mi">20480</span><span class="p">,</span> <span class="s1">&#39;format&#39;</span><span class="p">:</span> <span class="n">default_format</span><span class="p">,</span> <span class="s1">&#39;variant&#39;</span><span class="p">:</span> <span class="n">DiskVariant</span><span class="o">.</span><span class="n">THIN</span><span class="p">}</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;size_mb&#39;</span><span class="p">:</span> <span class="mi">20480</span><span class="p">,</span> <span class="s1">&#39;format&#39;</span><span class="p">:</span> <span class="n">default_format</span><span class="p">,</span> <span class="s1">&#39;variant&#39;</span><span class="p">:</span> <span class="n">DiskVariant</span><span class="o">.</span><span class="n">THIN</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="VirtualBoxParser.parse_vm">
+<a class="viewcode-back" href="../../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.parse_vm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMConfig</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse VirtualBox VM into VMConfig&quot;&quot;&quot;</span>
+        <span class="n">raw_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">config_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_machinereadable</span><span class="p">(</span><span class="n">raw_info</span><span class="p">)</span>
+        
+        <span class="c1"># Convert to VMConfig</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dict_to_vmconfig</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">config_dict</span><span class="p">)</span></div>
+
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_machinereadable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raw_info</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse machine-readable output into dictionary&quot;&quot;&quot;</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">raw_info</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span> <span class="ow">or</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Match two patterns:</span>
+            <span class="c1"># 1. key=&quot;value&quot; or key=value (simple keys)</span>
+            <span class="c1"># 2. &quot;key with spaces&quot;=&quot;value&quot; (quoted keys like disk attachments)</span>
+
+            <span class="c1"># Try quoted key first: &quot;key&quot;=&quot;value&quot;</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^&quot;([^&quot;]+)&quot;=&quot;([^&quot;]*)&quot;$&#39;</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+                <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Try simple key: key=&quot;value&quot; or key=value</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^(\w+)=&quot;?(.*?)&quot;?$&#39;</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+                <span class="c1"># Remove quotes if present</span>
+                <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">value</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">):</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">return</span> <span class="n">config</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_dict_to_vmconfig</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">VMConfig</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert parsed dictionary to VMConfig&quot;&quot;&quot;</span>
+        
+        <span class="c1"># CPU</span>
+        <span class="n">cpu</span> <span class="o">=</span> <span class="n">CPUConfig</span><span class="p">(</span>
+            <span class="n">count</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;cpus&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+            <span class="n">pae</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;pae&#39;</span><span class="p">,</span> <span class="s1">&#39;off&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;on&#39;</span><span class="p">,</span>
+            <span class="n">nested_virt</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;nested-hw-virt&#39;</span><span class="p">,</span> <span class="s1">&#39;off&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;on&#39;</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Memory</span>
+        <span class="n">memory</span> <span class="o">=</span> <span class="n">MemoryConfig</span><span class="p">(</span>
+            <span class="n">mb</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;memory&#39;</span><span class="p">,</span> <span class="mi">2048</span><span class="p">)),</span>
+            <span class="n">vram_mb</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;vram&#39;</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Firmware</span>
+        <span class="n">firmware_type</span> <span class="o">=</span> <span class="n">FirmwareType</span><span class="o">.</span><span class="n">BIOS</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;firmware&#39;</span><span class="p">,</span> <span class="s1">&#39;bios&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;efi&#39;</span><span class="p">:</span>
+            <span class="n">firmware_type</span> <span class="o">=</span> <span class="n">FirmwareType</span><span class="o">.</span><span class="n">EFI</span>
+        
+        <span class="n">firmware</span> <span class="o">=</span> <span class="n">FirmwareConfig</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">firmware_type</span><span class="p">,</span>
+            <span class="n">secure_boot</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;secureboot&#39;</span><span class="p">,</span> <span class="s1">&#39;off&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;on&#39;</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Boot</span>
+        <span class="n">boot</span> <span class="o">=</span> <span class="n">BootConfig</span><span class="p">(</span>
+            <span class="n">order</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;boot1&#39;</span><span class="p">,</span> <span class="s1">&#39;disk&#39;</span><span class="p">),</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;boot2&#39;</span><span class="p">,</span> <span class="s1">&#39;dvd&#39;</span><span class="p">),</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;boot3&#39;</span><span class="p">,</span> <span class="s1">&#39;none&#39;</span><span class="p">),</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;boot4&#39;</span><span class="p">,</span> <span class="s1">&#39;none&#39;</span><span class="p">)</span>
+            <span class="p">],</span>
+            <span class="n">acpi</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;acpi&#39;</span><span class="p">,</span> <span class="s1">&#39;on&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;on&#39;</span><span class="p">,</span>
+            <span class="n">ioapic</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ioapic&#39;</span><span class="p">,</span> <span class="s1">&#39;off&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;on&#39;</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Parse disks and storage controllers</span>
+        <span class="n">disks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">storage_controllers</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="c1"># Parse storage controllers</span>
+        <span class="n">controller_pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^storagecontrollername(\d+)$&#39;</span><span class="p">)</span>
+        <span class="n">controller_indices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">controller_pattern</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">controller_indices</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+        
+        <span class="c1"># Map VirtualBox controller types to our types</span>
+        <span class="n">vbox_controller_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;piix4&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">IDE</span><span class="p">,</span>
+            <span class="s1">&#39;piix3&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">IDE</span><span class="p">,</span>
+            <span class="s1">&#39;ich6&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">IDE</span><span class="p">,</span>
+            <span class="s1">&#39;intelahci&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SATA</span><span class="p">,</span>
+            <span class="s1">&#39;lsilogic&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SCSI</span><span class="p">,</span>
+            <span class="s1">&#39;buslogic&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SCSI</span><span class="p">,</span>
+            <span class="s1">&#39;lsilogicsas&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SAS</span><span class="p">,</span>
+            <span class="s1">&#39;nvme&#39;</span><span class="p">:</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SCSI</span><span class="p">,</span>  <span class="c1"># Map NVMe to SCSI for now</span>
+        <span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">controller_indices</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;storagecontrollername</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Controller</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">controller_type</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;storagecontrollertype</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;PIIX4&#39;</span><span class="p">)</span>
+
+            <span class="c1"># Map VirtualBox controller type to our enum</span>
+            <span class="n">sc_type</span> <span class="o">=</span> <span class="n">vbox_controller_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">controller_type</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SATA</span><span class="p">)</span>
+
+            <span class="n">sc</span> <span class="o">=</span> <span class="n">StorageControllerConfig</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">controller_type</span><span class="o">=</span><span class="n">sc_type</span><span class="p">,</span>
+                <span class="n">port_count</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;storagecontrollerportcount</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="mi">30</span><span class="p">))</span>
+            <span class="p">)</span>
+            <span class="n">storage_controllers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+        
+        <span class="c1"># Parse disks - keys are stored without surrounding quotes</span>
+        <span class="c1"># Match patterns like: &quot;SATA Controller-0-0&quot; stored as &quot;SATA Controller-0-0&quot;</span>
+        <span class="c1"># VirtualBox outputs many metadata keys per disk (ImageUUID, nonrotational, discard, etc.)</span>
+        <span class="c1"># We only want actual disk paths, so filter by checking the value looks like a path</span>
+        <span class="n">disk_pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^(.+)-(\d+)-(\d+)$&#39;</span><span class="p">)</span>
+        <span class="n">disk_extensions</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;.vdi&#39;</span><span class="p">,</span> <span class="s1">&#39;.vmdk&#39;</span><span class="p">,</span> <span class="s1">&#39;.vhd&#39;</span><span class="p">,</span> <span class="s1">&#39;.img&#39;</span><span class="p">,</span> <span class="s1">&#39;.raw&#39;</span><span class="p">,</span> <span class="s1">&#39;.iso&#39;</span><span class="p">)</span>
+        <span class="n">disk_attachments</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">disk_pattern</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="c1"># Only process if value looks like a disk path (has disk extension)</span>
+                <span class="c1"># This filters out metadata entries like ImageUUID, nonrotational, discard, etc.</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">disk_extensions</span><span class="p">):</span>
+                    <span class="n">controller_name</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">device</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+                    <span class="c1"># Skip floppy controller - not a real disk to recreate</span>
+                    <span class="k">if</span> <span class="n">controller_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;floppy&#39;</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">disk_attachments</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">controller_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        
+        <span class="c1"># Build controller name to type mapping</span>
+        <span class="n">controller_name_to_type</span> <span class="o">=</span> <span class="p">{</span><span class="n">sc</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">sc</span><span class="o">.</span><span class="n">controller_type</span> <span class="k">for</span> <span class="n">sc</span> <span class="ow">in</span> <span class="n">storage_controllers</span><span class="p">}</span>
+
+        <span class="c1"># Create disk configurations</span>
+        <span class="k">for</span> <span class="n">attachment</span><span class="p">,</span> <span class="n">disk_path</span> <span class="ow">in</span> <span class="n">disk_attachments</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Use rsplit to handle controller names with dashes (e.g., &quot;SATA-II Controller-0-0&quot;)</span>
+            <span class="n">ctrl_name</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">device</span> <span class="o">=</span> <span class="n">attachment</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+            <span class="c1"># Find controller type by name</span>
+            <span class="n">ctrl_type</span> <span class="o">=</span> <span class="n">controller_name_to_type</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ctrl_name</span><span class="p">,</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SATA</span><span class="p">)</span>
+
+            <span class="c1"># Skip empty/none attachments</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">disk_path</span> <span class="ow">or</span> <span class="n">disk_path</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Get actual disk size and variant from VirtualBox</span>
+            <span class="n">disk_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_disk_info</span><span class="p">(</span><span class="n">disk_path</span><span class="p">)</span>
+
+            <span class="n">disk_type</span> <span class="o">=</span> <span class="n">DiskType</span><span class="o">.</span><span class="n">DVD</span> <span class="k">if</span> <span class="n">disk_path</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.iso&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">DiskType</span><span class="o">.</span><span class="n">HDD</span>
+            <span class="n">disk</span> <span class="o">=</span> <span class="n">DiskConfig</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;disk_</span><span class="si">{</span><span class="n">ctrl_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">size_mb</span><span class="o">=</span><span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;size_mb&#39;</span><span class="p">],</span>
+                <span class="nb">type</span><span class="o">=</span><span class="n">disk_type</span><span class="p">,</span>
+                <span class="nb">format</span><span class="o">=</span><span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">],</span>
+                <span class="n">variant</span><span class="o">=</span><span class="n">disk_info</span><span class="p">[</span><span class="s1">&#39;variant&#39;</span><span class="p">],</span>
+                <span class="n">controller</span><span class="o">=</span><span class="n">ctrl_type</span><span class="p">,</span>
+                <span class="n">controller_name</span><span class="o">=</span><span class="n">ctrl_name</span><span class="p">,</span>
+                <span class="n">port</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">port</span><span class="p">),</span>
+                <span class="n">device</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">device</span><span class="p">),</span>
+                <span class="n">bootable</span><span class="o">=</span><span class="p">(</span><span class="n">boot</span><span class="o">.</span><span class="n">order</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;disk&#39;</span><span class="p">),</span>
+                <span class="n">disk_path</span><span class="o">=</span><span class="n">disk_path</span>
+            <span class="p">)</span>
+            <span class="n">disks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">disk</span><span class="p">)</span>
+        
+        <span class="c1"># Parse networks</span>
+        <span class="c1"># Map VirtualBox network types to our NetworkType enum</span>
+        <span class="n">vbox_network_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;nat&#39;</span><span class="p">:</span> <span class="n">NetworkType</span><span class="o">.</span><span class="n">NAT</span><span class="p">,</span>
+            <span class="s1">&#39;bridged&#39;</span><span class="p">:</span> <span class="n">NetworkType</span><span class="o">.</span><span class="n">BRIDGED</span><span class="p">,</span>
+            <span class="s1">&#39;hostonly&#39;</span><span class="p">:</span> <span class="n">NetworkType</span><span class="o">.</span><span class="n">HOSTONLY</span><span class="p">,</span>
+            <span class="s1">&#39;intnet&#39;</span><span class="p">:</span> <span class="n">NetworkType</span><span class="o">.</span><span class="n">INTERNAL</span><span class="p">,</span>
+            <span class="s1">&#39;natnetwork&#39;</span><span class="p">:</span> <span class="n">NetworkType</span><span class="o">.</span><span class="n">NATNETWORK</span><span class="p">,</span>
+            <span class="s1">&#39;none&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">networks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>  <span class="c1"># VirtualBox supports up to 8 adapters</span>
+            <span class="n">nic_type</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;nic</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;none&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">nic_type</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+                <span class="n">network_type</span> <span class="o">=</span> <span class="n">vbox_network_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nic_type</span><span class="p">,</span> <span class="n">NetworkType</span><span class="o">.</span><span class="n">NAT</span><span class="p">)</span>
+                <span class="n">adapter_type</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;nictype</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;82540EM&#39;</span><span class="p">)</span>
+                
+                <span class="n">network</span> <span class="o">=</span> <span class="n">NetworkConfig</span><span class="p">(</span>
+                    <span class="n">adapter_type</span><span class="o">=</span><span class="n">adapter_type</span><span class="p">,</span>
+                    <span class="n">network_type</span><span class="o">=</span><span class="n">network_type</span><span class="p">,</span>
+                    <span class="n">adapter_name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;bridgeadapter</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">),</span>
+                    <span class="n">mac_address</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;macaddress</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">networks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">VMConfig</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+            <span class="n">cpu</span><span class="o">=</span><span class="n">cpu</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">firmware</span><span class="o">=</span><span class="n">firmware</span><span class="p">,</span>
+            <span class="n">disks</span><span class="o">=</span><span class="n">disks</span><span class="p">,</span>
+            <span class="n">networks</span><span class="o">=</span><span class="n">networks</span><span class="p">,</span>
+            <span class="n">boot</span><span class="o">=</span><span class="n">boot</span><span class="p">,</span>
+            <span class="n">storage_controllers</span><span class="o">=</span><span class="n">storage_controllers</span><span class="p">,</span>
+            <span class="n">ostype</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ostype&#39;</span><span class="p">,</span> <span class="s1">&#39;Ubuntu_64&#39;</span><span class="p">),</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;description&#39;</span><span class="p">),</span>
+            <span class="n">audio_enabled</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;audio&#39;</span><span class="p">,</span> <span class="s1">&#39;none&#39;</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span><span class="p">,</span>
+            <span class="n">usb_enabled</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;usb&#39;</span><span class="p">,</span> <span class="s1">&#39;off&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;on&#39;</span><span class="p">,</span>
+            <span class="n">rtc_utc</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rtcuseutc&#39;</span><span class="p">,</span> <span class="s1">&#39;on&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;on&#39;</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Ahmed Abdelhaleem Ahmed.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

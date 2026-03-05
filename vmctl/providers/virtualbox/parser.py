@@ -17,6 +17,11 @@ class VirtualBoxParser:
     """Parse VirtualBox VM configuration"""
     
     def __init__(self):
+        """Initialise the parser.
+
+        Sets ``vboxmanage_cmd`` to ``"VBoxManage"``, which must be available
+        on the system ``PATH``.
+        """
         self.vboxmanage_cmd = "VBoxManage"
     
     def get_vm_info(self, vm_name: str) -> str:

@@ -14,6 +14,12 @@ class BatchCreator:
     """Batch VM creation engine"""
 
     def __init__(self, engine):
+        """Initialise the batch creator with an engine instance.
+
+        Args:
+            engine: A configured :class:`~vmctl.core.engine.VMCtlEngine` used
+                to create, read, and validate individual VMs.
+        """
         self.engine = engine
 
     def create_from_file(self, batch_file: Path) -> List[VMConfig]:

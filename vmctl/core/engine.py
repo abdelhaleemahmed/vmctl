@@ -16,6 +16,15 @@ class VMCtlEngine:
     """Main engine coordinating all VM operations"""
 
     def __init__(self, provider: str = "virtualbox"):
+        """Initialise the engine with the specified hypervisor provider.
+
+        Args:
+            provider: Hypervisor backend to use. Currently only ``"virtualbox"``
+                is supported.
+
+        Raises:
+            ValueError: If ``provider`` is not a recognised backend name.
+        """
         if provider == "virtualbox":
             self.backend = VirtualBoxBackend()
             self.validator = VMValidator(self.backend.capabilities)

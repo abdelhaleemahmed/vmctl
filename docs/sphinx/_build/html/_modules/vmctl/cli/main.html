@@ -1,0 +1,869 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vmctl.cli.main &mdash; vmctl 1.1.8</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=df104e6e"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            vmctl
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#from-source">From Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#verify-the-installation">Verify the installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#list-vms">List VMs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#export-a-vm">Export a VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#import-recreate-from-file">Import (recreate from file)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#clone-from-an-existing-vm">Clone from an existing VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#lifecycle-commands">Lifecycle commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#validate-a-config-file">Validate a config file</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/configuration.html">VM Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#minimal-example">Minimal example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#top-level-fields">Top-level fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#cpu">cpu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#memory">memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#firmware">firmware</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#disks">disks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#networks">networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#boot">boot</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/batch.html">Batch VM Creation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#generate-a-template">Generate a template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#batch-file-structure">Batch file structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#dry-run">Dry-run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#execute">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#inline-base-vm">Inline base VM</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/completion.html">Shell Tab Completion</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#bash">Bash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#zsh">Zsh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#fish">Fish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#what-gets-completed">What gets completed</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">CLI Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli/index.html">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../cli/index.html#vmctl">vmctl</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-batch">batch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../cli/index.html#vmctl-batch-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../cli/index.html#vmctl-batch-template">template</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-completion">completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-create">create</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-delete">delete</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-edit">edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-export">export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-import">import</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-list">list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-read">read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-start">start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-status">status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-stop">stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-validate">validate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html">vmctl.core</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmconfig-data-models">VMConfig — Data Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#module-vmctl.core.engine">Engine</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#module-vmctl.core.batch">Batch Creator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.batch.BatchCreator"><code class="docutils literal notranslate"><span class="pre">BatchCreator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#module-vmctl.core.exceptions">Exceptions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ErrorSeverity"><code class="docutils literal notranslate"><span class="pre">ErrorSeverity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMToolError"><code class="docutils literal notranslate"><span class="pre">VMToolError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.SchemaValidationError"><code class="docutils literal notranslate"><span class="pre">SchemaValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ProviderValidationError"><code class="docutils literal notranslate"><span class="pre">ProviderValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.SerializationError"><code class="docutils literal notranslate"><span class="pre">SerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.JSONSerializationError"><code class="docutils literal notranslate"><span class="pre">JSONSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.YAMLSerializationError"><code class="docutils literal notranslate"><span class="pre">YAMLSerializationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ProviderError"><code class="docutils literal notranslate"><span class="pre">ProviderError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMNotFoundError"><code class="docutils literal notranslate"><span class="pre">VMNotFoundError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMAlreadyExistsError"><code class="docutils literal notranslate"><span class="pre">VMAlreadyExistsError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.VMStateError"><code class="docutils literal notranslate"><span class="pre">VMStateError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.BatchError"><code class="docutils literal notranslate"><span class="pre">BatchError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.DiskError"><code class="docutils literal notranslate"><span class="pre">DiskError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.NetworkError"><code class="docutils literal notranslate"><span class="pre">NetworkError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.PermissionError"><code class="docutils literal notranslate"><span class="pre">PermissionError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.DependencyError"><code class="docutils literal notranslate"><span class="pre">DependencyError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.TimeoutError"><code class="docutils literal notranslate"><span class="pre">TimeoutError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.ResourceExhaustedError"><code class="docutils literal notranslate"><span class="pre">ResourceExhaustedError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.create_error_context"><code class="docutils literal notranslate"><span class="pre">create_error_context()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.wrap_exception"><code class="docutils literal notranslate"><span class="pre">wrap_exception()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.is_recoverable_error"><code class="docutils literal notranslate"><span class="pre">is_recoverable_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.exceptions.get_error_summary"><code class="docutils literal notranslate"><span class="pre">get_error_summary()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/providers.html">vmctl.providers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.base">Base Provider</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.base.BaseProvider"><code class="docutils literal notranslate"><span class="pre">BaseProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.backend">VirtualBox Backend</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.parser">VirtualBox Parser</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.emitter">VirtualBox Emitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#module-vmctl.providers.virtualbox.capabilities">VirtualBox Capabilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.capabilities.VirtualBoxCapabilities"><code class="docutils literal notranslate"><span class="pre">VirtualBoxCapabilities</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/validators.html">vmctl.validators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator"><code class="docutils literal notranslate"><span class="pre">VMValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.__init__"><code class="docutils literal notranslate"><span class="pre">VMValidator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.validate"><code class="docutils literal notranslate"><span class="pre">VMValidator.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/serializers.html">vmctl.serializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#module-vmctl.serializers.base">Base Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.base.VMConfigSerializer"><code class="docutils literal notranslate"><span class="pre">VMConfigSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#module-vmctl.serializers.yaml_serializer">YAML Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#module-vmctl.serializers.json_serializer">JSON Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer"><code class="docutils literal notranslate"><span class="pre">JSONSerializer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/cli.html">vmctl.cli</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/cli.html#vmctl.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#v1-1-8-2025">v1.1.8 (2025)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#v1-1-7-and-earlier">v1.1.7 and earlier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">vmctl</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">vmctl.cli.main</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vmctl.cli.main</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Command-line interface for vmctl — Click-based with shell completion.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vmctl</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vmctl.core.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">VMCtlEngine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vmctl.core.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchCreator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vmctl.core.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">,</span> <span class="n">ProviderError</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Shell-completion helpers</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_complete_vm_names</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">incomplete</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return VirtualBox VM names that match *incomplete* for tab completion.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;VBoxManage&quot;</span><span class="p">,</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span> <span class="s2">&quot;vms&quot;</span><span class="p">],</span>
+            <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">):</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">incomplete</span><span class="p">):</span>
+                    <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">names</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Root group</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">context_settings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;help_option_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;-h&quot;</span><span class="p">,</span> <span class="s2">&quot;--help&quot;</span><span class="p">]})</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">version_option</span><span class="p">(</span><span class="n">__version__</span><span class="p">,</span> <span class="s2">&quot;-V&quot;</span><span class="p">,</span> <span class="s2">&quot;--version&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;vmctl — Virtual Machine Management Tool.</span>
+
+<span class="sd">    Manage VirtualBox VMs with config-as-code support.  Export any VM to YAML</span>
+<span class="sd">    or JSON, recreate it anywhere, and spin up entire clusters from a single</span>
+<span class="sd">    batch file.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Quick start:</span>
+<span class="sd">      vmctl list</span>
+<span class="sd">      vmctl export my-vm -o my-vm.yaml</span>
+<span class="sd">      vmctl import my-vm.yaml --new-name test-vm</span>
+<span class="sd">      vmctl import my-vm.yaml --new-name test-vm --execute</span>
+<span class="sd">      vmctl batch create cluster.yaml --execute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># list</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;list&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--format&quot;</span><span class="p">,</span> <span class="s2">&quot;fmt&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Choice</span><span class="p">([</span><span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="s2">&quot;simple&quot;</span><span class="p">]),</span>
+    <span class="n">default</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
+    <span class="n">show_default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output format.&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_list</span><span class="p">(</span><span class="n">fmt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;List all VMs registered in VirtualBox.</span>
+
+<span class="sd">    TABLE format (default) shows each VM name alongside its current status.</span>
+<span class="sd">    SIMPLE format prints only the names, one per line — useful for scripting.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl list</span>
+<span class="sd">      vmctl list --format simple</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">vms</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">vms</span><span class="p">:</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;No VMs found.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="s2">&quot;simple&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">vms</span><span class="p">:</span>
+                <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;NAME&#39;</span><span class="si">:</span><span class="s2">&lt;30</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;STATUS&#39;</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">42</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">vms</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">status</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">get_vm_status</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">ProviderError</span><span class="p">:</span>
+                    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
+                <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">vm</span><span class="si">:</span><span class="s2">&lt;30</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">status</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ProviderError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># status</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;vm_name&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_status</span><span class="p">(</span><span class="n">vm_name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Show the current state of a VM.</span>
+
+<span class="sd">    Possible states: running, stopped, paused, saved, aborted,</span>
+<span class="sd">    starting, stopping, unknown.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Example:</span>
+<span class="sd">      vmctl status ubuntu-server</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">get_vm_status</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">status</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ProviderError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># start</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;vm_name&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_start</span><span class="p">(</span><span class="n">vm_name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start a VM in headless mode.</span>
+
+<span class="sd">    The VM has no GUI window.  Use VirtualBox GUI or SSH to interact</span>
+<span class="sd">    with the guest once it has booted.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Example:</span>
+<span class="sd">      vmctl start ubuntu-server</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">engine</span><span class="o">.</span><span class="n">start_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Started VM &#39;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ProviderError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># stop</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;stop&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;vm_name&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--force&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span>
+    <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Force power-off (equivalent to pulling the power cord).&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_stop</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">force</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stop a running VM.</span>
+
+<span class="sd">    Without --force, sends an ACPI shutdown signal so the guest OS can</span>
+<span class="sd">    shut down cleanly.  Use --force only when the guest is unresponsive.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl stop ubuntu-server</span>
+<span class="sd">      vmctl stop ubuntu-server --force</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">engine</span><span class="o">.</span><span class="n">stop_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">)</span>
+        <span class="n">action</span> <span class="o">=</span> <span class="s2">&quot;Powered off&quot;</span> <span class="k">if</span> <span class="n">force</span> <span class="k">else</span> <span class="s2">&quot;Stopped&quot;</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2"> VM &#39;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ProviderError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># read</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;read&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;vm_name&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--format&quot;</span><span class="p">,</span> <span class="s2">&quot;fmt&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Choice</span><span class="p">([</span><span class="s2">&quot;yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">]),</span>
+    <span class="n">default</span><span class="o">=</span><span class="s2">&quot;yaml&quot;</span><span class="p">,</span>
+    <span class="n">show_default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output format.&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_read</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">fmt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print a VM&#39;s configuration to stdout.</span>
+
+<span class="sd">    Reads the live configuration directly from VirtualBox and outputs</span>
+<span class="sd">    it as YAML (default) or JSON.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl read ubuntu-server</span>
+<span class="sd">      vmctl read ubuntu-server --format json</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">read_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">serializer</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">get_serializer</span><span class="p">(</span><span class="n">fmt</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">serializer</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">vm</span><span class="p">))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ProviderError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># export</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;export&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;vm_name&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path_type</span><span class="o">=</span><span class="n">Path</span><span class="p">),</span>
+    <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output file path (.yaml or .json).&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--format&quot;</span><span class="p">,</span> <span class="s2">&quot;fmt&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Choice</span><span class="p">([</span><span class="s2">&quot;yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">]),</span>
+    <span class="n">default</span><span class="o">=</span><span class="s2">&quot;yaml&quot;</span><span class="p">,</span>
+    <span class="n">show_default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output format (inferred from extension if not specified).&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_export</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">fmt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a VM&#39;s configuration to a YAML or JSON file.</span>
+
+<span class="sd">    The VM does not need to be stopped before exporting.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl export ubuntu-server -o ubuntu-server.yaml</span>
+<span class="sd">      vmctl export ubuntu-server -o ubuntu-server.json --format json</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">engine</span><span class="o">.</span><span class="n">export_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Exported &#39;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s2">&#39; → </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ProviderError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># import</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;import&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;config_file&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">exists</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">path_type</span><span class="o">=</span><span class="n">Path</span><span class="p">))</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--new-name&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Override the VM name from the file.&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--execute&quot;</span><span class="p">,</span>
+    <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Actually create the VM (dry-run by default).&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_import</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">new_name</span><span class="p">,</span> <span class="n">execute</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a VM from a YAML or JSON configuration file.</span>
+
+<span class="sd">    Without --execute the command prints the VBoxManage commands that</span>
+<span class="sd">    would be run but does not touch VirtualBox (dry-run mode).</span>
+
+<span class="sd">    Note: import creates a new VM with a blank disk.  It does not copy</span>
+<span class="sd">    disk contents.  Use Bareos, rsync, or a similar tool to restore data.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl import ubuntu-server.yaml --new-name test-server</span>
+<span class="sd">      vmctl import ubuntu-server.yaml --new-name test-server --execute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">import_vm</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">new_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">execute</span><span class="p">:</span>
+            <span class="n">engine</span><span class="o">.</span><span class="n">create_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created VM &#39;</span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; from </span><span class="si">{</span><span class="n">config_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">commands</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">create_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">execute</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;Dry-run mode.  Commands that would be executed:&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">3d</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Run with --execute to apply.&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ProviderError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">,</span> <span class="n">ValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># create</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;create&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;source_vm&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--new-name&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Name for the new VM.&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--memory&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Override memory in MB.&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--cpus&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Override CPU count.&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--execute&quot;</span><span class="p">,</span>
+    <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Actually create the VM (dry-run by default).&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_create</span><span class="p">(</span><span class="n">source_vm</span><span class="p">,</span> <span class="n">new_name</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">cpus</span><span class="p">,</span> <span class="n">execute</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clone a VM configuration from an existing VirtualBox VM.</span>
+
+<span class="sd">    Reads the source VM&#39;s configuration live from VirtualBox, applies</span>
+<span class="sd">    any overrides, and creates a new blank VM with the same hardware</span>
+<span class="sd">    profile.  Disk contents are NOT copied.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl create ubuntu-server --new-name ubuntu-clone</span>
+<span class="sd">      vmctl create ubuntu-server --new-name ubuntu-clone --execute</span>
+<span class="sd">      vmctl create ubuntu-server --new-name small-clone --cpus 2 --memory 2048 --execute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">read_vm</span><span class="p">(</span><span class="n">source_vm</span><span class="p">)</span>
+        <span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">new_name</span>
+        <span class="k">if</span> <span class="n">memory</span><span class="p">:</span>
+            <span class="n">vm</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">mb</span> <span class="o">=</span> <span class="n">memory</span>
+        <span class="k">if</span> <span class="n">cpus</span><span class="p">:</span>
+            <span class="n">vm</span><span class="o">.</span><span class="n">cpu</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="n">cpus</span>
+        <span class="k">if</span> <span class="n">execute</span><span class="p">:</span>
+            <span class="n">engine</span><span class="o">.</span><span class="n">create_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created VM &#39;</span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">commands</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">create_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">execute</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;Dry-run mode.  Commands that would be executed:&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">3d</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Run with --execute to apply.&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ProviderError</span><span class="p">,</span> <span class="n">ValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># edit</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;edit&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;vm_name&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--new-name&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Rename the VM.&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--memory&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Set memory in MB.&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--cpus&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Set CPU count.&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_edit</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">new_name</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">cpus</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Modify CPU, memory, or name of an existing VM.</span>
+
+<span class="sd">    The VM should be stopped before changing CPU or memory settings.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl edit my-vm --cpus 8</span>
+<span class="sd">      vmctl edit my-vm --memory 16384</span>
+<span class="sd">      vmctl edit my-vm --new-name renamed-vm</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">read_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_name</span><span class="p">:</span>
+            <span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">new_name</span>
+        <span class="k">if</span> <span class="n">memory</span><span class="p">:</span>
+            <span class="n">vm</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">mb</span> <span class="o">=</span> <span class="n">memory</span>
+        <span class="k">if</span> <span class="n">cpus</span><span class="p">:</span>
+            <span class="n">vm</span><span class="o">.</span><span class="n">cpu</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="n">cpus</span>
+        <span class="n">serializer</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">get_serializer</span><span class="p">(</span><span class="s2">&quot;yaml&quot;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;Updated VM configuration:&quot;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">serializer</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">vm</span><span class="p">))</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Note: full apply support requires VBoxManage modifyvm integration.&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ProviderError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># delete</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;delete&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;vm_name&quot;</span><span class="p">,</span> <span class="n">shell_complete</span><span class="o">=</span><span class="n">_complete_vm_names</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--force&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span>
+    <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Skip confirmation prompt.&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_delete</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">force</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unregister a VM and delete all associated disk files.</span>
+
+<span class="sd">    This action is irreversible.  Without --force, you will be asked to</span>
+<span class="sd">    confirm before anything is deleted.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl delete old-vm</span>
+<span class="sd">      vmctl delete old-vm --force</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">confirm</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Delete VM &#39;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s2">&#39; and all its disk files?&quot;</span><span class="p">,</span> <span class="n">abort</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">engine</span><span class="o">.</span><span class="n">delete_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Deleted VM &#39;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">click</span><span class="o">.</span><span class="n">Abort</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;Deletion cancelled.&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ProviderError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># validate</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;validate&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;config_file&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">exists</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">path_type</span><span class="o">=</span><span class="n">Path</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_validate</span><span class="p">(</span><span class="n">config_file</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate a YAML or JSON VM configuration file.</span>
+
+<span class="sd">    Runs four validation phases: schema, provider limits, logical</span>
+<span class="sd">    constraints, and warnings.  Exits with code 1 on error.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Example:</span>
+<span class="sd">      vmctl validate my-config.yaml</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">import_vm</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+        <span class="n">warnings</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">validate_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">warnings</span><span class="p">:</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;Warnings:&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">warnings</span><span class="p">:</span>
+                <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Warning: </span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;Configuration is valid!&quot;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  VM Name: </span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  CPU:     </span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">cpu</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2"> cores&quot;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Memory:  </span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">mb</span><span class="si">}</span><span class="s2"> MB&quot;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Disks:   </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">disks</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ValidationError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Validation failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># batch group</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">batch</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create multiple VMs from a batch definition file.&quot;&quot;&quot;</span>
+
+
+<span class="nd">@batch</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;create&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;batch_file&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">exists</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">path_type</span><span class="o">=</span><span class="n">Path</span><span class="p">))</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--execute&quot;</span><span class="p">,</span>
+    <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Actually create the VMs (dry-run by default).&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">batch_create</span><span class="p">(</span><span class="n">batch_file</span><span class="p">,</span> <span class="n">execute</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create VMs from a batch definition file.</span>
+
+<span class="sd">    The batch file defines a base VM and a list of named instances with</span>
+<span class="sd">    optional per-instance overrides for CPU, memory, and disks.</span>
+
+<span class="sd">    Without --execute the command summarises what would be created.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Examples:</span>
+<span class="sd">      vmctl batch create cluster.yaml</span>
+<span class="sd">      vmctl batch create cluster.yaml --execute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">creator</span> <span class="o">=</span> <span class="n">BatchCreator</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+        <span class="n">vms</span> <span class="o">=</span> <span class="n">creator</span><span class="o">.</span><span class="n">create_from_file</span><span class="p">(</span><span class="n">batch_file</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">execute</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">vms</span><span class="p">:</span>
+                <span class="n">engine</span><span class="o">.</span><span class="n">create_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">vms</span><span class="p">)</span><span class="si">}</span><span class="s2"> VMs from </span><span class="si">{</span><span class="n">batch_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Would create </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">vms</span><span class="p">)</span><span class="si">}</span><span class="s2"> VMs:&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">vms</span><span class="p">:</span>
+                <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">  (</span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">cpu</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2"> CPUs, </span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">mb</span><span class="si">}</span><span class="s2"> MB RAM, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">disks</span><span class="p">)</span><span class="si">}</span><span class="s2"> disk(s))&quot;</span><span class="p">)</span>
+            <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Run with --execute to apply.&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ValidationError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">,</span> <span class="n">ProviderError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="nd">@batch</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;template&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path_type</span><span class="o">=</span><span class="n">Path</span><span class="p">),</span>
+    <span class="n">default</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;batch-template.yaml&quot;</span><span class="p">),</span>
+    <span class="n">show_default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output file path.&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--format&quot;</span><span class="p">,</span> <span class="s2">&quot;fmt&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Choice</span><span class="p">([</span><span class="s2">&quot;yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">]),</span>
+    <span class="n">default</span><span class="o">=</span><span class="s2">&quot;yaml&quot;</span><span class="p">,</span>
+    <span class="n">show_default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output format.&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">batch_template</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">fmt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a starter batch template file.</span>
+
+<span class="sd">    The generated file contains a working example with three VM instances</span>
+<span class="sd">    that can be customised and used with &#39;vmctl batch create&#39;.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Example:</span>
+<span class="sd">      vmctl batch template -o my-cluster.yaml</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">VMCtlEngine</span><span class="p">()</span>
+        <span class="n">creator</span> <span class="o">=</span> <span class="n">BatchCreator</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+        <span class="n">creator</span><span class="o">.</span><span class="n">generate_batch_template</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Generated batch template → </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ValidationError</span><span class="p">,</span> <span class="n">SerializationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># completion</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;completion&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">&quot;shell&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Choice</span><span class="p">([</span><span class="s2">&quot;bash&quot;</span><span class="p">,</span> <span class="s2">&quot;zsh&quot;</span><span class="p">,</span> <span class="s2">&quot;fish&quot;</span><span class="p">]))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_completion</span><span class="p">(</span><span class="n">shell</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print shell completion script to stdout.</span>
+
+<span class="sd">    Source the output to enable tab completion for vmctl commands and</span>
+<span class="sd">    VM names in your current shell session.</span>
+
+<span class="sd">    \b</span>
+<span class="sd">    Setup:</span>
+<span class="sd">      # Bash (add to ~/.bashrc for permanent activation):</span>
+<span class="sd">      eval &quot;$(vmctl completion bash)&quot;</span>
+
+<span class="sd">      # Zsh (add to ~/.zshrc):</span>
+<span class="sd">      eval &quot;$(vmctl completion zsh)&quot;</span>
+
+<span class="sd">      # Fish (add to ~/.config/fish/config.fish):</span>
+<span class="sd">      vmctl completion fish | source</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">prog</span> <span class="o">=</span> <span class="s2">&quot;vmctl&quot;</span>
+    <span class="n">env_var</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">prog</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">_COMPLETE&quot;</span>
+    <span class="k">if</span> <span class="n">shell</span> <span class="o">==</span> <span class="s2">&quot;bash&quot;</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="n">env_var</span><span class="si">}</span><span class="s1">=bash_source </span><span class="si">{</span><span class="n">prog</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># To activate, run:&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;#   eval &quot;$(</span><span class="si">{</span><span class="n">env_var</span><span class="si">}</span><span class="s1">=bash_source </span><span class="si">{</span><span class="n">prog</span><span class="si">}</span><span class="s1">)&quot;&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;# Or add to ~/.bashrc:&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;#   eval &quot;$(</span><span class="si">{</span><span class="n">env_var</span><span class="si">}</span><span class="s1">=bash_source </span><span class="si">{</span><span class="n">prog</span><span class="si">}</span><span class="s1">)&quot;&#39;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">shell</span> <span class="o">==</span> <span class="s2">&quot;zsh&quot;</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="n">env_var</span><span class="si">}</span><span class="s1">=zsh_source </span><span class="si">{</span><span class="n">prog</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># To activate, run:&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;#   eval &quot;$(</span><span class="si">{</span><span class="n">env_var</span><span class="si">}</span><span class="s1">=zsh_source </span><span class="si">{</span><span class="n">prog</span><span class="si">}</span><span class="s1">)&quot;&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;# Or add to ~/.zshrc:&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;#   eval &quot;$(</span><span class="si">{</span><span class="n">env_var</span><span class="si">}</span><span class="s1">=zsh_source </span><span class="si">{</span><span class="n">prog</span><span class="si">}</span><span class="s1">)&quot;&#39;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">shell</span> <span class="o">==</span> <span class="s2">&quot;fish&quot;</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;# Add to ~/.config/fish/config.fish:&#39;</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">env_var</span><span class="si">}</span><span class="s1">=fish_source </span><span class="si">{</span><span class="n">prog</span><span class="si">}</span><span class="s1"> | source&#39;</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Entry point</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../../api/cli.html#vmctl.cli.main.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Main CLI entry point registered by pyproject.toml.&quot;&quot;&quot;</span>
+    <span class="n">cli</span><span class="p">()</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Ahmed Abdelhaleem Ahmed.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

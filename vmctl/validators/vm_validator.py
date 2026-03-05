@@ -11,6 +11,13 @@ class VMValidator:
     """Validate VM configurations against schema and provider constraints"""
     
     def __init__(self, provider_capabilities: Dict[str, Any]):
+        """Initialise the validator with provider-specific capability limits.
+
+        Args:
+            provider_capabilities: Dictionary of provider limits (e.g. max CPUs,
+                max memory, max VRAM). Typically obtained from
+                :meth:`VirtualBoxCapabilities.get_capabilities`.
+        """
         self.capabilities = provider_capabilities
     
     def validate(self, vm: VMConfig) -> List[str]:
