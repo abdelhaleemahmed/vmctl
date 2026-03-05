@@ -1,66 +1,89 @@
 # vmctl
 
-**A powerful command-line tool for managing virtual machines with config-as-code support.**
+**A command-line tool for managing VirtualBox VMs with config-as-code support.**
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://img.shields.io/badge/pypi-v1.1.8-blue)](https://pypi.org/project/vmctl/)
+
+Export VM configurations to YAML or JSON, recreate identical VMs anywhere, and spin up entire clusters with one command. Think of it as Infrastructure as Code for your local VirtualBox lab.
 
 ---
 
-## Overview
-
-vmctl is a unified CLI for managing virtual machines across different hypervisors. Export VM configurations as YAML/JSON, create VMs from templates, and manage entire fleets with batch operations.
+## Install
 
 ```bash
-# Export existing VM to YAML
+pip install vmctl
+```
+
+Requires VirtualBox and `VBoxManage` in your PATH.
+
+---
+
+## Quick Start
+
+```bash
+# See what's running
+vmctl list
+
+# Capture an existing VM as YAML
 vmctl export my-vm -o my-vm.yaml
 
-# Create new VM from config
+# Recreate it (dry-run first)
+vmctl import my-vm.yaml --new-name test-vm
 vmctl import my-vm.yaml --new-name test-vm --execute
 
-# Batch create multiple VMs
+# Spin up a whole cluster
 vmctl batch create cluster.yaml --execute
 ```
+
+---
 
 ## Features
 
 ### Config-as-Code
-- Export VM configurations to **YAML** or **JSON**
-- Version control your infrastructure
-- Create reproducible environments
-
-### Multi-Provider Architecture
-| Provider | Status |
-|----------|--------|
-| VirtualBox | Full support |
-| libvirt/KVM | Coming soon |
-| QEMU | Coming soon |
-
-Extensible provider system for adding new hypervisors.
-
-### VM Lifecycle Management
-```bash
-vmctl list                    # List all VMs with status
-vmctl start <vm>              # Start a VM
-vmctl stop <vm>               # Graceful shutdown
-vmctl stop <vm> --force       # Force power off
-vmctl status <vm>             # Get VM status
-vmctl delete <vm>             # Delete VM
-```
-
-### Batch Operations
-Create multiple VMs from a single template:
+Every VM is a plain YAML (or JSON) file. Put it in Git, share it with a team, or use it to recreate the machine after a disk failure.
 
 ```yaml
-# cluster.yaml
-base_vm:
-  ostype: Ubuntu_64
-  cpu: { count: 2 }
-  memory: { mb: 2048 }
-  disks:
-    - name: system
-      size_mb: 20480
-      type: hdd
+name: ubuntu-server
+ostype: Ubuntu_64
+cpu:
+  count: 4
+memory:
+  mb: 8192
+disks:
+  - name: system
+    size_mb: 51200
+    type: hdd
+    controller: sata
+    bootable: true
+networks:
+  - network_type: bridged
+    adapter_name: eth0
+```
+
+### Dry-Run Mode
+Every create/import/batch command shows you the exact `VBoxManage` commands it would run before touching anything:
+
+```
+$ vmctl import server.yaml --new-name dev-server
+
+Dry-run mode. Commands that would be executed:
+  1: VBoxManage createvm --name dev-server --ostype Ubuntu_64 --register
+  2: VBoxManage modifyvm dev-server --memory 8192 --vram 16 --cpus 4 ...
+  3: VBoxManage storagectl dev-server --name SATA Controller --add sata ...
+  4: VBoxManage createmedium --filename ...dev-server_system.vdi --size 51200 ...
+  5: VBoxManage storageattach dev-server --storagectl SATA Controller --port 0 ...
+
+Run with --execute to apply.
+```
+
+### Batch VM Creation
+Define a base machine and create many instances with selective overrides:
+
+```yaml
+name: lab-cluster
+base_vm: ubuntu-template    # reference an existing VM by name
 
 instances:
   - name: web-01
@@ -72,217 +95,96 @@ instances:
   - name: db-01
     cpu: 8
     memory: 16384
-```
-
-```bash
-vmctl batch create cluster.yaml --execute
-```
-
-### Dry-Run Mode
-Preview commands before execution:
-
-```bash
-$ vmctl create ubuntu-vm --new-name test-vm
-
-Dry-run mode. Commands that would be executed:
-  1: VBoxManage createvm --name test-vm --ostype Ubuntu_64 --register
-  2: VBoxManage modifyvm test-vm --memory 2048 --vram 16 --cpus 2 ...
-  ...
-```
-
-## Installation
-
-### From PyPI
-```bash
-pip install vmctl
-```
-
-### From Source
-```bash
-git clone https://github.com/ahmedhal/vmctl.git
-cd vmctl
-pip install -e .
-```
-
-## Quick Start
-
-### 1. List VMs
-```bash
-vmctl list
-```
-```
-NAME                           STATUS
-------------------------------------------
-ubuntu-server                  running
-windows-dev                    stopped
-```
-
-### 2. Export VM Configuration
-```bash
-vmctl export ubuntu-server -o ubuntu-server.yaml
-```
-
-### 3. Create VM from Config
-```bash
-# Dry-run first
-vmctl import ubuntu-server.yaml --new-name test-server
-
-# Actually create
-vmctl import ubuntu-server.yaml --new-name test-server --execute
-```
-
-### 4. Manage VM Lifecycle
-```bash
-vmctl start test-server
-vmctl status test-server
-vmctl stop test-server
-```
-
-## Configuration Format
-
-### VM Configuration (YAML)
-
-```yaml
-name: ubuntu-server
-ostype: Ubuntu_64
-description: Ubuntu 22.04 LTS Server
-
-cpu:
-  count: 4
-  nested_virt: false
-
-memory:
-  mb: 4096
-  vram_mb: 16
-
-firmware:
-  type: efi
-  secure_boot: false
-
-disks:
-  - name: system
-    size_mb: 51200
-    type: hdd
-    controller: sata
-    port: 0
-    bootable: true
-
-networks:
-  - network_type: bridged
-    adapter_type: 82540EM
-    adapter_name: eth0
-
-boot:
-  order: [disk, dvd, none, none]
-  acpi: true
-  ioapic: true
-```
-
-### Batch Configuration
-
-```yaml
-name: dev-cluster
-description: Development environment
-
-base_vm: ubuntu-template  # Reference existing VM
-
-instances:
-  - name: dev-web-01
-    memory: 4096
-    cpu: 4
-    metadata:
-      role: webserver
-
-  - name: dev-db-01
-    memory: 8192
-    cpu: 8
     disks:
       - size_mb: 102400
-    metadata:
-      role: database
 ```
+
+```bash
+vmctl batch create lab-cluster.yaml --execute
+```
+
+### Full VM Lifecycle
+
+```bash
+vmctl start <vm>            # Start (headless)
+vmctl stop <vm>             # Graceful shutdown (ACPI)
+vmctl stop <vm> --force     # Force power off
+vmctl status <vm>           # running / stopped / paused / saved
+vmctl delete <vm>           # Unregister and delete disk files
+```
+
+### Disk and Storage Support
+
+| Format | Description |
+|--------|-------------|
+| VDI    | VirtualBox native (default) |
+| VMDK   | VMware-compatible |
+| VHD    | Microsoft Virtual Hard Disk |
+| RAW    | Raw disk image |
+
+Controllers: IDE, SATA, SCSI, SAS. Thin (dynamic) and thick (fixed) allocation.
+CD-ROM drives with ISO images are correctly identified as optical media.
+
+### Network Adapter Types
+
+| Type | Description |
+|------|-------------|
+| NAT | Outbound internet via host |
+| Bridged | Direct connection to physical network |
+| Host-only | Isolated host-to-VM network |
+| Internal | VM-to-VM isolated network |
+| NatNetwork | NAT with DHCP (multi-VM) |
+
+Up to 8 adapters per VM.
+
+### Firmware Options
+BIOS, EFI, EFI64, EFI32. Optional secure boot and TPM support.
+
+---
 
 ## Command Reference
 
 | Command | Description |
 |---------|-------------|
-| `vmctl list` | List all VMs with status |
-| `vmctl read <vm>` | Display VM configuration |
-| `vmctl export <vm> -o <file>` | Export VM config to file |
-| `vmctl import <file>` | Create VM from config file |
-| `vmctl create <vm> --new-name <name>` | Clone VM configuration |
-| `vmctl start <vm>` | Start a VM |
-| `vmctl stop <vm>` | Stop a VM (graceful) |
-| `vmctl stop <vm> -f` | Force stop a VM |
-| `vmctl status <vm>` | Get VM status |
-| `vmctl delete <vm>` | Delete a VM |
-| `vmctl validate <file>` | Validate configuration |
-| `vmctl batch create <file>` | Batch create VMs |
-| `vmctl batch template` | Generate batch template |
-| `vmctl --version` | Show version |
+| `vmctl list [--format table\|simple]` | List all VMs with status |
+| `vmctl status <vm>` | Show current VM state |
+| `vmctl start <vm>` | Start VM in headless mode |
+| `vmctl stop <vm> [-f]` | Stop VM (graceful or forced) |
+| `vmctl read <vm> [--format yaml\|json]` | Print VM configuration |
+| `vmctl export <vm> -o <file>` | Save VM config to file |
+| `vmctl import <file> [--new-name <n>] [--execute]` | Create VM from config file |
+| `vmctl create <vm> --new-name <n> [--execute]` | Clone VM config from existing VM |
+| `vmctl edit <vm> [--memory MB] [--cpus N]` | Modify running VM properties |
+| `vmctl delete <vm> [-f]` | Delete VM and disk files |
+| `vmctl validate <file>` | Validate config file |
+| `vmctl batch create <file> [--execute]` | Create multiple VMs from batch file |
+| `vmctl batch template [-o <file>]` | Generate a starter batch template |
+
+---
 
 ## Use Cases
 
-### Disaster Recovery Testing
-Export production VM configs, create test clones, validate backup restoration:
+**Disaster recovery testing** — Export a production VM config, create a blank clone, restore a backup into it, and verify it boots. The VM spec is identical to production.
 
-```bash
-# Export production config
-vmctl export prod-server -o prod-server.yaml
+**Development environments** — Every developer runs `vmctl batch create devenv.yaml --execute` and gets the same set of VMs. No more "works on my machine."
 
-# Create test VM for bare metal recovery
-vmctl import prod-server.yaml --new-name bmr-test --execute
-```
+**Lab snapshots** — Before a destructive test, `vmctl export` every VM in your lab. After the test, recreate exactly what you had.
 
-### Development Environments
-Spin up identical development environments:
+**CI pipelines** — Create and delete VMs programmatically as part of automated tests.
 
-```bash
-vmctl batch create dev-environment.yaml --execute
-```
+---
 
-### Infrastructure as Code
-Store VM configurations in Git:
+## Configuration Reference
 
-```bash
-vmctl export web-server -o infra/web-server.yaml
-git add infra/
-git commit -m "Add web server configuration"
-```
+See [docs/features.md](docs/features.md) for the complete field reference.
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for step-by-step workflows.
 
-## Project Structure
-
-```
-vmctl/
-├── cli/                 # Command-line interface
-├── core/
-│   ├── engine.py        # Main orchestration
-│   ├── vmconfig.py      # VM configuration models
-│   └── batch.py         # Batch operations
-├── providers/
-│   ├── base.py          # Provider interface
-│   └── virtualbox/      # VirtualBox implementation
-├── serializers/         # YAML/JSON import/export
-└── validators/          # Configuration validation
-```
-
-## Contributing
-
-Contributions are welcome! Areas of interest:
-
-- [ ] libvirt/KVM provider
-- [ ] QEMU provider
-- [ ] Snapshot management
-- [ ] VM cloning with disk copy
-- [ ] Network configuration templates
+---
 
 ## Author
 
-**Ahmed Abdelhaleem Ahmed**
-
-- Email: ahmedhal@gmail.com
-- GitHub: [@ahmedhal](https://github.com/ahmedhal)
+**Ahmed Abdelhaleem Ahmed** — [ahmedhal@gmail.com](mailto:ahmedhal@gmail.com) · [@ahmedhal](https://github.com/ahmedhal)
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).

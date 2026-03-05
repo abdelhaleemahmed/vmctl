@@ -250,10 +250,11 @@ class VirtualBoxParser:
             # Get actual disk size and variant from VirtualBox
             disk_info = self.get_disk_info(disk_path)
 
+            disk_type = DiskType.DVD if disk_path.lower().endswith('.iso') else DiskType.HDD
             disk = DiskConfig(
                 name=f"disk_{ctrl_name}_{port}_{device}",
                 size_mb=disk_info['size_mb'],
-                type=DiskType.HDD,
+                type=disk_type,
                 format=disk_info['format'],
                 variant=disk_info['variant'],
                 controller=ctrl_type,
