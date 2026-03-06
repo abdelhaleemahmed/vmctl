@@ -58,6 +58,7 @@ html_theme_options = {
 html_static_path = ['_static']
 html_title = f'vmctl {release} — التوثيق العربي'
 html_css_files = ['rtl.css']
+html_js_files = ['fix-rtl.js']
 
 source_suffix = {
     '.rst': None,

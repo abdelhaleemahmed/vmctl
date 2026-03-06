@@ -1,0 +1,829 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="ar" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vmctl.core.vmconfig &mdash; vmctl 1.1.9 — التوثيق العربي</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/rtl.css?v=3258ed5a" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=9fcf941f"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/translations.js?v=3d5367c0"></script>
+      <script src="../../../_static/fix-rtl.js?v=7e29484b"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="بحث" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            vmctl
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">دليل المستخدم</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/install.html">التثبيت</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#id2">المتطلبات</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#pypi">التثبيت من PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#id3">التثبيت من المصدر</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/install.html#id4">التحقق من التثبيت</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/quickstart.html">البدء السريع</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#id2">عرض قائمة الأجهزة الافتراضية</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#id3">تصدير جهاز افتراضي</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#id4">استيراد جهاز افتراضي (إعادة الإنشاء من ملف)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#id5">الاستنساخ من جهاز افتراضي موجود</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#id6">أوامر دورة حياة الجهاز الافتراضي</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/quickstart.html#id7">التحقق من صحة ملف الإعدادات</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/configuration.html">مرجع إعدادات الجهاز الافتراضي</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#id2">مثال بسيط</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#id3">الحقول الرئيسية</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#cpu">إعدادات المعالج (cpu)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#memory">إعدادات الذاكرة (memory)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#firmware">إعدادات البرنامج الثابت (firmware)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#disks">إعدادات الأقراص (disks)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#networks">إعدادات الشبكة (networks)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/configuration.html#boot">إعدادات الإقلاع (boot)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/batch.html">إنشاء أجهزة افتراضية دفعةً واحدة (Batch)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#id1">توليد قالب</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#id2">بنية ملف الدُّفعة</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#dry-run">تشغيل تجريبي (Dry-run)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#id3">التنفيذ الفعلي</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/batch.html#id4">تعريف القاعدة مباشرةً في الملف</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/completion.html">الإكمال التلقائي في الطرفية</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#bash">Bash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#zsh">Zsh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#fish">Fish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide/completion.html#id2">ما يُكمَل تلقائياً</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">مرجع سطر الأوامر</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli/index.html">مرجع سطر الأوامر</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../cli/index.html#vmctl">vmctl</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-batch">batch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../cli/index.html#vmctl-batch-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../cli/index.html#vmctl-batch-template">template</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-completion">completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-create">create</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-delete">delete</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-edit">edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-export">export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-import">import</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-list">list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-read">read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-start">start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-status">status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-stop">stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../cli/index.html#vmctl-validate">validate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">مرجع API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">مرجع API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html">الوحدات الأساسية (Core)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareType"><code class="docutils literal notranslate"><span class="pre">FirmwareType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskType"><code class="docutils literal notranslate"><span class="pre">DiskType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskVariant"><code class="docutils literal notranslate"><span class="pre">DiskVariant</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskFormat"><code class="docutils literal notranslate"><span class="pre">DiskFormat</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkType"><code class="docutils literal notranslate"><span class="pre">NetworkType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerType"><code class="docutils literal notranslate"><span class="pre">StorageControllerType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig"><code class="docutils literal notranslate"><span class="pre">CPUConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.count"><code class="docutils literal notranslate"><span class="pre">CPUConfig.count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.hotplug"><code class="docutils literal notranslate"><span class="pre">CPUConfig.hotplug</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.execution_cap"><code class="docutils literal notranslate"><span class="pre">CPUConfig.execution_cap</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.pae"><code class="docutils literal notranslate"><span class="pre">CPUConfig.pae</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.nested_virt"><code class="docutils literal notranslate"><span class="pre">CPUConfig.nested_virt</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">CPUConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.__init__"><code class="docutils literal notranslate"><span class="pre">CPUConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig"><code class="docutils literal notranslate"><span class="pre">MemoryConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig.mb"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.mb</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig.vram_mb"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.vram_mb</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig.page_fusion"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.page_fusion</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig.ballooning"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.ballooning</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig.__init__"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig.type"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig.secure_boot"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.secure_boot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig.tpm"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.tpm</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig.__init__"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig"><code class="docutils literal notranslate"><span class="pre">DiskConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.name"><code class="docutils literal notranslate"><span class="pre">DiskConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.size_mb"><code class="docutils literal notranslate"><span class="pre">DiskConfig.size_mb</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.type"><code class="docutils literal notranslate"><span class="pre">DiskConfig.type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.format"><code class="docutils literal notranslate"><span class="pre">DiskConfig.format</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.variant"><code class="docutils literal notranslate"><span class="pre">DiskConfig.variant</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.controller"><code class="docutils literal notranslate"><span class="pre">DiskConfig.controller</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.controller_name"><code class="docutils literal notranslate"><span class="pre">DiskConfig.controller_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.port"><code class="docutils literal notranslate"><span class="pre">DiskConfig.port</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.device"><code class="docutils literal notranslate"><span class="pre">DiskConfig.device</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.bootable"><code class="docutils literal notranslate"><span class="pre">DiskConfig.bootable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.disk_path"><code class="docutils literal notranslate"><span class="pre">DiskConfig.disk_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">DiskConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.__init__"><code class="docutils literal notranslate"><span class="pre">DiskConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig"><code class="docutils literal notranslate"><span class="pre">NetworkConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.adapter_type"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.adapter_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.network_type"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.network_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.adapter_name"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.adapter_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.mac_address"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.mac_address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.promiscuous_mode"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.promiscuous_mode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.__init__"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig"><code class="docutils literal notranslate"><span class="pre">BootConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig.order"><code class="docutils literal notranslate"><span class="pre">BootConfig.order</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig.acpi"><code class="docutils literal notranslate"><span class="pre">BootConfig.acpi</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig.ioapic"><code class="docutils literal notranslate"><span class="pre">BootConfig.ioapic</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig.hpet"><code class="docutils literal notranslate"><span class="pre">BootConfig.hpet</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">BootConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig.__init__"><code class="docutils literal notranslate"><span class="pre">BootConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig.name"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig.controller_type"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.controller_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig.port_count"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.port_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig.bootable"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.bootable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig.__init__"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig"><code class="docutils literal notranslate"><span class="pre">VMConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">VMConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">VMConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig.from_dict"><code class="docutils literal notranslate"><span class="pre">VMConfig.from_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig.__init__"><code class="docutils literal notranslate"><span class="pre">VMConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.__init__"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.read_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.read_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.create_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.create_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.edit_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.edit_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.delete_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.delete_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.list_vms"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.list_vms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.start_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.start_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.stop_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.stop_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.get_vm_status"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.get_vm_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.export_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.export_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.import_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.import_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.validate_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.validate_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.engine.VMCtlEngine.get_serializer"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.get_serializer()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#vmctl.core.batch.BatchCreator"><code class="docutils literal notranslate"><span class="pre">BatchCreator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.batch.BatchCreator.__init__"><code class="docutils literal notranslate"><span class="pre">BatchCreator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.batch.BatchCreator.create_from_file"><code class="docutils literal notranslate"><span class="pre">BatchCreator.create_from_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/core.html#vmctl.core.batch.BatchCreator.generate_batch_template"><code class="docutils literal notranslate"><span class="pre">BatchCreator.generate_batch_template()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/providers.html">موفرو الخدمة (Providers)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.__init__"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.name"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.capabilities"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.capabilities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.list_vms"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.list_vms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.read_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.read_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.create_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.create_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.delete_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.delete_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.start_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.start_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.stop_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.stop_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.get_vm_status"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.get_vm_status()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.__init__"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_vm_info"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.get_vm_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_disk_info"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.get_disk_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.parse_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.parse_vm()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.__init__"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.emit_create_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter.emit_create_vm()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/validators.html">التحقق من الصحة (Validators)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator"><code class="docutils literal notranslate"><span class="pre">VMValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.__init__"><code class="docutils literal notranslate"><span class="pre">VMValidator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/validators.html#vmctl.validators.vm_validator.VMValidator.validate"><code class="docutils literal notranslate"><span class="pre">VMValidator.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/serializers.html">التسلسل والتحليل (Serializers)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer.save"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer.save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer.load"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer.load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer.to_string"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer.to_string()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer"><code class="docutils literal notranslate"><span class="pre">JSONSerializer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer.save"><code class="docutils literal notranslate"><span class="pre">JSONSerializer.save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer.load"><code class="docutils literal notranslate"><span class="pre">JSONSerializer.load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/serializers.html#vmctl.serializers.json_serializer.JSONSerializer.to_string"><code class="docutils literal notranslate"><span class="pre">JSONSerializer.to_string()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/cli.html">واجهة سطر الأوامر (CLI)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/cli.html#vmctl.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">معلومات المشروع</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">سجل التغييرات</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#v1-1-9-2026">v1.1.9 (2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#v1-1-8-2025">v1.1.8 (2025)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#v1-1-7">v1.1.7 وما قبله</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">vmctl</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">vmctl.core.vmconfig</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vmctl.core.vmconfig</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Core VM configuration models - the center of gravity</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">asdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+
+
+<div class="viewcode-block" id="FirmwareType">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareType">[المستندات]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FirmwareType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;VM firmware type.</span>
+
+<span class="sd">    Determines the boot firmware used by the virtual machine.</span>
+<span class="sd">    EFI64 is required for Windows 11 and Secure Boot.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">BIOS</span> <span class="o">=</span> <span class="s2">&quot;bios&quot;</span>
+    <span class="n">EFI</span> <span class="o">=</span> <span class="s2">&quot;efi&quot;</span>
+    <span class="n">EFI64</span> <span class="o">=</span> <span class="s2">&quot;efi64&quot;</span>
+    <span class="n">EFI32</span> <span class="o">=</span> <span class="s2">&quot;efi32&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="DiskType">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.DiskType">[المستندات]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiskType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Virtual disk media type.</span>
+
+<span class="sd">    HDD and SSD have identical performance in VirtualBox; the distinction</span>
+<span class="sd">    is metadata-only. DVD represents an optical drive backed by an ISO image.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">HDD</span> <span class="o">=</span> <span class="s2">&quot;hdd&quot;</span>
+    <span class="n">SSD</span> <span class="o">=</span> <span class="s2">&quot;ssd&quot;</span>
+    <span class="n">DVD</span> <span class="o">=</span> <span class="s2">&quot;dvd&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="DiskVariant">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.DiskVariant">[المستندات]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiskVariant</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Disk allocation strategy.</span>
+
+<span class="sd">    THIN (dynamic): the image file grows on demand up to ``size_mb``.</span>
+<span class="sd">    THICK (fixed): the full ``size_mb`` is pre-allocated on creation.</span>
+<span class="sd">    RAW format always uses THICK regardless of this setting.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">THIN</span> <span class="o">=</span> <span class="s2">&quot;thin&quot;</span>      <span class="c1"># Dynamic/Standard - grows as needed</span>
+    <span class="n">THICK</span> <span class="o">=</span> <span class="s2">&quot;thick&quot;</span>    <span class="c1"># Fixed - preallocated</span></div>
+
+
+
+<div class="viewcode-block" id="DiskFormat">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.DiskFormat">[المستندات]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiskFormat</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Disk image file format.</span>
+
+<span class="sd">    VDI is the native VirtualBox format and is recommended for most use cases.</span>
+<span class="sd">    VMDK and VHD are useful when the image needs to be shared with VMware or</span>
+<span class="sd">    Hyper-V respectively. RAW produces a flat binary image with no metadata.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">VDI</span> <span class="o">=</span> <span class="s2">&quot;vdi&quot;</span>        <span class="c1"># VirtualBox native format</span>
+    <span class="n">VMDK</span> <span class="o">=</span> <span class="s2">&quot;vmdk&quot;</span>      <span class="c1"># VMware format (also supported by VirtualBox)</span>
+    <span class="n">VHD</span> <span class="o">=</span> <span class="s2">&quot;vhd&quot;</span>        <span class="c1"># Microsoft Virtual Hard Disk</span>
+    <span class="n">RAW</span> <span class="o">=</span> <span class="s2">&quot;raw&quot;</span>        <span class="c1"># Raw disk image</span></div>
+
+
+
+<div class="viewcode-block" id="NetworkType">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.NetworkType">[المستندات]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NetworkType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Network adapter connection mode.</span>
+
+<span class="sd">    NAT: outbound internet through the host; guests are not directly reachable.</span>
+<span class="sd">    BRIDGED: guest appears as a first-class device on the physical network.</span>
+<span class="sd">    HOSTONLY: isolated network shared only between the host and VMs.</span>
+<span class="sd">    INTERNAL: VM-to-VM only; the host has no access.</span>
+<span class="sd">    NATNETWORK: like NAT but multiple VMs share one DHCP domain.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">NAT</span> <span class="o">=</span> <span class="s2">&quot;nat&quot;</span>
+    <span class="n">BRIDGED</span> <span class="o">=</span> <span class="s2">&quot;bridged&quot;</span>
+    <span class="n">HOSTONLY</span> <span class="o">=</span> <span class="s2">&quot;hostonly&quot;</span>
+    <span class="n">INTERNAL</span> <span class="o">=</span> <span class="s2">&quot;internal&quot;</span>
+    <span class="n">NATNETWORK</span> <span class="o">=</span> <span class="s2">&quot;natnetwork&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="StorageControllerType">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerType">[المستندات]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">StorageControllerType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Storage bus / controller chipset type.</span>
+
+<span class="sd">    IDE supports up to 2 ports (legacy; useful for optical drives).</span>
+<span class="sd">    SATA (IntelAHCI) supports up to 30 ports and is the default.</span>
+<span class="sd">    SCSI (LsiLogic) and SAS (LsiLogicSas) support up to 254/255 ports</span>
+<span class="sd">    and are useful for high port-count configurations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">IDE</span> <span class="o">=</span> <span class="s2">&quot;ide&quot;</span>
+    <span class="n">SATA</span> <span class="o">=</span> <span class="s2">&quot;sata&quot;</span>
+    <span class="n">SCSI</span> <span class="o">=</span> <span class="s2">&quot;scsi&quot;</span>
+    <span class="n">SAS</span> <span class="o">=</span> <span class="s2">&quot;sas&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="CPUConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CPUConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CPU configuration.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        count: Number of virtual CPUs (1–128).</span>
+<span class="sd">        hotplug: Allow CPUs to be added/removed while the VM is running.</span>
+<span class="sd">        execution_cap: Maximum percentage of host CPU time the VM may use (1–100).</span>
+<span class="sd">        pae: Enable Physical Address Extension for 32-bit OSes.</span>
+<span class="sd">        nested_virt: Enable nested virtualisation (required for running KVM inside VirtualBox).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">hotplug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">execution_cap</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># Percentage</span>
+    <span class="n">pae</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Physical Address Extension</span>
+    <span class="n">nested_virt</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="CPUConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.CPUConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return CPU configuration as a plain dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: All fields with their current values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MemoryConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MemoryConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Memory configuration.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        mb: RAM in megabytes (4–1,048,576).</span>
+<span class="sd">        vram_mb: Video RAM in megabytes (1–256).</span>
+<span class="sd">        page_fusion: Enable kernel same-page merging to reduce physical RAM usage.</span>
+<span class="sd">        ballooning: Enable dynamic memory ballooning (guest must support it).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">mb</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span>  <span class="c1"># Memory in MB</span>
+    <span class="n">vram_mb</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span>  <span class="c1"># Video RAM in MB</span>
+    <span class="n">page_fusion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">ballooning</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="MemoryConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.MemoryConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return memory configuration as a plain dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: All fields with their current values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FirmwareConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FirmwareConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Firmware configuration.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        type: Firmware type (BIOS, EFI, EFI64, EFI32).</span>
+<span class="sd">        secure_boot: Enable Secure Boot (requires EFI firmware).</span>
+<span class="sd">        tpm: Enable TPM chip emulation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">FirmwareType</span> <span class="o">=</span> <span class="n">FirmwareType</span><span class="o">.</span><span class="n">BIOS</span>
+    <span class="n">secure_boot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">tpm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="FirmwareConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.FirmwareConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return firmware configuration as a plain dictionary.</span>
+
+<span class="sd">        Enum values are serialised to their string representations.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Fields with ``type`` as a string value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DiskConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiskConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Disk configuration.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        name: Unique identifier for this disk within the VM (e.g. ``&quot;system&quot;``, ``&quot;data&quot;``).</span>
+<span class="sd">        size_mb: Disk capacity in megabytes (10–1,048,576).</span>
+<span class="sd">        type: Media type — HDD, SSD, or DVD.</span>
+<span class="sd">        format: Image file format — VDI, VMDK, VHD, or RAW.</span>
+<span class="sd">        variant: Allocation strategy — THIN (dynamic) or THICK (fixed).</span>
+<span class="sd">        controller: Storage bus type the disk is attached to.</span>
+<span class="sd">        controller_name: Exact VirtualBox controller name (e.g. ``&quot;SATA Controller&quot;``).</span>
+<span class="sd">        port: Controller port number (0-based).</span>
+<span class="sd">        device: Device number on the port (0 or 1).</span>
+<span class="sd">        bootable: Mark this disk as a boot device.</span>
+<span class="sd">        disk_path: Original image path on the source system (not exported).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">size_mb</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20480</span>  <span class="c1"># 20GB default</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="n">DiskType</span> <span class="o">=</span> <span class="n">DiskType</span><span class="o">.</span><span class="n">HDD</span>
+    <span class="nb">format</span><span class="p">:</span> <span class="n">DiskFormat</span> <span class="o">=</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="n">VDI</span>  <span class="c1"># Disk image format</span>
+    <span class="n">variant</span><span class="p">:</span> <span class="n">DiskVariant</span> <span class="o">=</span> <span class="n">DiskVariant</span><span class="o">.</span><span class="n">THIN</span>  <span class="c1"># Thin provisioned by default</span>
+    <span class="n">controller</span><span class="p">:</span> <span class="n">StorageControllerType</span> <span class="o">=</span> <span class="n">StorageControllerType</span><span class="o">.</span><span class="n">SATA</span>
+    <span class="n">controller_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;SATA&quot;</span>  <span class="c1"># Actual controller name for VirtualBox</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">bootable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">disk_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Original disk path (for reference)</span>
+
+<div class="viewcode-block" id="DiskConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.DiskConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return disk configuration as a plain dictionary.</span>
+
+<span class="sd">        Enum values are serialised to their string representations.</span>
+<span class="sd">        ``disk_path`` is excluded because it is host-specific.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Exportable fields with enum values as strings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;variant&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">variant</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;controller&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">value</span>
+        <span class="c1"># Don&#39;t include disk_path in export (it&#39;s system-specific)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;disk_path&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NetworkConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NetworkConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Network adapter configuration.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        adapter_type: NIC chipset emulation (e.g. ``&quot;82540EM&quot;`` for Intel PRO/1000 MT Desktop).</span>
+<span class="sd">        network_type: Connection mode (NAT, BRIDGED, HOSTONLY, INTERNAL, NATNETWORK).</span>
+<span class="sd">        adapter_name: Physical or virtual interface name used for BRIDGED / HOSTONLY modes.</span>
+<span class="sd">        mac_address: Custom MAC address; ``None`` lets VirtualBox assign one automatically.</span>
+<span class="sd">        promiscuous_mode: Allow the adapter to receive packets not addressed to it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">adapter_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;82540EM&quot;</span>  <span class="c1"># Default Intel PRO/1000 MT Desktop</span>
+    <span class="n">network_type</span><span class="p">:</span> <span class="n">NetworkType</span> <span class="o">=</span> <span class="n">NetworkType</span><span class="o">.</span><span class="n">NAT</span>
+    <span class="n">adapter_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># For bridged/host-only</span>
+    <span class="n">mac_address</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">promiscuous_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="NetworkConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.NetworkConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return network configuration as a plain dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Fields with ``network_type`` as a string value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;network_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">network_type</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BootConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">BootConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Boot configuration.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        order: Ordered list of boot devices; valid values are</span>
+<span class="sd">            ``&quot;disk&quot;``, ``&quot;dvd&quot;``, ``&quot;floppy&quot;``, ``&quot;network&quot;``, ``&quot;none&quot;``.</span>
+<span class="sd">        boot1–boot4: Individual boot slots derived from ``order``.</span>
+<span class="sd">        acpi: Enable ACPI support (required by most modern OSes).</span>
+<span class="sd">        ioapic: Enable I/O APIC (required for more than one CPU or for Windows).</span>
+<span class="sd">        hpet: Enable High Precision Event Timer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">order</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;disk&quot;</span><span class="p">,</span> <span class="s2">&quot;dvd&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">])</span>
+    <span class="n">boot1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;disk&quot;</span>
+    <span class="n">boot2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;dvd&quot;</span>
+    <span class="n">boot3</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+    <span class="n">boot4</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+    <span class="n">acpi</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">ioapic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">hpet</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="BootConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.BootConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return boot configuration as a plain dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: All fields with their current values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="StorageControllerConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StorageControllerConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Storage controller configuration.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        name: Unique controller name as it appears in VirtualBox</span>
+<span class="sd">            (e.g. ``&quot;SATA Controller&quot;``).</span>
+<span class="sd">        controller_type: Bus/chipset type (IDE, SATA, SCSI, SAS).</span>
+<span class="sd">        port_count: Number of available device ports.</span>
+<span class="sd">        bootable: Mark this controller as capable of booting.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">controller_type</span><span class="p">:</span> <span class="n">StorageControllerType</span>
+    <span class="n">port_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">bootable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="StorageControllerConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.StorageControllerConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return storage controller configuration as a plain dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Fields with ``controller_type`` as a string value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;controller_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller_type</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="VMConfig">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig">[المستندات]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">VMConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Canonical VM configuration - the center of gravity&quot;&quot;&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">cpu</span><span class="p">:</span> <span class="n">CPUConfig</span>
+    <span class="n">memory</span><span class="p">:</span> <span class="n">MemoryConfig</span>
+    <span class="n">firmware</span><span class="p">:</span> <span class="n">FirmwareConfig</span>
+    <span class="n">disks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">DiskConfig</span><span class="p">]</span>
+    <span class="n">networks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">NetworkConfig</span><span class="p">]</span>
+    <span class="n">boot</span><span class="p">:</span> <span class="n">BootConfig</span>
+    <span class="n">storage_controllers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">StorageControllerConfig</span><span class="p">]</span>
+    <span class="n">ostype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Ubuntu_64&quot;</span>
+    <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">audio_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">clipboard_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;disabled&quot;</span>
+    <span class="n">draganddrop</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;disabled&quot;</span>
+    <span class="n">usb_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">rtc_utc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="VMConfig.__post_init__">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig.__post_init__">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure the VM has at least one disk after construction.</span>
+
+<span class="sd">        If ``disks`` is empty a default system disk named ``&lt;vm_name&gt;_system``</span>
+<span class="sd">        is created automatically with all default ``DiskConfig`` values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Ensure at least one disk exists</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">disks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">disks</span> <span class="o">=</span> <span class="p">[</span><span class="n">DiskConfig</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_system&quot;</span><span class="p">)]</span></div>
+
+    
+<div class="viewcode-block" id="VMConfig.to_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig.to_dict">[المستندات]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert VMConfig to dictionary for serialization&quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s1">&#39;ostype&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ostype</span><span class="p">,</span>
+            <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="s1">&#39;cpu&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cpu</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>
+            <span class="s1">&#39;memory&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>
+            <span class="s1">&#39;firmware&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">firmware</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>
+            <span class="s1">&#39;disks&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">disk</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">disk</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">disks</span><span class="p">],</span>
+            <span class="s1">&#39;networks&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">net</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">networks</span><span class="p">],</span>
+            <span class="s1">&#39;boot&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">boot</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>
+            <span class="s1">&#39;storage_controllers&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">sc</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">sc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_controllers</span><span class="p">],</span>
+            <span class="s1">&#39;audio_enabled&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_enabled</span><span class="p">,</span>
+            <span class="s1">&#39;clipboard_mode&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">clipboard_mode</span><span class="p">,</span>
+            <span class="s1">&#39;draganddrop&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">draganddrop</span><span class="p">,</span>
+            <span class="s1">&#39;usb_enabled&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">usb_enabled</span><span class="p">,</span>
+            <span class="s1">&#39;rtc_utc&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">rtc_utc</span><span class="p">,</span>
+            <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+    
+<div class="viewcode-block" id="VMConfig.from_dict">
+<a class="viewcode-back" href="../../../api/core.html#vmctl.core.vmconfig.VMConfig.from_dict">[المستندات]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;VMConfig&#39;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create VMConfig from dictionary&quot;&quot;&quot;</span>
+        <span class="c1"># Convert string enums back to Enum types</span>
+        <span class="k">if</span> <span class="s1">&#39;firmware&#39;</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">and</span> <span class="s1">&#39;type&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;firmware&#39;</span><span class="p">]:</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;firmware&#39;</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FirmwareType</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;firmware&#39;</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">])</span>
+        
+        <span class="k">if</span> <span class="s1">&#39;disks&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">disk</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;disks&#39;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="s1">&#39;type&#39;</span> <span class="ow">in</span> <span class="n">disk</span><span class="p">:</span>
+                    <span class="n">disk</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskType</span><span class="p">(</span><span class="n">disk</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="s1">&#39;format&#39;</span> <span class="ow">in</span> <span class="n">disk</span><span class="p">:</span>
+                    <span class="n">disk</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskFormat</span><span class="p">(</span><span class="n">disk</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="s1">&#39;variant&#39;</span> <span class="ow">in</span> <span class="n">disk</span><span class="p">:</span>
+                    <span class="n">disk</span><span class="p">[</span><span class="s1">&#39;variant&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskVariant</span><span class="p">(</span><span class="n">disk</span><span class="p">[</span><span class="s1">&#39;variant&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="s1">&#39;controller&#39;</span> <span class="ow">in</span> <span class="n">disk</span><span class="p">:</span>
+                    <span class="n">disk</span><span class="p">[</span><span class="s1">&#39;controller&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">StorageControllerType</span><span class="p">(</span><span class="n">disk</span><span class="p">[</span><span class="s1">&#39;controller&#39;</span><span class="p">])</span>
+        
+        <span class="k">if</span> <span class="s1">&#39;networks&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;networks&#39;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="s1">&#39;network_type&#39;</span> <span class="ow">in</span> <span class="n">net</span><span class="p">:</span>
+                    <span class="n">net</span><span class="p">[</span><span class="s1">&#39;network_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">NetworkType</span><span class="p">(</span><span class="n">net</span><span class="p">[</span><span class="s1">&#39;network_type&#39;</span><span class="p">])</span>
+        
+        <span class="k">if</span> <span class="s1">&#39;storage_controllers&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">sc</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;storage_controllers&#39;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="s1">&#39;controller_type&#39;</span> <span class="ow">in</span> <span class="n">sc</span><span class="p">:</span>
+                    <span class="n">sc</span><span class="p">[</span><span class="s1">&#39;controller_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">StorageControllerType</span><span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="s1">&#39;controller_type&#39;</span><span class="p">])</span>
+        
+        <span class="c1"># Create nested objects</span>
+        <span class="n">cpu</span> <span class="o">=</span> <span class="n">CPUConfig</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="p">{}))</span>
+        <span class="n">memory</span> <span class="o">=</span> <span class="n">MemoryConfig</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;memory&#39;</span><span class="p">,</span> <span class="p">{}))</span>
+        <span class="n">firmware</span> <span class="o">=</span> <span class="n">FirmwareConfig</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;firmware&#39;</span><span class="p">,</span> <span class="p">{}))</span>
+        <span class="n">boot</span> <span class="o">=</span> <span class="n">BootConfig</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;boot&#39;</span><span class="p">,</span> <span class="p">{}))</span>
+        
+        <span class="n">disks</span> <span class="o">=</span> <span class="p">[</span><span class="n">DiskConfig</span><span class="p">(</span><span class="o">**</span><span class="n">disk</span><span class="p">)</span> <span class="k">for</span> <span class="n">disk</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;disks&#39;</span><span class="p">,</span> <span class="p">[])]</span>
+        <span class="n">networks</span> <span class="o">=</span> <span class="p">[</span><span class="n">NetworkConfig</span><span class="p">(</span><span class="o">**</span><span class="n">net</span><span class="p">)</span> <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;networks&#39;</span><span class="p">,</span> <span class="p">[])]</span>
+        <span class="n">storage_controllers</span> <span class="o">=</span> <span class="p">[</span><span class="n">StorageControllerConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sc</span><span class="p">)</span> <span class="k">for</span> <span class="n">sc</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;storage_controllers&#39;</span><span class="p">,</span> <span class="p">[])]</span>
+        
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">cpu</span><span class="o">=</span><span class="n">cpu</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">firmware</span><span class="o">=</span><span class="n">firmware</span><span class="p">,</span>
+            <span class="n">disks</span><span class="o">=</span><span class="n">disks</span><span class="p">,</span>
+            <span class="n">networks</span><span class="o">=</span><span class="n">networks</span><span class="p">,</span>
+            <span class="n">boot</span><span class="o">=</span><span class="n">boot</span><span class="p">,</span>
+            <span class="n">storage_controllers</span><span class="o">=</span><span class="n">storage_controllers</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">data</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025، أحمد عبدالحليم أحمد.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1169 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="ar" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الوحدات الأساسية (Core) &mdash; vmctl 1.1.9 — التوثيق العربي</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/rtl.css?v=3258ed5a" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=9fcf941f"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=3d5367c0"></script>
+      <script src="../_static/fix-rtl.js?v=7e29484b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="بحث" href="../search.html" />
+    <link rel="next" title="موفرو الخدمة (Providers)" href="providers.html" />
+    <link rel="prev" title="مرجع API" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            vmctl
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">دليل المستخدم</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install.html">التثبيت</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#id2">المتطلبات</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#pypi">التثبيت من PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#id3">التثبيت من المصدر</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/install.html#id4">التحقق من التثبيت</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/quickstart.html">البدء السريع</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#id2">عرض قائمة الأجهزة الافتراضية</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#id3">تصدير جهاز افتراضي</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#id4">استيراد جهاز افتراضي (إعادة الإنشاء من ملف)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#id5">الاستنساخ من جهاز افتراضي موجود</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#id6">أوامر دورة حياة الجهاز الافتراضي</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/quickstart.html#id7">التحقق من صحة ملف الإعدادات</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">مرجع إعدادات الجهاز الافتراضي</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#id2">مثال بسيط</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#id3">الحقول الرئيسية</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#cpu">إعدادات المعالج (cpu)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#memory">إعدادات الذاكرة (memory)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#firmware">إعدادات البرنامج الثابت (firmware)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#disks">إعدادات الأقراص (disks)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#networks">إعدادات الشبكة (networks)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/configuration.html#boot">إعدادات الإقلاع (boot)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/batch.html">إنشاء أجهزة افتراضية دفعةً واحدة (Batch)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#id1">توليد قالب</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#id2">بنية ملف الدُّفعة</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#dry-run">تشغيل تجريبي (Dry-run)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#id3">التنفيذ الفعلي</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/batch.html#id4">تعريف القاعدة مباشرةً في الملف</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/completion.html">الإكمال التلقائي في الطرفية</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#bash">Bash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#zsh">Zsh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#fish">Fish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide/completion.html#id2">ما يُكمَل تلقائياً</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">مرجع سطر الأوامر</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cli/index.html">مرجع سطر الأوامر</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#vmctl">vmctl</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-batch">batch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../cli/index.html#vmctl-batch-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../cli/index.html#vmctl-batch-template">template</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-completion">completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-create">create</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-delete">delete</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-edit">edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-export">export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-import">import</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-list">list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-read">read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-start">start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-status">status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-stop">stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#vmctl-validate">validate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">مرجع API</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">مرجع API</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">الوحدات الأساسية (Core)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareType"><code class="docutils literal notranslate"><span class="pre">FirmwareType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.DiskType"><code class="docutils literal notranslate"><span class="pre">DiskType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.DiskVariant"><code class="docutils literal notranslate"><span class="pre">DiskVariant</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.DiskFormat"><code class="docutils literal notranslate"><span class="pre">DiskFormat</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkType"><code class="docutils literal notranslate"><span class="pre">NetworkType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerType"><code class="docutils literal notranslate"><span class="pre">StorageControllerType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig"><code class="docutils literal notranslate"><span class="pre">CPUConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig.count"><code class="docutils literal notranslate"><span class="pre">CPUConfig.count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig.hotplug"><code class="docutils literal notranslate"><span class="pre">CPUConfig.hotplug</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig.execution_cap"><code class="docutils literal notranslate"><span class="pre">CPUConfig.execution_cap</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig.pae"><code class="docutils literal notranslate"><span class="pre">CPUConfig.pae</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig.nested_virt"><code class="docutils literal notranslate"><span class="pre">CPUConfig.nested_virt</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">CPUConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.CPUConfig.__init__"><code class="docutils literal notranslate"><span class="pre">CPUConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.MemoryConfig"><code class="docutils literal notranslate"><span class="pre">MemoryConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.MemoryConfig.mb"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.mb</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.MemoryConfig.vram_mb"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.vram_mb</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.MemoryConfig.page_fusion"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.page_fusion</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.MemoryConfig.ballooning"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.ballooning</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.MemoryConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.MemoryConfig.__init__"><code class="docutils literal notranslate"><span class="pre">MemoryConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareConfig"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareConfig.type"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareConfig.secure_boot"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.secure_boot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareConfig.tpm"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.tpm</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareConfig.__init__"><code class="docutils literal notranslate"><span class="pre">FirmwareConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig"><code class="docutils literal notranslate"><span class="pre">DiskConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.name"><code class="docutils literal notranslate"><span class="pre">DiskConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.size_mb"><code class="docutils literal notranslate"><span class="pre">DiskConfig.size_mb</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.type"><code class="docutils literal notranslate"><span class="pre">DiskConfig.type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.format"><code class="docutils literal notranslate"><span class="pre">DiskConfig.format</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.variant"><code class="docutils literal notranslate"><span class="pre">DiskConfig.variant</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.controller"><code class="docutils literal notranslate"><span class="pre">DiskConfig.controller</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.controller_name"><code class="docutils literal notranslate"><span class="pre">DiskConfig.controller_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.port"><code class="docutils literal notranslate"><span class="pre">DiskConfig.port</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.device"><code class="docutils literal notranslate"><span class="pre">DiskConfig.device</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.bootable"><code class="docutils literal notranslate"><span class="pre">DiskConfig.bootable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.disk_path"><code class="docutils literal notranslate"><span class="pre">DiskConfig.disk_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">DiskConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.DiskConfig.__init__"><code class="docutils literal notranslate"><span class="pre">DiskConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig"><code class="docutils literal notranslate"><span class="pre">NetworkConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig.adapter_type"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.adapter_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig.network_type"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.network_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig.adapter_name"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.adapter_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig.mac_address"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.mac_address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig.promiscuous_mode"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.promiscuous_mode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkConfig.__init__"><code class="docutils literal notranslate"><span class="pre">NetworkConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.BootConfig"><code class="docutils literal notranslate"><span class="pre">BootConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.BootConfig.order"><code class="docutils literal notranslate"><span class="pre">BootConfig.order</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.BootConfig.acpi"><code class="docutils literal notranslate"><span class="pre">BootConfig.acpi</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.BootConfig.ioapic"><code class="docutils literal notranslate"><span class="pre">BootConfig.ioapic</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.BootConfig.hpet"><code class="docutils literal notranslate"><span class="pre">BootConfig.hpet</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.BootConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">BootConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.BootConfig.__init__"><code class="docutils literal notranslate"><span class="pre">BootConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerConfig"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerConfig.name"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerConfig.controller_type"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.controller_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerConfig.port_count"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.port_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerConfig.bootable"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.bootable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerConfig.__init__"><code class="docutils literal notranslate"><span class="pre">StorageControllerConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig"><code class="docutils literal notranslate"><span class="pre">VMConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">VMConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">VMConfig.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig.from_dict"><code class="docutils literal notranslate"><span class="pre">VMConfig.from_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig.__init__"><code class="docutils literal notranslate"><span class="pre">VMConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.__init__"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.read_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.read_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.create_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.create_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.edit_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.edit_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.delete_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.delete_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.list_vms"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.list_vms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.start_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.start_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.stop_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.stop_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.get_vm_status"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.get_vm_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.export_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.export_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.import_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.import_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.validate_vm"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.validate_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.engine.VMCtlEngine.get_serializer"><code class="docutils literal notranslate"><span class="pre">VMCtlEngine.get_serializer()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#vmctl.core.batch.BatchCreator"><code class="docutils literal notranslate"><span class="pre">BatchCreator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.batch.BatchCreator.__init__"><code class="docutils literal notranslate"><span class="pre">BatchCreator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.batch.BatchCreator.create_from_file"><code class="docutils literal notranslate"><span class="pre">BatchCreator.create_from_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vmctl.core.batch.BatchCreator.generate_batch_template"><code class="docutils literal notranslate"><span class="pre">BatchCreator.generate_batch_template()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="providers.html">موفرو الخدمة (Providers)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.__init__"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.name"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.capabilities"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.capabilities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.list_vms"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.list_vms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.read_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.read_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.create_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.create_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.delete_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.delete_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.start_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.start_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.stop_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.stop_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.backend.VirtualBoxBackend.get_vm_status"><code class="docutils literal notranslate"><span class="pre">VirtualBoxBackend.get_vm_status()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.__init__"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_vm_info"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.get_vm_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.get_disk_info"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.get_disk_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.parser.VirtualBoxParser.parse_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxParser.parse_vm()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.__init__"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="providers.html#vmctl.providers.virtualbox.emitter.VirtualBoxEmitter.emit_create_vm"><code class="docutils literal notranslate"><span class="pre">VirtualBoxEmitter.emit_create_vm()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="validators.html">التحقق من الصحة (Validators)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="validators.html#vmctl.validators.vm_validator.VMValidator"><code class="docutils literal notranslate"><span class="pre">VMValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="validators.html#vmctl.validators.vm_validator.VMValidator.__init__"><code class="docutils literal notranslate"><span class="pre">VMValidator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="validators.html#vmctl.validators.vm_validator.VMValidator.validate"><code class="docutils literal notranslate"><span class="pre">VMValidator.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="serializers.html">التسلسل والتحليل (Serializers)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer.save"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer.save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer.load"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer.load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.yaml_serializer.YAMLSerializer.to_string"><code class="docutils literal notranslate"><span class="pre">YAMLSerializer.to_string()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="serializers.html#vmctl.serializers.json_serializer.JSONSerializer"><code class="docutils literal notranslate"><span class="pre">JSONSerializer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.json_serializer.JSONSerializer.save"><code class="docutils literal notranslate"><span class="pre">JSONSerializer.save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.json_serializer.JSONSerializer.load"><code class="docutils literal notranslate"><span class="pre">JSONSerializer.load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="serializers.html#vmctl.serializers.json_serializer.JSONSerializer.to_string"><code class="docutils literal notranslate"><span class="pre">JSONSerializer.to_string()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">واجهة سطر الأوامر (CLI)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cli.html#vmctl.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">معلومات المشروع</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">سجل التغييرات</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#v1-1-9-2026">v1.1.9 (2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#v1-1-8-2025">v1.1.8 (2025)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#v1-1-7">v1.1.7 وما قبله</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">vmctl</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">مرجع API</a></li>
+      <li class="breadcrumb-item active">الوحدات الأساسية (Core)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/core.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-vmctl.core.vmconfig">
+<span id="core"></span><h1>الوحدات الأساسية (Core)<a class="headerlink" href="#module-vmctl.core.vmconfig" title="Link to this heading"></a></h1>
+<p>Core VM configuration models - the center of gravity</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.FirmwareType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">FirmwareType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#FirmwareType"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.FirmwareType" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>VM firmware type.</p>
+<p>Determines the boot firmware used by the virtual machine.
+EFI64 is required for Windows 11 and Secure Boot.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">DiskType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#DiskType"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.DiskType" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Virtual disk media type.</p>
+<p>HDD and SSD have identical performance in VirtualBox; the distinction
+is metadata-only. DVD represents an optical drive backed by an ISO image.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskVariant">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">DiskVariant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#DiskVariant"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.DiskVariant" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Disk allocation strategy.</p>
+<p>THIN (dynamic): the image file grows on demand up to <code class="docutils literal notranslate"><span class="pre">size_mb</span></code>.
+THICK (fixed): the full <code class="docutils literal notranslate"><span class="pre">size_mb</span></code> is pre-allocated on creation.
+RAW format always uses THICK regardless of this setting.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskFormat">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">DiskFormat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#DiskFormat"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.DiskFormat" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Disk image file format.</p>
+<p>VDI is the native VirtualBox format and is recommended for most use cases.
+VMDK and VHD are useful when the image needs to be shared with VMware or
+Hyper-V respectively. RAW produces a flat binary image with no metadata.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">NetworkType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#NetworkType"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.NetworkType" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Network adapter connection mode.</p>
+<p>NAT: outbound internet through the host; guests are not directly reachable.
+BRIDGED: guest appears as a first-class device on the physical network.
+HOSTONLY: isolated network shared only between the host and VMs.
+INTERNAL: VM-to-VM only; the host has no access.
+NATNETWORK: like NAT but multiple VMs share one DHCP domain.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">StorageControllerType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#StorageControllerType"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerType" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Storage bus / controller chipset type.</p>
+<p>IDE supports up to 2 ports (legacy; useful for optical drives).
+SATA (IntelAHCI) supports up to 30 ports and is the default.
+SCSI (LsiLogic) and SAS (LsiLogicSas) support up to 254/255 ports
+and are useful for high port-count configurations.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">CPUConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hotplug</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">execution_cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pae</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nested_virt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#CPUConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>CPU configuration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig.count">
+<span class="sig-name descname"><span class="pre">count</span></span><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig.count" title="Link to this definition"></a></dt>
+<dd><p>Number of virtual CPUs (1–128).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig.hotplug">
+<span class="sig-name descname"><span class="pre">hotplug</span></span><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig.hotplug" title="Link to this definition"></a></dt>
+<dd><p>Allow CPUs to be added/removed while the VM is running.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig.execution_cap">
+<span class="sig-name descname"><span class="pre">execution_cap</span></span><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig.execution_cap" title="Link to this definition"></a></dt>
+<dd><p>Maximum percentage of host CPU time the VM may use (1–100).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig.pae">
+<span class="sig-name descname"><span class="pre">pae</span></span><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig.pae" title="Link to this definition"></a></dt>
+<dd><p>Enable Physical Address Extension for 32-bit OSes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig.nested_virt">
+<span class="sig-name descname"><span class="pre">nested_virt</span></span><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig.nested_virt" title="Link to this definition"></a></dt>
+<dd><p>Enable nested virtualisation (required for running KVM inside VirtualBox).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#CPUConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Return CPU configuration as a plain dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>All fields with their current values.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.CPUConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hotplug</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">execution_cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pae</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nested_virt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.CPUConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.MemoryConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">MemoryConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vram_mb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_fusion</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ballooning</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#MemoryConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.MemoryConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Memory configuration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.MemoryConfig.mb">
+<span class="sig-name descname"><span class="pre">mb</span></span><a class="headerlink" href="#vmctl.core.vmconfig.MemoryConfig.mb" title="Link to this definition"></a></dt>
+<dd><p>RAM in megabytes (4–1,048,576).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.MemoryConfig.vram_mb">
+<span class="sig-name descname"><span class="pre">vram_mb</span></span><a class="headerlink" href="#vmctl.core.vmconfig.MemoryConfig.vram_mb" title="Link to this definition"></a></dt>
+<dd><p>Video RAM in megabytes (1–256).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.MemoryConfig.page_fusion">
+<span class="sig-name descname"><span class="pre">page_fusion</span></span><a class="headerlink" href="#vmctl.core.vmconfig.MemoryConfig.page_fusion" title="Link to this definition"></a></dt>
+<dd><p>Enable kernel same-page merging to reduce physical RAM usage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.MemoryConfig.ballooning">
+<span class="sig-name descname"><span class="pre">ballooning</span></span><a class="headerlink" href="#vmctl.core.vmconfig.MemoryConfig.ballooning" title="Link to this definition"></a></dt>
+<dd><p>Enable dynamic memory ballooning (guest must support it).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.MemoryConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#MemoryConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.MemoryConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Return memory configuration as a plain dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>All fields with their current values.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.MemoryConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vram_mb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_fusion</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ballooning</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.MemoryConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.FirmwareConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">FirmwareConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareType" title="vmctl.core.vmconfig.FirmwareType"><span class="pre">FirmwareType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">FirmwareType.BIOS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secure_boot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tpm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#FirmwareConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.FirmwareConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Firmware configuration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.FirmwareConfig.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#vmctl.core.vmconfig.FirmwareConfig.type" title="Link to this definition"></a></dt>
+<dd><p>Firmware type (BIOS, EFI, EFI64, EFI32).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareType" title="vmctl.core.vmconfig.FirmwareType">vmctl.core.vmconfig.FirmwareType</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.FirmwareConfig.secure_boot">
+<span class="sig-name descname"><span class="pre">secure_boot</span></span><a class="headerlink" href="#vmctl.core.vmconfig.FirmwareConfig.secure_boot" title="Link to this definition"></a></dt>
+<dd><p>Enable Secure Boot (requires EFI firmware).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.FirmwareConfig.tpm">
+<span class="sig-name descname"><span class="pre">tpm</span></span><a class="headerlink" href="#vmctl.core.vmconfig.FirmwareConfig.tpm" title="Link to this definition"></a></dt>
+<dd><p>Enable TPM chip emulation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.FirmwareConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#FirmwareConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.FirmwareConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Return firmware configuration as a plain dictionary.</p>
+<p>Enum values are serialised to their string representations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Fields with <code class="docutils literal notranslate"><span class="pre">type</span></code> as a string value.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.FirmwareConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.FirmwareType" title="vmctl.core.vmconfig.FirmwareType"><span class="pre">FirmwareType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">FirmwareType.BIOS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secure_boot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tpm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.FirmwareConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">DiskConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_mb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20480</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.DiskType" title="vmctl.core.vmconfig.DiskType"><span class="pre">DiskType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DiskType.HDD</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.DiskFormat" title="vmctl.core.vmconfig.DiskFormat"><span class="pre">DiskFormat</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DiskFormat.VDI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variant</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.DiskVariant" title="vmctl.core.vmconfig.DiskVariant"><span class="pre">DiskVariant</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DiskVariant.THIN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerType" title="vmctl.core.vmconfig.StorageControllerType"><span class="pre">StorageControllerType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">StorageControllerType.SATA</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'SATA'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bootable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disk_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#DiskConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Disk configuration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.name">
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.name" title="Link to this definition"></a></dt>
+<dd><p>Unique identifier for this disk within the VM (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;system&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;data&quot;</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.size_mb">
+<span class="sig-name descname"><span class="pre">size_mb</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.size_mb" title="Link to this definition"></a></dt>
+<dd><p>Disk capacity in megabytes (10–1,048,576).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.type" title="Link to this definition"></a></dt>
+<dd><p>Media type — HDD, SSD, or DVD.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#vmctl.core.vmconfig.DiskType" title="vmctl.core.vmconfig.DiskType">vmctl.core.vmconfig.DiskType</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.format">
+<span class="sig-name descname"><span class="pre">format</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.format" title="Link to this definition"></a></dt>
+<dd><p>Image file format — VDI, VMDK, VHD, or RAW.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#vmctl.core.vmconfig.DiskFormat" title="vmctl.core.vmconfig.DiskFormat">vmctl.core.vmconfig.DiskFormat</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.variant">
+<span class="sig-name descname"><span class="pre">variant</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.variant" title="Link to this definition"></a></dt>
+<dd><p>Allocation strategy — THIN (dynamic) or THICK (fixed).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#vmctl.core.vmconfig.DiskVariant" title="vmctl.core.vmconfig.DiskVariant">vmctl.core.vmconfig.DiskVariant</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.controller">
+<span class="sig-name descname"><span class="pre">controller</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.controller" title="Link to this definition"></a></dt>
+<dd><p>Storage bus type the disk is attached to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerType" title="vmctl.core.vmconfig.StorageControllerType">vmctl.core.vmconfig.StorageControllerType</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.controller_name">
+<span class="sig-name descname"><span class="pre">controller_name</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.controller_name" title="Link to this definition"></a></dt>
+<dd><p>Exact VirtualBox controller name (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;SATA</span> <span class="pre">Controller&quot;</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.port">
+<span class="sig-name descname"><span class="pre">port</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.port" title="Link to this definition"></a></dt>
+<dd><p>Controller port number (0-based).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.device">
+<span class="sig-name descname"><span class="pre">device</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.device" title="Link to this definition"></a></dt>
+<dd><p>Device number on the port (0 or 1).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.bootable">
+<span class="sig-name descname"><span class="pre">bootable</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.bootable" title="Link to this definition"></a></dt>
+<dd><p>Mark this disk as a boot device.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.disk_path">
+<span class="sig-name descname"><span class="pre">disk_path</span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.disk_path" title="Link to this definition"></a></dt>
+<dd><p>Original image path on the source system (not exported).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#DiskConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Return disk configuration as a plain dictionary.</p>
+<p>Enum values are serialised to their string representations.
+<code class="docutils literal notranslate"><span class="pre">disk_path</span></code> is excluded because it is host-specific.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Exportable fields with enum values as strings.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.DiskConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_mb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20480</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.DiskType" title="vmctl.core.vmconfig.DiskType"><span class="pre">DiskType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DiskType.HDD</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.DiskFormat" title="vmctl.core.vmconfig.DiskFormat"><span class="pre">DiskFormat</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DiskFormat.VDI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variant</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.DiskVariant" title="vmctl.core.vmconfig.DiskVariant"><span class="pre">DiskVariant</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DiskVariant.THIN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerType" title="vmctl.core.vmconfig.StorageControllerType"><span class="pre">StorageControllerType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">StorageControllerType.SATA</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'SATA'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bootable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disk_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.DiskConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">NetworkConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adapter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'82540EM'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">network_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkType" title="vmctl.core.vmconfig.NetworkType"><span class="pre">NetworkType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">NetworkType.NAT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adapter_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mac_address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promiscuous_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#NetworkConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Network adapter configuration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig.adapter_type">
+<span class="sig-name descname"><span class="pre">adapter_type</span></span><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig.adapter_type" title="Link to this definition"></a></dt>
+<dd><p>NIC chipset emulation (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;82540EM&quot;</span></code> for Intel PRO/1000 MT Desktop).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig.network_type">
+<span class="sig-name descname"><span class="pre">network_type</span></span><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig.network_type" title="Link to this definition"></a></dt>
+<dd><p>Connection mode (NAT, BRIDGED, HOSTONLY, INTERNAL, NATNETWORK).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#vmctl.core.vmconfig.NetworkType" title="vmctl.core.vmconfig.NetworkType">vmctl.core.vmconfig.NetworkType</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig.adapter_name">
+<span class="sig-name descname"><span class="pre">adapter_name</span></span><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig.adapter_name" title="Link to this definition"></a></dt>
+<dd><p>Physical or virtual interface name used for BRIDGED / HOSTONLY modes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig.mac_address">
+<span class="sig-name descname"><span class="pre">mac_address</span></span><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig.mac_address" title="Link to this definition"></a></dt>
+<dd><p>Custom MAC address; <code class="docutils literal notranslate"><span class="pre">None</span></code> lets VirtualBox assign one automatically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig.promiscuous_mode">
+<span class="sig-name descname"><span class="pre">promiscuous_mode</span></span><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig.promiscuous_mode" title="Link to this definition"></a></dt>
+<dd><p>Allow the adapter to receive packets not addressed to it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#NetworkConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Return network configuration as a plain dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Fields with <code class="docutils literal notranslate"><span class="pre">network_type</span></code> as a string value.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.NetworkConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adapter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'82540EM'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">network_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.NetworkType" title="vmctl.core.vmconfig.NetworkType"><span class="pre">NetworkType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">NetworkType.NAT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adapter_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mac_address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">promiscuous_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.NetworkConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.BootConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">BootConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order:</span> <span class="pre">~typing.List[str]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot1:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'disk'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot2:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'dvd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot3:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'none'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot4:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'none'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acpi:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ioapic:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpet:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#BootConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.BootConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Boot configuration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.BootConfig.order">
+<span class="sig-name descname"><span class="pre">order</span></span><a class="headerlink" href="#vmctl.core.vmconfig.BootConfig.order" title="Link to this definition"></a></dt>
+<dd><p>Ordered list of boot devices; valid values are
+<code class="docutils literal notranslate"><span class="pre">&quot;disk&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;dvd&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;floppy&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;network&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">boot1–boot4</span></span></dt>
+<dd><p>Individual boot slots derived from <code class="docutils literal notranslate"><span class="pre">order</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.BootConfig.acpi">
+<span class="sig-name descname"><span class="pre">acpi</span></span><a class="headerlink" href="#vmctl.core.vmconfig.BootConfig.acpi" title="Link to this definition"></a></dt>
+<dd><p>Enable ACPI support (required by most modern OSes).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.BootConfig.ioapic">
+<span class="sig-name descname"><span class="pre">ioapic</span></span><a class="headerlink" href="#vmctl.core.vmconfig.BootConfig.ioapic" title="Link to this definition"></a></dt>
+<dd><p>Enable I/O APIC (required for more than one CPU or for Windows).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.BootConfig.hpet">
+<span class="sig-name descname"><span class="pre">hpet</span></span><a class="headerlink" href="#vmctl.core.vmconfig.BootConfig.hpet" title="Link to this definition"></a></dt>
+<dd><p>Enable High Precision Event Timer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.BootConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#BootConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.BootConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Return boot configuration as a plain dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>All fields with their current values.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.BootConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order:</span> <span class="pre">~typing.List[str]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot1:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'disk'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot2:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'dvd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot3:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'none'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boot4:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'none'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acpi:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ioapic:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpet:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.BootConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">StorageControllerConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerType" title="vmctl.core.vmconfig.StorageControllerType"><span class="pre">StorageControllerType</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">port_count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bootable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#StorageControllerConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Storage controller configuration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerConfig.name">
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerConfig.name" title="Link to this definition"></a></dt>
+<dd><p>Unique controller name as it appears in VirtualBox
+(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;SATA</span> <span class="pre">Controller&quot;</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerConfig.controller_type">
+<span class="sig-name descname"><span class="pre">controller_type</span></span><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerConfig.controller_type" title="Link to this definition"></a></dt>
+<dd><p>Bus/chipset type (IDE, SATA, SCSI, SAS).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerType" title="vmctl.core.vmconfig.StorageControllerType">vmctl.core.vmconfig.StorageControllerType</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerConfig.port_count">
+<span class="sig-name descname"><span class="pre">port_count</span></span><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerConfig.port_count" title="Link to this definition"></a></dt>
+<dd><p>Number of available device ports.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerConfig.bootable">
+<span class="sig-name descname"><span class="pre">bootable</span></span><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerConfig.bootable" title="Link to this definition"></a></dt>
+<dd><p>Mark this controller as capable of booting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#StorageControllerConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Return storage controller configuration as a plain dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Fields with <code class="docutils literal notranslate"><span class="pre">controller_type</span></code> as a string value.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.StorageControllerConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.StorageControllerType" title="vmctl.core.vmconfig.StorageControllerType"><span class="pre">StorageControllerType</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">port_count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bootable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.StorageControllerConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.VMConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.vmconfig.</span></span><span class="sig-name descname"><span class="pre">VMConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">cpu:</span> <span class="pre">~vmctl.core.vmconfig.CPUConfig,</span> <span class="pre">memory:</span> <span class="pre">~vmctl.core.vmconfig.MemoryConfig,</span> <span class="pre">firmware:</span> <span class="pre">~vmctl.core.vmconfig.FirmwareConfig,</span> <span class="pre">disks:</span> <span class="pre">~typing.List[~vmctl.core.vmconfig.DiskConfig],</span> <span class="pre">networks:</span> <span class="pre">~typing.List[~vmctl.core.vmconfig.NetworkConfig],</span> <span class="pre">boot:</span> <span class="pre">~vmctl.core.vmconfig.BootConfig,</span> <span class="pre">storage_controllers:</span> <span class="pre">~typing.List[~vmctl.core.vmconfig.StorageControllerConfig],</span> <span class="pre">ostype:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'Ubuntu_64',</span> <span class="pre">description:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">audio_enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">clipboard_mode:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'disabled',</span> <span class="pre">draganddrop:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'disabled',</span> <span class="pre">usb_enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">rtc_utc:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">metadata:</span> <span class="pre">~typing.Dict[str,</span> <span class="pre">~typing.Any]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#VMConfig"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.VMConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Canonical VM configuration - the center of gravity</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.VMConfig.__post_init__">
+<span class="sig-name descname"><span class="pre">__post_init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#VMConfig.__post_init__"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.VMConfig.__post_init__" title="Link to this definition"></a></dt>
+<dd><p>Ensure the VM has at least one disk after construction.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">disks</span></code> is empty a default system disk named <code class="docutils literal notranslate"><span class="pre">&lt;vm_name&gt;_system</span></code>
+is created automatically with all default <code class="docutils literal notranslate"><span class="pre">DiskConfig</span></code> values.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.VMConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#VMConfig.to_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.VMConfig.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Convert VMConfig to dictionary for serialization</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.VMConfig.from_dict">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig" title="vmctl.core.vmconfig.VMConfig"><span class="pre">VMConfig</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/vmconfig.html#VMConfig.from_dict"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.vmconfig.VMConfig.from_dict" title="Link to this definition"></a></dt>
+<dd><p>Create VMConfig from dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.vmconfig.VMConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">cpu:</span> <span class="pre">~vmctl.core.vmconfig.CPUConfig,</span> <span class="pre">memory:</span> <span class="pre">~vmctl.core.vmconfig.MemoryConfig,</span> <span class="pre">firmware:</span> <span class="pre">~vmctl.core.vmconfig.FirmwareConfig,</span> <span class="pre">disks:</span> <span class="pre">~typing.List[~vmctl.core.vmconfig.DiskConfig],</span> <span class="pre">networks:</span> <span class="pre">~typing.List[~vmctl.core.vmconfig.NetworkConfig],</span> <span class="pre">boot:</span> <span class="pre">~vmctl.core.vmconfig.BootConfig,</span> <span class="pre">storage_controllers:</span> <span class="pre">~typing.List[~vmctl.core.vmconfig.StorageControllerConfig],</span> <span class="pre">ostype:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'Ubuntu_64',</span> <span class="pre">description:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">audio_enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">clipboard_mode:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'disabled',</span> <span class="pre">draganddrop:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'disabled',</span> <span class="pre">usb_enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">rtc_utc:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">metadata:</span> <span class="pre">~typing.Dict[str,</span> <span class="pre">~typing.Any]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#vmctl.core.vmconfig.VMConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p id="module-vmctl.core.engine">Core engine coordinating all components</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.engine.</span></span><span class="sig-name descname"><span class="pre">VMCtlEngine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'virtualbox'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Main engine coordinating all VM operations</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'virtualbox'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.__init__"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialise the engine with the specified hypervisor provider.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider</strong> -- Hypervisor backend to use. Currently only <code class="docutils literal notranslate"><span class="pre">&quot;virtualbox&quot;</span></code>
+is supported.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> -- If <code class="docutils literal notranslate"><span class="pre">provider</span></code> is not a recognised backend name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.read_vm">
+<span class="sig-name descname"><span class="pre">read_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig" title="vmctl.core.vmconfig.VMConfig"><span class="pre">VMConfig</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.read_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.read_vm" title="Link to this definition"></a></dt>
+<dd><p>Read VM configuration from provider</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.create_vm">
+<span class="sig-name descname"><span class="pre">create_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig" title="vmctl.core.vmconfig.VMConfig"><span class="pre">VMConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">validate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">execute</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.create_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.create_vm" title="Link to this definition"></a></dt>
+<dd><p>Create a new VM</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.edit_vm">
+<span class="sig-name descname"><span class="pre">edit_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig" title="vmctl.core.vmconfig.VMConfig"><span class="pre">VMConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.edit_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.edit_vm" title="Link to this definition"></a></dt>
+<dd><p>Edit existing VM</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.delete_vm">
+<span class="sig-name descname"><span class="pre">delete_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.delete_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.delete_vm" title="Link to this definition"></a></dt>
+<dd><p>Delete a VM</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.list_vms">
+<span class="sig-name descname"><span class="pre">list_vms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.list_vms"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.list_vms" title="Link to this definition"></a></dt>
+<dd><p>List all VMs</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.start_vm">
+<span class="sig-name descname"><span class="pre">start_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.start_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.start_vm" title="Link to this definition"></a></dt>
+<dd><p>Start a VM</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.stop_vm">
+<span class="sig-name descname"><span class="pre">stop_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.stop_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.stop_vm" title="Link to this definition"></a></dt>
+<dd><p>Stop a VM</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.get_vm_status">
+<span class="sig-name descname"><span class="pre">get_vm_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.get_vm_status"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.get_vm_status" title="Link to this definition"></a></dt>
+<dd><p>Get VM status</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.export_vm">
+<span class="sig-name descname"><span class="pre">export_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'yaml'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.export_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.export_vm" title="Link to this definition"></a></dt>
+<dd><p>Export VM configuration to file</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.import_vm">
+<span class="sig-name descname"><span class="pre">import_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig" title="vmctl.core.vmconfig.VMConfig"><span class="pre">VMConfig</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.import_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.import_vm" title="Link to this definition"></a></dt>
+<dd><p>Import VM configuration from file</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.validate_vm">
+<span class="sig-name descname"><span class="pre">validate_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig" title="vmctl.core.vmconfig.VMConfig"><span class="pre">VMConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.validate_vm"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.validate_vm" title="Link to this definition"></a></dt>
+<dd><p>Validate VM configuration</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.engine.VMCtlEngine.get_serializer">
+<span class="sig-name descname"><span class="pre">get_serializer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">VMConfigSerializer</span></span></span><a class="reference internal" href="../_modules/vmctl/core/engine.html#VMCtlEngine.get_serializer"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.engine.VMCtlEngine.get_serializer" title="Link to this definition"></a></dt>
+<dd><p>Get serializer for specified format</p>
+</dd></dl>
+
+</dd></dl>
+
+<p id="module-vmctl.core.batch">Batch VM creation engine</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vmctl.core.batch.BatchCreator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vmctl.core.batch.</span></span><span class="sig-name descname"><span class="pre">BatchCreator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">engine</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/batch.html#BatchCreator"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.batch.BatchCreator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Batch VM creation engine</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.batch.BatchCreator.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">engine</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vmctl/core/batch.html#BatchCreator.__init__"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.batch.BatchCreator.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialise the batch creator with an engine instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>engine</strong> -- A configured <a class="reference internal" href="#vmctl.core.engine.VMCtlEngine" title="vmctl.core.engine.VMCtlEngine"><code class="xref py py-class docutils literal notranslate"><span class="pre">VMCtlEngine</span></code></a> used
+to create, read, and validate individual VMs.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.batch.BatchCreator.create_from_file">
+<span class="sig-name descname"><span class="pre">create_from_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#vmctl.core.vmconfig.VMConfig" title="vmctl.core.vmconfig.VMConfig"><span class="pre">VMConfig</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/vmctl/core/batch.html#BatchCreator.create_from_file"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.batch.BatchCreator.create_from_file" title="Link to this definition"></a></dt>
+<dd><p>Create multiple VMs from batch definition file</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vmctl.core.batch.BatchCreator.generate_batch_template">
+<span class="sig-name descname"><span class="pre">generate_batch_template</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'yaml'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/vmctl/core/batch.html#BatchCreator.generate_batch_template"><span class="viewcode-link"><span class="pre">[المصدر]</span></span></a><a class="headerlink" href="#vmctl.core.batch.BatchCreator.generate_batch_template" title="Link to this definition"></a></dt>
+<dd><p>Generate a batch template file</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="مرجع API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="providers.html" class="btn btn-neutral float-right" title="موفرو الخدمة (Providers)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025، أحمد عبدالحليم أحمد.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
