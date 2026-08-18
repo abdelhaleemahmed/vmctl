@@ -1,0 +1,5 @@
+# Build dependencies for the vmctl documentation.
+sphinx>=7.0
+sphinx-rtd-theme>=2.0
+# vmctl itself is imported by autodoc, so its runtime dep is needed too:
+PyYAML>=6.0

@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vmctl"
+version = "2.0.0"
+description = "A comprehensive virtual machine management tool with config-as-code support"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+    {name = "Ahmed Abdelhaleem Ahmed", email = "ahmedhal@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
+keywords = [
+    "virtualbox",
+    "libvirt",
+    "qemu",
+    "vm",
+    "virtual-machine",
+    "management",
+    "automation",
+    "devops",
+    "infrastructure",
+]
+
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=22.0",
+    "flake8>=5.0",
+    "mypy>=0.991",
+    "build",
+    "twine",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/abdelhaleemahmed/vmctl"
+Repository = "https://github.com/abdelhaleemahmed/vmctl"
+Issues = "https://github.com/abdelhaleemahmed/vmctl/issues"
+
+[project.scripts]
+vmctl = "vmctl.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests", "tests.*", "venv", "venv.*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true

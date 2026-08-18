@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+# Envs
+venv/
+.venv/
+vmvtl_env/
+env/
+# Test / cache
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Sphinx build output
+_build/
+docs/_build/
