@@ -9,7 +9,7 @@
     <meta property="og:description" content="A config-as-code CLI for virtual machines: export to YAML/JSON, re-create reproducibly, batch-manage fleets.">
     <meta property="og:url" content="https://abdelhaleemahmed.github.io/vmctl/">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23667eea'/%3E%3Crect x='8' y='9' width='16' height='11' rx='1.5' fill='white'/%3E%3Crect x='13' y='21' width='6' height='2' rx='1' fill='white'/%3E%3Crect x='10' y='23' width='12' height='2' rx='1' fill='white'/%3E%3C/svg%3E">
+    <link rel="icon" href="images/favicon.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
@@ -31,7 +31,7 @@
         .bg-white { background: #ffffff; color: #2b2b3a; }
         .bg-footer { background: #14141f; color: #cfd2e6; }
         .hero { text-align: center; }
-        .logo { width: 78px; height: 60px; margin: 0 auto 16px; display: block; }
+        .logo { width: 144px; height: 144px; margin: 0 auto 16px; display: block; }
         h1 { font-size: 3.4rem; letter-spacing: 2px; text-shadow: 2px 2px 6px rgba(0,0,0,.22); }
         .tagline { font-size: 1.3rem; opacity: .96; margin-top: 4px; }
         .badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0 4px; }
@@ -71,6 +71,8 @@
         .term .p { color: #a5d6ff; } .term .c { color: #fff; }
         .term .ok { color: #56d364; } .term .hi { color: #d2a8ff; } .term .dim { color: #6e7681; }
         .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; }
+        .flow-wrap { overflow-x: auto; margin: 6px 0 26px; }
+        .flow { display: block; height: auto; margin: 0 auto; width: 100%; min-width: 640px; max-width: 960px; }
         .step { background: #fff; border-radius: 12px; padding: 20px; border-bottom: 4px solid #667eea;
             box-shadow: 0 8px 22px rgba(80,70,140,.08); }
         .step .n { display: inline-flex; width: 32px; height: 32px; border-radius: 50%;
@@ -118,12 +120,7 @@
         <!-- HERO -->
         <section class="section bg-hero">
             <div class="hero">
-                <svg class="logo" viewBox="0 0 150 116" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="6" y="6" width="138" height="80" rx="12" fill="none" stroke="#fff" stroke-width="7" opacity=".95"/>
-                    <rect x="30" y="30" width="90" height="32" rx="4" fill="#fff"/>
-                    <rect x="55" y="94" width="40" height="8" rx="4" fill="#fff"/>
-                    <rect x="40" y="104" width="70" height="8" rx="4" fill="#fff"/>
-                </svg>
+                <img class="logo" src="images/vmctl-icon.png" alt="vmctl logo">
                 <h1>vmctl</h1>
                 <p class="tagline">virtual machines as code</p>
 
@@ -196,6 +193,7 @@ windows-dev          stopped
         <section class="section bg-light">
             <h2 class="reveal">How it works</h2>
             <p class="sub reveal">Data-driven, and safe by default.</p>
+            <div class="flow-wrap reveal"><img class="flow" src="images/how-vmctl-works.png" alt="How vmctl works: describe a VM, then apply it, then clone it, then scale to a fleet"></div>
             <div class="steps">
                 <div class="step reveal"><span class="n">1</span><h3>Export</h3><p>Capture a live VM — CPU, memory, firmware, disks, networks — into a YAML/JSON document.</p></div>
                 <div class="step reveal"><span class="n">2</span><h3>Version</h3><p>Commit the config to Git. Your infrastructure is now reviewable, diffable, reproducible.</p></div>
