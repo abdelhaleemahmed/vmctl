@@ -2,6 +2,8 @@
 Command-line interface for vmctl — Click-based with shell completion.
 """
 
+import json
+import os
 import sys
 from pathlib import Path
 import click
@@ -14,7 +16,7 @@ from vmctl.core.engine import VMCtlEngine
 from vmctl.core.convert import convert as plan_convert
 from vmctl.core.migrate import plan_migration
 from vmctl.core.translate import Policy
-from vmctl.core.vmconfig import DiskFormat
+from vmctl.core.vmconfig import DeviceKind, DiskFormat
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 from vmctl.core.batch import BatchCreator
 from vmctl.core.exceptions import (
@@ -114,13 +116,14 @@ def _require_absent(engine, name: str) -> None:
         _fail(VMAlreadyExistsError(name))
 
 
-def _show_plan(plan, execute: bool, done_message: str) -> None:
+def _show_plan(plan, execute: bool, done_message: str, out: Optional[str] = None) -> None:
     """Report a plan: either what was run, or what would be.
 
     Args:
         plan: The plan returned by the engine.
         execute: Whether it was actually applied.
         done_message: What to print when it was.
+        out: Where to also write it as a native artifact (E-16).
     """
     for message in plan.warnings:
         _warn(message)
@@ -129,6 +132,9 @@ def _show_plan(plan, execute: bool, done_message: str) -> None:
         click.echo("No changes to apply.")
         return
 
+    if out is not None:
+        _write_plan(plan, out)
+
     if execute:
         click.echo(done_message)
         click.echo(plan.render())
@@ -136,6 +142,52 @@ def _show_plan(plan, execute: bool, done_message: str) -> None:
         click.echo("Dry-run mode.  Commands that would be executed:")
         click.echo(plan.render())
         click.echo("\nRun with --execute to apply.")
+
+
+def _write_plan(plan, out: str) -> None:
+    """Write a plan out as something another tool can use (E-16).
+
+    ``Plan`` was introduced so that "what vmctl would do" is data rather than a
+    printed line (A-01); this is where that pays off for someone who wants to keep
+    the work, review it, or run it from their own pipeline.
+
+    One rule, so there is nothing to guess: a path that is a directory (or ends in a
+    separator) gets ``plan.sh`` *and* each native artifact as its own file -- the
+    libvirt domain XML, the ``.vmx``, the QEMU run script. Any other path gets the
+    script, which is complete on its own because it carries those artifacts inline as
+    heredocs.
+
+    Args:
+        plan: The plan to write.
+        out: Where to write it.
+    """
+    # The trailing separator is the distinction, kept as a string on purpose:
+    # pathlib normalises it away, and it is how cp and rsync are told the same thing.
+    as_directory = out.endswith(("/", os.sep)) or Path(out).is_dir()
+    destination = Path(out)
+    try:
+        script = plan.as_script()
+    except ValueError as exc:
+        _fail(ProviderError(f"this provider's plan cannot be written as a script: {exc}"))
+        return
+
+    written: List[Path] = []
+    if as_directory:
+        destination.mkdir(parents=True, exist_ok=True)
+        for path, content in plan.native_artifacts().items():
+            target = destination / Path(path).name
+            target.write_text(content)
+            written.append(target)
+        target = destination / "plan.sh"
+        target.write_text(script)
+        written.append(target)
+    else:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(script)
+        written.append(destination)
+
+    for path in written:
+        click.echo(f"Wrote {path}")
 
 
 def _fail(exc: Exception) -> None:
@@ -453,8 +505,16 @@ def cmd_export(ctx, vm_name, output, fmt):
     "(strict), substitute the nearest supported value and report it (nearest), "
     "or also convert disk images (convert).",
 )
+@click.option(
+    "--out",
+    default=None,
+    metavar="PATH",
+    help="Also write the plan out. A plain path gets a shell script; a path ending "
+    "in / (or an existing directory) gets plan.sh plus the provider's own artifact "
+    "-- the domain XML, the .vmx, the run script.",
+)
 @click.pass_context
-def cmd_import(ctx, config_file, new_name, disk_format, policy, execute):
+def cmd_import(ctx, config_file, new_name, disk_format, policy, execute, out):
     """Create a VM from a YAML or JSON configuration file.
 
     Without --execute the command prints the VBoxManage commands that
@@ -476,7 +536,7 @@ def cmd_import(ctx, config_file, new_name, disk_format, policy, execute):
         if execute:
             _require_absent(engine, vm.name)
         plan = engine.create_vm(vm, execute=execute, on_warning=_warn, policy=Policy(policy))
-        _show_plan(plan, execute, f"Created VM '{vm.name}' from {config_file}")
+        _show_plan(plan, execute, f"Created VM '{vm.name}' from {config_file}", out)
     except VMToolError as e:
         _fail(e)
 
@@ -511,8 +571,16 @@ def cmd_import(ctx, config_file, new_name, disk_format, policy, execute):
     "(strict), substitute the nearest supported value and report it (nearest), "
     "or also convert disk images (convert).",
 )
+@click.option(
+    "--out",
+    default=None,
+    metavar="PATH",
+    help="Also write the plan out. A plain path gets a shell script; a path ending "
+    "in / (or an existing directory) gets plan.sh plus the provider's own artifact "
+    "-- the domain XML, the .vmx, the run script.",
+)
 @click.pass_context
-def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, execute):
+def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, execute, out):
     """Clone a VM configuration from an existing VirtualBox VM.
 
     Reads the source VM's configuration live from VirtualBox, applies
@@ -538,7 +606,7 @@ def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, exec
         if execute:
             _require_absent(engine, vm.name)
         plan = engine.create_vm(vm, execute=execute, on_warning=_warn, policy=Policy(policy))
-        _show_plan(plan, execute, f"Created VM '{vm.name}'")
+        _show_plan(plan, execute, f"Created VM '{vm.name}'", out)
     except VMToolError as e:
         _fail(e)
 
@@ -559,8 +627,16 @@ def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, exec
     is_flag=True,
     help="Actually apply the change (dry-run by default).",
 )
+@click.option(
+    "--out",
+    default=None,
+    metavar="PATH",
+    help="Also write the plan out. A plain path gets a shell script; a path ending "
+    "in / (or an existing directory) gets plan.sh plus the provider's own artifact "
+    "-- the domain XML, the .vmx, the run script.",
+)
 @click.pass_context
-def cmd_edit(ctx, vm_name, new_name, memory, vram, cpus, execute):
+def cmd_edit(ctx, vm_name, new_name, memory, vram, cpus, execute, out):
     """Change the CPU, memory, video memory or name of an existing VM.
 
     Only the settings you pass are changed, and only the ones that actually
@@ -587,7 +663,7 @@ def cmd_edit(ctx, vm_name, new_name, memory, vram, cpus, execute):
             vm.cpu.count = cpus
 
         plan = engine.edit_vm(vm_name, vm, execute=execute, on_warning=_warn)
-        _show_plan(plan, execute, f"Updated VM '{vm_name}'")
+        _show_plan(plan, execute, f"Updated VM '{vm_name}'", out)
     except VMToolError as e:
         _fail(e)
 
@@ -853,8 +929,16 @@ def batch_template(ctx, output, fmt):
     is_flag=True,
     help="Actually perform the migration (dry-run by default).",
 )
+@click.option(
+    "--out",
+    default=None,
+    metavar="PATH",
+    help="Also write the plan out. A plain path gets a shell script; a path ending "
+    "in / (or an existing directory) gets plan.sh plus the provider's own artifact "
+    "-- the domain XML, the .vmx, the run script.",
+)
 @click.pass_context
-def cmd_migrate(ctx, vm_name, target_name, source_name, new_name, with_disks, policy, execute):
+def cmd_migrate(ctx, vm_name, target_name, source_name, new_name, with_disks, policy, execute, out):
     """Recreate a VM on a different hypervisor.
 
     Reads the VM from one provider, works out how to express it on another, and
@@ -902,6 +986,7 @@ def cmd_migrate(ctx, vm_name, target_name, source_name, new_name, with_disks, po
             migration.plan,
             execute,
             f"Migrated {vm_name} to {migration.target_provider} " f"as {migration.vm.name}",
+            out,
         )
     except VMToolError as e:
         _fail(e)
@@ -1044,6 +1129,169 @@ def cmd_providers():
             status += " *"
         click.echo(f"{entry.name:<14} {status:<12} {version:<12} {entry.description}")
     click.echo("\n* the provider vmctl would use by default")
+
+
+# ---------------------------------------------------------------------------
+# capabilities
+# ---------------------------------------------------------------------------
+
+
+@cli.command("capabilities")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Print a table to read, or JSON to process.",
+)
+@click.pass_context
+def cmd_capabilities(ctx, fmt):
+    """Print what this hypervisor can actually do.
+
+    The same declaration the validator and the translator read, so what is printed
+    here is what vmctl will accept -- including the attach matrix, which answers
+    "can this hypervisor put a CD-ROM on NVMe?" without reading any source.
+
+    Every figure has a provenance line at the end: which product and version it was
+    measured against.
+
+    \b
+    Examples:
+      vmctl capabilities                  # the provider vmctl would use
+      vmctl -p vmware capabilities        # a specific one
+      vmctl capabilities --format json    # for a script
+    """
+    try:
+        caps = _engine(ctx).backend.capabilities
+    except Exception as exc:  # pragma: no cover - reported, not raised
+        _fail(exc)
+        return
+
+    if fmt == "json":
+        click.echo(json.dumps(_capabilities_as_dict(caps), indent=2, sort_keys=True))
+        return
+
+    click.echo(f"provider: {caps.provider}")
+    click.echo(
+        f"limits:   {caps.max_cpus} CPUs, {caps.max_memory_mb} MB RAM, "
+        f"{caps.max_disks} devices, {caps.max_network_adapters} adapters"
+    )
+
+    click.echo("\nformats (create / attach):")
+    for fmt_name, spec in sorted(caps.formats.items(), key=lambda pair: pair[0].value):
+        create = "yes" if spec.support.creatable else "no"
+        attach = "yes" if spec.support.usable else "no"
+        allocations = "/".join(spec.allocations) or "-"
+        native = "  <- native" if fmt_name is caps.native_format else ""
+        click.echo(
+            f"  {fmt_name.value:<10} create {create:<4} attach {attach:<4} "
+            f"{allocations:<11} {spec.support.describe()}{native}"
+        )
+
+    click.echo("\nbuses:")
+    kinds = list(DeviceKind)
+    header = "  " + f"{'bus':<14}" + "".join(f"{kind.value:<8}" for kind in kinds)
+    click.echo(header + "ports")
+    for bus, spec in sorted(caps.buses.items(), key=lambda pair: pair[0].value):
+        marks = "".join(f"{('yes' if caps.can_attach(kind, bus) else '-'):<8}" for kind in kinds)
+        fixed = spec.fixed_port_count
+        ports = f"{fixed} exactly" if fixed else f"{spec.min_ports}-{spec.max_ports}"
+        if spec.units_per_port > 1:
+            ports += f" x {spec.units_per_port}"
+        native = [k.value for k, b in caps.native_buses.items() if b is bus]
+        click.echo(
+            f"  {bus.value:<14}{marks}{ports}"
+            + (f"   <- native for {', '.join(native)}" if native else "")
+        )
+
+    click.echo(
+        # Support.describe() is phrased for a *format*'s error message, so the
+        # firmware line uses the plain support word instead of that sentence.
+        "\nfirmware: "
+        + ", ".join(
+            f"{firmware.value} ({support.value})"
+            for firmware, support in sorted(caps.firmware.items(), key=lambda p: p[0].value)
+        )
+    )
+    click.echo("network:  " + (", ".join(caps.supported_network_types) or "-"))
+    click.echo(
+        "nics:     "
+        + (
+            ", ".join(
+                f"{model.value} ({native})"
+                for model, native in sorted(caps.nic_models.items(), key=lambda pair: pair[0].value)
+            )
+            or "-"
+        )
+    )
+    click.echo(
+        "machine:  "
+        + (
+            ", ".join(caps.machine_types[:4]) + ("..." if len(caps.machine_types) > 4 else "")
+            or "not a setting on this provider"
+        )
+    )
+    click.echo(
+        f"cpu:      topology {_yes(caps.cpu_topology)}, "
+        f"model choice {_yes(caps.cpu_model_choice)}"
+    )
+    click.echo(f"names:    at most {caps.name_max_length} characters, {caps.name_pattern}")
+    if caps.evidence:
+        click.echo(f"\nevidence: {caps.evidence}")
+
+
+def _yes(value: bool) -> str:
+    return "yes" if value else "no"
+
+
+def _capabilities_as_dict(caps) -> dict:
+    """Return a capability declaration as plain data.
+
+    The JSON form is the one a script or another tool reads, so it states the same
+    facts as the table rather than a summary of them.
+    """
+    return {
+        "provider": caps.provider,
+        "native_format": caps.native_format.value,
+        "formats": {
+            fmt.value: {
+                "support": spec.support.value,
+                "creatable": spec.support.creatable,
+                "attachable": spec.support.usable,
+                "allocations": list(spec.allocations),
+                "extensions": list(spec.extensions),
+                "native_name": spec.native_name,
+            }
+            for fmt, spec in caps.formats.items()
+        },
+        "buses": {
+            bus.value: {
+                "min_ports": spec.min_ports,
+                "max_ports": spec.max_ports,
+                "units_per_port": spec.units_per_port,
+                "bootable": spec.bootable,
+                "hotplug": spec.hotplug,
+                "carries": [kind.value for kind in DeviceKind if caps.can_attach(kind, bus)],
+            }
+            for bus, spec in caps.buses.items()
+        },
+        "native_buses": {kind.value: bus.value for kind, bus in caps.native_buses.items()},
+        "firmware": {f.value: s.value for f, s in caps.firmware.items()},
+        "nic_models": {model.value: native for model, native in caps.nic_models.items()},
+        "arches": [arch.value for arch in caps.arches],
+        "machine_types": list(caps.machine_types),
+        "cpu": {"topology": caps.cpu_topology, "model_choice": caps.cpu_model_choice},
+        "limits": {
+            "max_cpus": caps.max_cpus,
+            "max_memory_mb": caps.max_memory_mb,
+            "max_disks": caps.max_disks,
+            "max_network_adapters": caps.max_network_adapters,
+            "max_vram_mb": caps.max_vram_mb,
+            "name_max_length": caps.name_max_length,
+        },
+        "network_types": list(caps.supported_network_types),
+        "evidence": caps.evidence,
+    }
 
 
 # ---------------------------------------------------------------------------

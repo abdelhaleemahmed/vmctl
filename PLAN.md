@@ -2173,17 +2173,30 @@ the model (E-03, E-05) want Phase 5 first.
   which is exactly what config-as-code users expect. Generate it from the
   dataclasses so it cannot drift; have CI assert the committed copy is current.
 
-- **E-16 `--out <path>` native artifact export · S.** Once `A-01` exists, dump
+- **E-16 `--out <path>` native artifact export · S. *(done)*** Once `A-01` exists, dump
   what would run — a shell script, a libvirt domain XML, a `.vmx`, a PowerShell
   script — instead of only printing it. Reviewable, committable, and the natural
   bridge for anyone who wants to hand the artifact to their own tooling.
+
+  > Done on `import`, `create`, `edit` and `migrate`. One rule, so there is nothing
+  > to guess: a plain path gets the shell script, which is complete on its own
+  > because `Plan.as_script()` carries the native artifact inline as a heredoc; a
+  > path ending in a separator gets `plan.sh` *plus* each artifact as its own file.
+  > The trailing separator is kept as a raw string rather than a `Path`, because
+  > pathlib normalises it away and it is exactly how `cp` and `rsync` are told the
+  > same thing. Verified by running a generated script: it created the VM.
 - **E-20 `vmctl convert <src> <dst>` · done.** Delivered with `M-05`: the
   conversion service needed a surface before `P-06` existed, and a service
   nothing calls is a service nothing has tested.
-- **E-17 `vmctl capabilities [-p provider]` · S.** Print the support matrix:
+- **E-17 `vmctl capabilities [-p provider]` · S. *(done)*** Print the support matrix:
   formats, buses, which device kinds attach to which bus, limits, detected
   version. Answers "can this hypervisor do NVMe CD-ROM?" without reading source,
   and it is the same declaration the docs and the validator read (M-03).
+
+  > Done, with `--format json` for scripts. It prints the `evidence` string last,
+  > which turned out to be the most valuable line: a measured limit and a remembered
+  > one look identical in a table, and four providers' declarations now differ in
+  > ways a reader can check — VMware has vmxnet3 and no virtio, QEMU the reverse.
 
 ### Tier B — quality of life
 
@@ -2429,7 +2442,7 @@ Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [x] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
 Phase 7  [ ] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema
-         [ ] E-16 --out native artifacts       [ ] E-17 capabilities command
+         [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [ ] E-03 clone-disks  [ ] E-05 capability probing
          [ ] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C
 ```

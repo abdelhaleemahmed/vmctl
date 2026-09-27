@@ -96,6 +96,13 @@ things prevented that:
 
 ### Added
 
+- **`vmctl capabilities`** prints what a hypervisor can actually do: formats, buses,
+  which device kinds attach to which bus, limits — and where each figure was
+  measured. `--format json` for scripts.
+- **`--out PATH`** on `import`, `create`, `edit` and `migrate` writes the plan out
+  instead of only printing it: a runnable shell script, or a directory to get the
+  hypervisor's own artifact (the libvirt domain XML, the `.vmx`, the QEMU run script)
+  beside it.
 - Fixed, all found by actually migrating VMs between hypervisors: a `.vmx`'s disks
   could not be found from outside its own directory (so they came back as 20 GB
   blanks); `migrate --with-disks` failed because the conversion ran before anything

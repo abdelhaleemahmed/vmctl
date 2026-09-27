@@ -29,6 +29,7 @@ Requires a supported hypervisor:
 vmctl providers                 # what is usable on this machine
 vmctl -p libvirt list           # talk to a specific one
 export VMCTL_PROVIDER=libvirt   # ...or set a default
+vmctl -p vmware capabilities    # what that hypervisor can actually do
 ```
 
 With no `--provider`, vmctl uses `$VMCTL_PROVIDER`, then whichever hypervisor
@@ -138,6 +139,42 @@ Warning: memory.vram_mb: 16 was not applied (video memory is a device property h
 A substitution lands on the bus that hypervisor's own users would pick — a disk
 moves to `virtio-scsi` under libvirt, an optical drive to `sata` — rather than
 merely somewhere valid.
+
+### What Can This Hypervisor Do?
+
+`vmctl capabilities` prints the declaration the validator and the translator read,
+so what it shows is what vmctl will accept — including the attach matrix, which
+answers questions like "can this one put a CD-ROM on NVMe?" without reading source.
+
+```
+$ vmctl -p vmware capabilities
+buses:
+  bus           disk    cdrom   floppy  ports
+  ide           yes     yes     -       1-2 x 2
+  nvme          yes     -       -       1-64
+  sata          yes     yes     -       1-30   <- native for cdrom
+  scsi          yes     yes     -       1-16   <- native for disk
+
+evidence: probed on VMware Workstation 17 ... Port limits measured by attaching a
+disk at each address -- VMware silently ignores one it cannot place, so the limits
+are the only thing that catches it.
+```
+
+Every figure carries its provenance, because a measured limit and a remembered one
+look identical in a table. `--format json` gives the same facts for a script.
+
+### Keeping The Plan
+
+Anything that would change a VM can be written out instead of only printed:
+
+```bash
+vmctl -p libvirt import web.yaml --out plan.sh      # a runnable shell script
+vmctl -p libvirt import web.yaml --out artifacts/   # ...plus the domain XML itself
+```
+
+A plain path gets the script — complete on its own, with the native artifact inline.
+A path ending in `/` also gets that artifact as its own file: the libvirt domain XML,
+the VMware `.vmx`, the QEMU run script. Neither form executes anything.
 
 ### Config-as-Code
 Every VM is a plain YAML (or JSON) file. Put it in Git, share it with a team, or use it to recreate the machine after a disk failure.
@@ -274,7 +311,8 @@ VM — set it in the config file.
 | Command | Description |
 |---------|-------------|
 | `vmctl providers` | List hypervisors and whether they work here |
-| `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute]` | Recreate a VM on another hypervisor |
+| `vmctl capabilities [--format json]` | Print what this hypervisor supports: formats, buses, the attach matrix, limits — and where each figure was measured |
+| `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute] [--out PATH]` | Recreate a VM on another hypervisor |
 | `vmctl convert <src> <dst> [--to FMT] [--execute]` | Convert a disk image between formats |
 | `vmctl list [--format table\|simple]` | List all VMs with status |
 | `vmctl status <vm>` | Show current VM state |
@@ -282,7 +320,7 @@ VM — set it in the config file.
 | `vmctl stop <vm> [-f] [--wait SECONDS]` | Stop VM (graceful or forced), optionally waiting for it |
 | `vmctl read <vm> [--format yaml\|json]` | Print VM configuration |
 | `vmctl export <vm> -o <file>` | Save VM config to file |
-| `vmctl import <file> [--new-name <n>] [--execute]` | Create VM from config file |
+| `vmctl import <file> [--new-name <n>] [--execute] [--out PATH]` | Create VM from config file |
 | `vmctl create <vm> --new-name <n> [--execute]` | Clone VM config from existing VM |
 | `vmctl edit <vm> [--memory MB] [--vram MB] [--cpus N] [--new-name <n>] [--execute]` | Change a stopped VM's CPU, memory or name (dry-run by default) |
 | `vmctl delete <vm> [-f]` | Delete VM and disk files |

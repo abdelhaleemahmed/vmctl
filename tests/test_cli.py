@@ -618,3 +618,115 @@ def test_migrating_a_vdi_to_libvirt_is_refused_by_default(runner, vbox):
     assert result.exit_code == 1
     assert "vdi is not supported" in result.output
     assert "--policy nearest" in result.output
+
+
+# ---------------------------------------------------------------------------
+# capabilities (E-17)
+# ---------------------------------------------------------------------------
+
+
+def test_capabilities_prints_the_attach_matrix(runner):
+    """The question it exists to answer: can this hypervisor put a CD-ROM on NVMe?
+    Previously only readable in the source."""
+    result = runner.invoke(cli, ["-p", "vmware", "capabilities"])
+    assert result.exit_code == 0
+    assert "nvme" in result.output
+    lines = [line for line in result.output.splitlines() if line.strip().startswith("nvme")]
+    # disk yes, cdrom no -- the one refusal VMware makes.
+    assert lines and lines[0].split()[1:3] == ["yes", "-"]
+
+
+def test_capabilities_says_where_its_figures_came_from(runner):
+    """A measured limit and a remembered one look identical in a table, so the
+    declaration carries its provenance and this prints it."""
+    result = runner.invoke(cli, ["-p", "vmware", "capabilities"])
+    assert "evidence:" in result.output
+    assert "Workstation 17" in result.output
+
+
+def test_capabilities_names_the_native_format_and_bus(runner):
+    result = runner.invoke(cli, ["-p", "qemu", "capabilities"])
+    assert "<- native" in result.output
+    assert "native for disk" in result.output
+
+
+def test_capabilities_as_json_is_the_same_facts(runner):
+    import json as _json
+
+    result = runner.invoke(cli, ["-p", "qemu", "capabilities", "--format", "json"])
+    assert result.exit_code == 0
+    data = _json.loads(result.output)
+    assert data["provider"] == "qemu"
+    assert data["native_format"] == "qcow2"
+    assert data["buses"]["virtio-blk"]["carries"] == ["disk", "cdrom"]
+    assert "nvme" not in data["buses"], "this QEMU build has no NVMe"
+
+
+def test_capabilities_differ_between_providers(runner):
+    """Four products, four declarations -- which is the whole point of measuring each
+    one rather than sharing a table. VMware has vmxnet3 and no virtio; QEMU has virtio
+    and no vmxnet3."""
+    import json as _json
+
+    def declaration(provider):
+        result = runner.invoke(cli, ["-p", provider, "capabilities", "--format", "json"])
+        assert result.exit_code == 0, result.output
+        return _json.loads(result.output)
+
+    qemu = declaration("qemu")
+    vmware = declaration("vmware")
+    assert (qemu["native_format"], vmware["native_format"]) == ("qcow2", "vmdk")
+    assert "virtio" in qemu["nic_models"] and "virtio" not in vmware["nic_models"]
+    assert "vmxnet3" in vmware["nic_models"] and "vmxnet3" not in qemu["nic_models"]
+
+
+# ---------------------------------------------------------------------------
+# --out (E-16)
+# ---------------------------------------------------------------------------
+
+
+def test_out_writes_a_runnable_script(runner, tmp_path):
+    """A-01 made "what vmctl would do" data rather than a printed line; this is where
+    that pays off for someone who wants to keep it or run it from their own pipeline."""
+    config = tmp_path / "vm.yaml"
+    config.write_text("name: out-demo\ncpu:\n  count: 1\nmemory:\n  mb: 128\n")
+    script = tmp_path / "plan.sh"
+    result = runner.invoke(
+        cli, ["-p", "qemu", "import", str(config), "--policy", "nearest", "--out", str(script)]
+    )
+    assert result.exit_code == 0
+    assert f"Wrote {script}" in result.output
+    text = script.read_text()
+    assert text.startswith("#!/bin/sh")
+    assert "set -e" in text
+    assert "qemu-img create" in text
+
+
+def test_out_with_a_trailing_slash_writes_the_native_artifact_too(runner, tmp_path):
+    """The trailing separator is the distinction, the way cp and rsync read it --
+    pathlib normalises it away, so the option keeps the raw string."""
+    config = tmp_path / "vm.yaml"
+    config.write_text("name: out-demo\ncpu:\n  count: 1\nmemory:\n  mb: 128\n")
+    out = tmp_path / "artifacts"
+    result = runner.invoke(
+        cli,
+        ["-p", "libvirt", "import", str(config), "--policy", "nearest", "--out", f"{out}/"],
+    )
+    assert result.exit_code == 0
+    assert (out / "plan.sh").exists()
+    # The domain XML on its own, for anyone who wants to hand it to virsh directly.
+    xml = out / "out-demo.xml"
+    assert xml.exists()
+    assert xml.read_text().startswith("<domain")
+
+
+def test_out_does_not_execute_anything(runner, tmp_path):
+    """`--out` is for review; it is not a sneaky --execute."""
+    config = tmp_path / "vm.yaml"
+    config.write_text("name: out-demo\ncpu:\n  count: 1\nmemory:\n  mb: 128\n")
+    out = tmp_path / "plan.sh"
+    result = runner.invoke(
+        cli, ["-p", "qemu", "import", str(config), "--policy", "nearest", "--out", str(out)]
+    )
+    assert "Dry-run" in result.output
+    assert not (tmp_path / "out-demo").exists()
