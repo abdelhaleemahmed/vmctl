@@ -8,13 +8,13 @@ from collections import OrderedDict
 from typing import List, Dict, Optional
 from ...core.vmconfig import (
     VMConfig,
-    DiskType,
-    DiskVariant,
+    DeviceKind,
+    Allocation,
     FirmwareType,
     NetworkConfig,
     NetworkType,
     StorageControllerConfig,
-    StorageControllerType,
+    BusType,
     resolve_controller,
 )
 from ...core.exceptions import ProviderError
@@ -158,7 +158,7 @@ class VirtualBoxEmitter:
         # Where each device sits, decided once and shared with the validator and
         # every other provider (A-06).
         placements = place(vm, self.capabilities)
-        by_bus: Dict[StorageControllerType, StorageControllerConfig] = {}
+        by_bus: Dict[BusType, StorageControllerConfig] = {}
         for sc in controllers.values():
             by_bus.setdefault(sc.controller_type, sc)
             commands.append(self._create_storage_controller(sc))
@@ -194,7 +194,7 @@ class VirtualBoxEmitter:
                 )
 
                 allocation = translator.allocation_for(disk, chosen_format, f"disks[{index}]")
-                vbox_variant = "Fixed" if allocation == DiskVariant.THICK else "Standard"
+                vbox_variant = "Fixed" if allocation == Allocation.THICK else "Standard"
 
                 commands.append(
                     [
@@ -212,23 +212,27 @@ class VirtualBoxEmitter:
                     ]
                 )
 
-            commands.append(
-                [
-                    "VBoxManage",
-                    "storageattach",
-                    vm.name,
-                    "--storagectl",
-                    controller.name,
-                    "--port",
-                    str(placement.port),
-                    "--device",
-                    str(placement.unit),
-                    "--type",
-                    attach_type,
-                    "--medium",
-                    medium,
-                ]
-            )
+            attach = [
+                "VBoxManage",
+                "storageattach",
+                vm.name,
+                "--storagectl",
+                controller.name,
+                "--port",
+                str(placement.port),
+                "--device",
+                str(placement.unit),
+                "--type",
+                attach_type,
+                "--medium",
+                medium,
+            ]
+            if disk.nonrotational and not disk.is_removable:
+                # Solid state is a property of the attachment, not of the medium,
+                # which is why it was never a disk *type* (M-01). Only hard disks
+                # have it: VirtualBox rejects it on a dvddrive.
+                attach += ["--nonrotational", "on"]
+            commands.append(attach)
 
         # Configure network adapters
         for i, network in enumerate(vm.networks):
@@ -303,10 +307,9 @@ class VirtualBoxEmitter:
 
     #: Attachment ``--type`` per device kind.
     ATTACH_TYPES = {
-        DiskType.HDD: "hdd",
-        DiskType.SSD: "hdd",
-        DiskType.DVD: "dvddrive",
-        DiskType.FLOPPY: "fdd",
+        DeviceKind.DISK: "hdd",
+        DeviceKind.CDROM: "dvddrive",
+        DeviceKind.FLOPPY: "fdd",
     }
 
     def _resolve_controllers(self, vm: VMConfig) -> Dict[str, StorageControllerConfig]:
@@ -330,7 +333,7 @@ class VirtualBoxEmitter:
         for sc in vm.storage_controllers:
             resolved[sc.name] = sc
 
-        by_bus: Dict[StorageControllerType, StorageControllerConfig] = {}
+        by_bus: Dict[BusType, StorageControllerConfig] = {}
         for sc in vm.storage_controllers:
             by_bus.setdefault(sc.controller_type, sc)
 

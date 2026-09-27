@@ -1,5 +1,15 @@
 """
-Core VM configuration models - the center of gravity
+Core VM configuration models - the center of gravity.
+
+What a VM *is*, in terms no hypervisor owns. The storage vocabulary a device is
+described with -- kinds, buses, formats, allocations -- lives in
+:mod:`vmctl.core.devices`, because a capability table and a provider's tables
+need to name a bus without importing a VM.
+
+Those names are re-exported here, including the pre-M-01 ones (``DiskType``,
+``DiskVariant``, ``StorageControllerType``), so that every import a 1.1.x caller
+wrote keeps working. They are documented where they are defined rather than
+twice.
 """
 
 import copy
@@ -18,7 +28,29 @@ from typing import (
     get_type_hints,
 )
 
+from .devices import Allocation, BusType, DeviceKind, DiskFormat
+
+# Re-exported and unused here: `from vmctl.core.vmconfig import DiskType` is the
+# import a 1.1.x caller wrote, and it keeps working after the M-01 split.
+from .devices import DiskType, DiskVariant, StorageControllerType  # noqa: F401
 from .exceptions import ValidationError
+
+#: What this module defines. The storage vocabulary it re-exports is deliberately
+#: absent: those names belong to :mod:`vmctl.core.devices`, and listing them here
+#: would have the API docs describe each one twice under two homes.
+__all__ = [
+    "BootConfig",
+    "CPUConfig",
+    "DiskConfig",
+    "FirmwareConfig",
+    "FirmwareType",
+    "MemoryConfig",
+    "NetworkConfig",
+    "NetworkType",
+    "StorageControllerConfig",
+    "VMConfig",
+    "resolve_controller",
+]
 
 
 class FirmwareType(Enum):
@@ -32,56 +64,6 @@ class FirmwareType(Enum):
     EFI = "efi"
     EFI64 = "efi64"
     EFI32 = "efi32"
-
-
-class DiskType(Enum):
-    """Virtual disk media type.
-
-    HDD and SSD have identical performance in VirtualBox; the distinction
-    is metadata-only. DVD represents an optical drive backed by an ISO image,
-    and FLOPPY a floppy drive. DVD and FLOPPY are *removable* devices: no medium
-    is created for them, and ``size_mb`` is not meaningful.
-    """
-
-    HDD = "hdd"
-    SSD = "ssd"
-    DVD = "dvd"
-    FLOPPY = "floppy"
-
-
-class DiskVariant(Enum):
-    """Disk allocation strategy.
-
-    THIN (dynamic): the image file grows on demand up to ``size_mb``.
-    THICK (fixed): the full ``size_mb`` is pre-allocated on creation.
-    RAW format always uses THICK regardless of this setting.
-    """
-
-    THIN = "thin"  # Dynamic/Standard - grows as needed
-    THICK = "thick"  # Fixed - preallocated
-
-
-class DiskFormat(Enum):
-    """Disk image file format.
-
-    VDI is the native VirtualBox format. VMDK, VHD and VHDX matter when an image
-    is shared with VMware or Hyper-V, and QCOW2 when it is shared with QEMU/KVM.
-    RAW is a flat binary image with no metadata.
-
-    Which of these a provider can attach, and which it can *create*, is declared
-    per provider in its capabilities -- they are not the same set. VirtualBox
-    7.1.18, for instance, can attach a VHDX but cannot create one, and can create
-    a dynamic QCOW2 but not a fixed one.
-    """
-
-    VDI = "vdi"  # VirtualBox native format
-    VMDK = "vmdk"  # VMware format (also supported by VirtualBox)
-    VHD = "vhd"  # Microsoft Virtual Hard Disk
-    VHDX = "vhdx"  # Hyper-V; VirtualBox can read one but not create one
-    QCOW2 = "qcow2"  # QEMU/KVM native
-    QED = "qed"  # QEMU enhanced disk
-    PARALLELS = "parallels"  # Parallels Desktop
-    RAW = "raw"  # Raw disk image
 
 
 class NetworkType(Enum):
@@ -99,31 +81,6 @@ class NetworkType(Enum):
     HOSTONLY = "hostonly"
     INTERNAL = "internal"
     NATNETWORK = "natnetwork"
-
-
-class StorageControllerType(Enum):
-    """Storage bus / controller chipset type.
-
-    IDE supports up to 2 ports (legacy; useful for optical drives).
-    SATA (IntelAHCI) supports up to 30 ports and is the default.
-    SCSI (LsiLogic) and SAS (LsiLogicSas) support up to 254/255 ports
-    and are useful for high port-count configurations.
-    NVME (PCIe) is available on VirtualBox 6.0 and later.
-    FLOPPY (I82078) carries floppy drives only.
-    USB requires exactly 8 ports on VirtualBox.
-    VIRTIO_SCSI (VirtIO) is available on VirtualBox 7.x; note that its
-    ``--add`` value is ``virtio-scsi``, which ``VBoxManage storagectl --help``
-    does not list.
-    """
-
-    IDE = "ide"
-    SATA = "sata"
-    SCSI = "scsi"
-    SAS = "sas"
-    NVME = "nvme"
-    FLOPPY = "floppy"
-    USB = "usb"
-    VIRTIO_SCSI = "virtio-scsi"
 
 
 @dataclass
@@ -212,10 +169,13 @@ class DiskConfig:
     Attributes:
         name: Unique identifier for this disk within the VM (e.g. ``"system"``, ``"data"``).
         size_mb: Disk capacity in megabytes (10–1,048,576).
-        type: Media type — HDD, SSD, or DVD.
-        format: Image file format — VDI, VMDK, VHD, or RAW.
+        type: What the guest sees — a disk, a CD-ROM or a floppy drive.
+        format: Image file format — VDI, VMDK, VHD, QCOW2, RAW and so on.
         variant: Allocation strategy — THIN (dynamic) or THICK (fixed).
         controller: Storage bus type the disk is attached to.
+        nonrotational: Present the disk to the guest as solid-state. This was
+            ``type: ssd``, which made a performance hint look like a kind of
+            device; no hypervisor's attach matrix has a row for it (M-01).
         controller_name: Exact controller name (e.g. ``"SATA Controller"``), or
             None to use whichever controller serves ``controller``.
         port: Controller port number (0-based), or None to be assigned.
@@ -231,10 +191,10 @@ class DiskConfig:
 
     name: str
     size_mb: int = 20480  # 20GB default
-    type: DiskType = DiskType.HDD
+    type: DeviceKind = DeviceKind.DISK
     format: DiskFormat = DiskFormat.VDI  # Disk image format
-    variant: DiskVariant = DiskVariant.THIN  # Thin provisioned by default
-    controller: StorageControllerType = StorageControllerType.SATA
+    variant: Allocation = Allocation.THIN  # Thin provisioned by default
+    controller: BusType = BusType.SATA
     # None means "whichever controller serves `controller`". It used to default
     # to the literal "SATA", which claimed a specific controller name even for a
     # disk on another bus, and forced consumers to special-case that string
@@ -248,8 +208,36 @@ class DiskConfig:
     port: Optional[int] = None
     device: Optional[int] = None
     bootable: bool = False
+    nonrotational: bool = False  # Was `type: ssd` -- a flag, not a kind (M-01)
     disk_path: Optional[str] = None  # Original disk path (for reference)
     source: Optional[str] = None  # Existing medium to attach (ISO for DVD, etc.)
+
+    #: 1.1.x spellings of ``type:`` and what they mean now. ``ssd`` was never a
+    #: kind of device -- it also sets ``nonrotational`` (M-01/M-06).
+    _LEGACY_KINDS = {"hdd": "disk", "ssd": "disk", "dvd": "cdrom"}
+
+    @classmethod
+    def _from_legacy(cls, data: dict, path: str) -> dict:
+        """Translate a 1.1.x disk mapping into current field names and values.
+
+        Called by the loader before anything is validated, so an export from an
+        older vmctl keeps loading unchanged (ground rule 2, M-06).
+
+        Args:
+            data: The mapping as it appeared in the file. Modified in place.
+            path: Dotted path, for error messages.
+
+        Returns:
+            The same mapping, with legacy spellings replaced.
+        """
+        raw = data.get("type")
+        if isinstance(raw, str):
+            legacy = cls._LEGACY_KINDS.get(raw.strip().lower())
+            if legacy is not None:
+                if raw.strip().lower() == "ssd" and "nonrotational" not in data:
+                    data["nonrotational"] = True
+                data["type"] = legacy
+        return data
 
     @property
     def is_removable(self) -> bool:
@@ -258,7 +246,7 @@ class DiskConfig:
         A DVD or floppy drive is attached either empty or pointing at an
         existing image; vmctl must never create a medium for one.
         """
-        return self.type in (DiskType.DVD, DiskType.FLOPPY)
+        return self.type.is_removable
 
     def to_dict(self) -> dict:
         """Return disk configuration as a plain dictionary.
@@ -370,7 +358,7 @@ class StorageControllerConfig:
     """
 
     name: str
-    controller_type: StorageControllerType
+    controller_type: BusType
     port_count: int = 30
     bootable: bool = False
 
@@ -684,6 +672,12 @@ def _build(dc: Any, data: Any, path: str = "") -> Any:
             field=path,
             expected="a mapping",
         )
+
+    # Older field names and values are translated before anything is checked,
+    # so an export from a previous version loads without a warning (M-06).
+    legacy = getattr(dc, "_from_legacy", None)
+    if legacy is not None:
+        data = legacy(data, path)
 
     spec = {f.name: f for f in fields(dc)}
     hints = _hints(dc)

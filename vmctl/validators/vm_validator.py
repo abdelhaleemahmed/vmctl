@@ -21,7 +21,7 @@ from ..core.exceptions import ValidationError
 from ..core.naming import check_name
 from ..core.slots import place
 from ..core.translate import Policy, Translator
-from ..core.vmconfig import DiskType, FirmwareType, VMConfig
+from ..core.vmconfig import DeviceKind, FirmwareType, VMConfig
 
 
 class VMValidator:
@@ -314,8 +314,8 @@ class VMValidator:
         # floppy, dvd, disk, and most VMs have neither a floppy nor a DVD.
         available = {
             "disk": any(not d.is_removable for d in vm.disks),
-            "dvd": any(d.type == DiskType.DVD for d in vm.disks),
-            "floppy": any(d.type == DiskType.FLOPPY for d in vm.disks),
+            "dvd": any(d.type == DeviceKind.CDROM for d in vm.disks),
+            "floppy": any(d.type == DeviceKind.FLOPPY for d in vm.disks),
             "network": True,
         }
         wanted = [d for d in vm.boot.order if d != "none"]

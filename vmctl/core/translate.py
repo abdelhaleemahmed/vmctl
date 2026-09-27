@@ -31,7 +31,7 @@ from typing import Any, List, Optional
 
 from .capabilities import Capabilities
 from .exceptions import ValidationError
-from .vmconfig import DiskConfig, DiskFormat, DiskVariant, FirmwareType, VMConfig
+from .vmconfig import DiskConfig, DiskFormat, Allocation, FirmwareType, VMConfig
 
 
 class Policy(Enum):
@@ -290,7 +290,7 @@ class Translator:
             )
         return native
 
-    def allocation_for(self, disk: DiskConfig, fmt: DiskFormat, where: str) -> DiskVariant:
+    def allocation_for(self, disk: DiskConfig, fmt: DiskFormat, where: str) -> Allocation:
         """Return the allocation to create a medium with.
 
         A format may be creatable in only one allocation -- VirtualBox can make a
@@ -306,7 +306,7 @@ class Translator:
         Returns:
             The allocation to use.
         """
-        wanted = "thick" if disk.variant == DiskVariant.THICK else "thin"
+        wanted = "thick" if disk.variant == Allocation.THICK else "thin"
         allowed = self.capabilities.format_spec(fmt).allocations
         if not allowed or wanted in allowed:
             return disk.variant
@@ -319,7 +319,7 @@ class Translator:
                 f"{fmt.value} media can only be created {used}",
             )
         )
-        return DiskVariant.THICK if used == "thick" else DiskVariant.THIN
+        return Allocation.THICK if used == "thick" else Allocation.THIN
 
     def bus_for(self, disk: DiskConfig, where: str):
         """Return the bus to attach a device to.

@@ -12,15 +12,15 @@ from vmctl.core.vmconfig import (
     CPUConfig,
     DiskConfig,
     DiskFormat,
-    DiskType,
-    DiskVariant,
+    DeviceKind,
+    Allocation,
     FirmwareConfig,
     FirmwareType,
     MemoryConfig,
     NetworkConfig,
     NetworkType,
     StorageControllerConfig,
-    StorageControllerType,
+    BusType,
     VMConfig,
 )
 from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter
@@ -57,24 +57,25 @@ def build_full() -> VMConfig:
                 name="system",
                 size_mb=51200,
                 bootable=True,
-                controller=StorageControllerType.SATA,
+                controller=BusType.SATA,
                 controller_name="SATA Controller",
             ),
             DiskConfig(
                 name="data",
                 size_mb=102400,
-                type=DiskType.SSD,
+                type=DeviceKind.DISK,
+                nonrotational=True,
                 format=DiskFormat.VMDK,
-                variant=DiskVariant.THICK,
-                controller=StorageControllerType.SAS,
+                variant=Allocation.THICK,
+                controller=BusType.SAS,
                 controller_name="SAS Controller",
                 port=1,
             ),
             DiskConfig(
                 name="cd",
-                type=DiskType.DVD,
+                type=DeviceKind.CDROM,
                 size_mb=700,
-                controller=StorageControllerType.IDE,
+                controller=BusType.IDE,
                 controller_name="IDE Controller",
                 port=1,
             ),
@@ -93,15 +94,15 @@ def build_full() -> VMConfig:
         storage_controllers=[
             StorageControllerConfig(
                 name="SATA Controller",
-                controller_type=StorageControllerType.SATA,
+                controller_type=BusType.SATA,
                 port_count=2,
                 bootable=True,
             ),
             StorageControllerConfig(
-                name="SAS Controller", controller_type=StorageControllerType.SAS, port_count=16
+                name="SAS Controller", controller_type=BusType.SAS, port_count=16
             ),
             StorageControllerConfig(
-                name="IDE Controller", controller_type=StorageControllerType.IDE, port_count=2
+                name="IDE Controller", controller_type=BusType.IDE, port_count=2
             ),
         ],
         description="every field set",
@@ -177,7 +178,7 @@ def test_internal_ostype_ids_pass_through(vm_minimal):
 def test_raw_format_is_forced_to_fixed_allocation():
     vm = build_minimal()
     vm.disks[0].format = DiskFormat.RAW
-    vm.disks[0].variant = DiskVariant.THIN
+    vm.disks[0].variant = Allocation.THIN
     create = [
         c
         for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
@@ -310,3 +311,38 @@ def test_floppy_controller_is_not_created_as_sata():
         if c[1] == "storagectl" and "Floppy" in c
     ][0]
     assert ctl[ctl.index("--add") + 1] != "sata"
+
+
+def test_solid_state_is_an_attachment_flag_not_a_medium_format():
+    """`--nonrotational on` rides on the attach, not on `createmedium` (M-01).
+
+    Which is the reason `ssd` was never a device kind: the medium is identical,
+    and what changes is how the attachment presents it to the guest.
+    """
+    vm = VMConfig(
+        name="ssd-vm",
+        cpu=CPUConfig(),
+        memory=MemoryConfig(),
+        firmware=FirmwareConfig(),
+        disks=[
+            DiskConfig(name="fast", size_mb=1024, nonrotational=True),
+            DiskConfig(name="slow", size_mb=1024, port=1),
+            DiskConfig(name="cd", type=DeviceKind.CDROM, nonrotational=True, port=2),
+        ],
+        networks=[],
+        boot=BootConfig(),
+        storage_controllers=[],
+    )
+    attaches = [
+        c
+        for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+        if c[1] == "storageattach"
+    ]
+    flagged = ["--nonrotational" in c for c in attaches]
+    assert flagged == [True, False, False], "only the disk that asked for it, and no optical drive"
+    creates = [
+        c
+        for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+        if c[1] == "createmedium"
+    ]
+    assert not any("--nonrotational" in c for c in creates)

@@ -18,13 +18,13 @@ from vmctl.core.vmconfig import (
     CPUConfig,
     DiskConfig,
     DiskFormat,
-    DiskType,
+    DeviceKind,
     FirmwareConfig,
     FirmwareType,
     MemoryConfig,
     NetworkConfig,
     NetworkType,
-    StorageControllerType,
+    BusType,
     VMConfig,
 )
 from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
@@ -61,10 +61,10 @@ def vm():
                 name="root",
                 size_mb=64,
                 format=DiskFormat.QCOW2,
-                controller=StorageControllerType.VIRTIO_SCSI,
+                controller=BusType.VIRTIO_SCSI,
                 bootable=True,
             ),
-            DiskConfig(name="cd", type=DiskType.DVD, controller=StorageControllerType.SATA, port=1),
+            DiskConfig(name="cd", type=DeviceKind.CDROM, controller=BusType.SATA, port=1),
         ],
         networks=[
             NetworkConfig(network_type=NetworkType.NAT, adapter_type="virtio"),
@@ -290,10 +290,10 @@ def test_the_domains_identity_is_kept_as_a_native_hint(parser, real_domain):
 def test_devices_and_buses_are_recovered(parser, real_domain):
     vm = parser.parse_text("lv-fixture", real_domain)
     kinds = sorted(d.type.value for d in vm.disks)
-    assert kinds == ["dvd", "hdd", "hdd"]
+    assert kinds == ["cdrom", "disk", "disk"]
     buses = {d.controller for d in vm.disks}
-    assert StorageControllerType.VIRTIO_SCSI in buses
-    assert StorageControllerType.SATA in buses
+    assert BusType.VIRTIO_SCSI in buses
+    assert BusType.SATA in buses
 
 
 def test_formats_are_recovered_from_the_driver(parser, real_domain):
@@ -379,12 +379,25 @@ def test_qcow2_is_the_native_format():
     assert caps.native_format is DiskFormat.QCOW2
 
 
-def test_virtio_blk_style_buses_carry_no_removable_media():
-    """Measured: "disk type of 'vda' does not support ejectable media"."""
+def test_buses_carry_only_what_the_probe_said():
     caps = LibvirtCapabilities.get()
-    assert caps.can_attach(DiskType.HDD, StorageControllerType.VIRTIO_SCSI)
-    assert caps.can_attach(DiskType.FLOPPY, StorageControllerType.FLOPPY)
-    assert not caps.can_attach(DiskType.FLOPPY, StorageControllerType.SATA)
+    assert caps.can_attach(DeviceKind.DISK, BusType.VIRTIO_SCSI)
+    assert caps.can_attach(DeviceKind.FLOPPY, BusType.FLOPPY)
+    assert not caps.can_attach(DeviceKind.FLOPPY, BusType.SATA)
+
+
+def test_virtio_blk_carries_disks_and_no_removable_media():
+    """The recording said `disk|virtio: true` from the day it was captured.
+
+    The declaration could not repeat it until M-01 gave the model a name for
+    virtio-blk, so the fastest disk bus KVM offers was undeclared. An optical
+    drive on it is refused -- "disk type of 'vda' does not support ejectable
+    media" -- which is a property of the bus, not of this QEMU build.
+    """
+    caps = LibvirtCapabilities.get()
+    assert caps.can_attach(DeviceKind.DISK, BusType.VIRTIO_BLK)
+    assert not caps.can_attach(DeviceKind.CDROM, BusType.VIRTIO_BLK)
+    assert not caps.can_attach(DeviceKind.FLOPPY, BusType.VIRTIO_BLK)
 
 
 def test_the_matrix_records_a_build_dependent_gap():
@@ -396,6 +409,90 @@ def test_the_matrix_records_a_build_dependent_gap():
     than a refinement, and the declaration says so.
     """
     caps = LibvirtCapabilities.get()
-    assert StorageControllerType.IDE not in caps.buses
-    assert StorageControllerType.NVME not in caps.buses
+    assert BusType.IDE not in caps.buses
+    assert BusType.NVME not in caps.buses
     assert "machine type" in caps.evidence
+
+
+# ---------------------------------------------------------------------------
+# Solid state, and the buses that cannot say it
+# ---------------------------------------------------------------------------
+
+
+def _target(xml, dev_prefix):
+    """Return the <target> element of the first disk whose dev has this prefix."""
+    root = ET.fromstring(xml)
+    for target in root.findall("devices/disk/target"):
+        if (target.get("dev") or "").startswith(dev_prefix):
+            return target
+    raise AssertionError(f"no disk targeting {dev_prefix}* in:\n{xml}")
+
+
+def test_solid_state_is_stated_as_a_rotation_rate(emitter, vm):
+    """libvirt has no "ssd" flag: a disk that does not rotate has rate 1."""
+    vm.disks[0].nonrotational = True
+    target = _target(emitter.build_domain_xml(vm), "sd")
+    assert target.get("rotation_rate") == "1"
+
+
+def test_a_spinning_disk_says_nothing_at_all(emitter, vm):
+    assert _target(emitter.build_domain_xml(vm), "sd").get("rotation_rate") is None
+
+
+def test_a_bus_that_cannot_say_solid_state_reports_it_rather_than_lying(emitter, vm):
+    """Measured: "rotation rate is only valid for SCSI/IDE/SATA bus".
+
+    virtio-blk therefore cannot carry the flag. Emitting the disk anyway and
+    saying nothing would hand back a spinning disk under a config that asked for
+    an SSD, which is the silent lossy translation A-04 exists to prevent.
+    """
+    from vmctl.core.translate import Policy, Translator
+
+    vm.disks[0].controller = BusType.VIRTIO_BLK
+    vm.disks[0].nonrotational = True
+    translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
+    xml = emitter.build_domain_xml(vm, translator)
+    assert _target(xml, "vd").get("rotation_rate") is None
+    assert any("rotation rate" in d.reason for d in translator.report.drops)
+
+
+def test_a_virtio_blk_disk_is_not_read_back_as_virtio_scsi(parser, emitter, vm):
+    """F-25 -- found while splitting the axes (M-01).
+
+    `bus='virtio'` used to map onto VIRTIO_SCSI, the only virtio the model could
+    name. Re-emitting that gave `bus='scsi'`, so a round trip moved the guest's
+    disk from /dev/vda to /dev/sda -- enough to leave it unbootable.
+    """
+    vm.disks = [vm.disks[0]]
+    vm.disks[0].controller = BusType.VIRTIO_BLK
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert once.disks[0].controller is BusType.VIRTIO_BLK
+    assert _target(emitter.build_domain_xml(once), "vd") is not None
+
+
+def test_a_rotation_rate_is_read_back(parser, emitter, vm):
+    vm.disks[0].nonrotational = True
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert once.disks[0].nonrotational is True
+    assert not once.disks[1].nonrotational
+
+
+def test_a_report_names_the_disk_it_is_about(emitter, vm):
+    """F-26 -- found by reading the output of a real run.
+
+    The device loop reused its index for a per-bus counter, so every message it
+    emitted afterwards named the wrong disk: a nonrotational virtio-blk disk in
+    second place was reported as `disks[0]`, because it was the first device on
+    its own target prefix. A report that points at the wrong device is worse than
+    no report.
+    """
+    from vmctl.core.translate import Policy, Translator
+
+    vm.disks[1].controller = BusType.VIRTIO_BLK
+    vm.disks[1].type = DeviceKind.DISK
+    vm.disks[1].nonrotational = True
+    translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
+    emitter.build_domain_xml(vm, translator)
+    assert [d.field for d in translator.report.drops if "nonrotational" in d.field] == [
+        "disks[1].nonrotational"
+    ]

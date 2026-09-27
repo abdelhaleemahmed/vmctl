@@ -12,9 +12,9 @@ import pytest
 
 from vmctl.core.vmconfig import (
     DiskFormat,
-    DiskVariant,
+    Allocation,
     NetworkType,
-    StorageControllerType,
+    BusType,
     VMConfig,
 )
 from vmctl.serializers.json_serializer import JSONSerializer
@@ -47,13 +47,94 @@ def test_legacy_yaml_and_json_describe_the_same_vm(stem):
 
 
 @pytest.mark.parametrize("stem", LEGACY)
-def test_loading_and_saving_a_legacy_file_is_not_a_gratuitous_diff(stem, tmp_path):
-    """Load/save must be a no-op, so upgrading vmctl does not churn Git."""
-    original = (CONFIGS / f"{stem}.yaml").read_text()
+def test_saving_twice_produces_the_same_file(stem, tmp_path):
+    """Load/save is a fixed point, so editing one setting shows one line in the diff.
+
+    This is the no-churn guarantee in the form that survives a rename: within a
+    version, saving what was loaded changes nothing.
+    """
     vm = YAMLSerializer().load(CONFIGS / f"{stem}.yaml")
+    first = tmp_path / "first.yaml"
+    YAMLSerializer().save(vm, first)
+    second = tmp_path / "second.yaml"
+    YAMLSerializer().save(YAMLSerializer().load(first), second)
+    assert second.read_text() == first.read_text()
+
+
+#: Values the 1.1.x vocabulary spelled differently, and what they became (M-01).
+#: `ssd` is the one that is not a rename: it splits into a kind and a flag, so the
+#: flag turns up as an added key, which the rule below already allows.
+RENAMED_VALUES = {"type": {"hdd": "disk", "ssd": "disk", "dvd": "cdrom"}}
+
+
+def _model_defaults():
+    """Every default the model declares, by field name.
+
+    Used to recognise a key that a 1.1.9 file simply did not have yet, as opposed
+    to one whose value changed.
+    """
+    from dataclasses import MISSING, fields
+
+    from vmctl.core import vmconfig as m
+
+    out = {}
+    for name in dir(m):
+        dc = getattr(m, name)
+        if not (isinstance(dc, type) and hasattr(dc, "__dataclass_fields__")):
+            continue
+        for f in fields(dc):
+            if f.default is not MISSING:
+                value = f.default
+                out.setdefault(f.name, set()).add(value.value if hasattr(value, "value") else value)
+    return out
+
+
+def _differences(before, after, path=()):
+    """Yield ``(path, old, new)`` for every leaf that is not identical.
+
+    A key present on one side only yields ``_ABSENT`` for the other.
+    """
+    if isinstance(before, dict) and isinstance(after, dict):
+        for key in sorted(set(before) | set(after)):
+            yield from _differences(
+                before.get(key, _ABSENT), after.get(key, _ABSENT), path + (str(key),)
+            )
+    elif isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
+        for i, (b, a) in enumerate(zip(before, after)):
+            yield from _differences(b, a, path + (str(i),))
+    elif before != after:
+        yield path, before, after
+
+
+_ABSENT = object()
+
+
+@pytest.mark.parametrize("stem", LEGACY)
+def test_upgrading_a_legacy_file_only_renames_what_the_plan_says(stem, tmp_path):
+    """Saving a 1.1.9 file with today's vmctl may rename vocabulary, nothing else.
+
+    Ground rule 2 promises old files keep loading; it does not promise the words
+    never improve. `type: hdd` becomes `type: disk` because `hdd` and `ssd` were
+    never two kinds of device (M-01). So the test states the narrower promise:
+    every difference is either a documented rename, or a field the old version
+    did not have, written at the value the model defaults it to. Anything else --
+    a lost controller name, a changed size -- is data loss and fails here.
+    """
+    import yaml
+
+    before = yaml.safe_load((CONFIGS / f"{stem}.yaml").read_text())
     out = tmp_path / "again.yaml"
-    YAMLSerializer().save(vm, out)
-    assert out.read_text() == original
+    YAMLSerializer().save(YAMLSerializer().load(CONFIGS / f"{stem}.yaml"), out)
+    after = yaml.safe_load(out.read_text())
+
+    defaults = _model_defaults()
+    for path, old, new in _differences(before, after):
+        field = path[-1]
+        if old is _ABSENT and new in defaults.get(field, ()):
+            continue  # a field 1.1.9 did not have, at its default
+        if RENAMED_VALUES.get(field, {}).get(old) == new:
+            continue  # a documented rename
+        raise AssertionError(f"{'.'.join(path)}: {old!r} became {new!r}, which is not a rename")
 
 
 def test_legacy_field_values_are_understood():
@@ -64,8 +145,8 @@ def test_legacy_field_values_are_understood():
     assert len(vm.disks) == 3
     formats = {d.format for d in vm.disks}
     assert formats == {DiskFormat.VDI, DiskFormat.VMDK, DiskFormat.VHD}
-    assert DiskVariant.THICK in {d.variant for d in vm.disks}
-    assert StorageControllerType.SAS in {sc.controller_type for sc in vm.storage_controllers}
+    assert Allocation.THICK in {d.variant for d in vm.disks}
+    assert BusType.SAS in {sc.controller_type for sc in vm.storage_controllers}
     # The 1.1.9 default that later phases must treat as "unset" (F-01/M-06).
     assert all(d.controller_name for d in vm.disks)
 

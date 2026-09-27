@@ -13,9 +13,9 @@ from vmctl.core.exceptions import ValidationError
 from vmctl.core.slots import Placement, place
 from vmctl.core.vmconfig import (
     DiskConfig,
-    DiskType,
+    DeviceKind,
     StorageControllerConfig,
-    StorageControllerType,
+    BusType,
 )
 from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
@@ -26,7 +26,7 @@ def caps():
     return VirtualBoxCapabilities.get()
 
 
-def _disk(name, bus=StorageControllerType.SATA, **kwargs):
+def _disk(name, bus=BusType.SATA, **kwargs):
     return DiskConfig(name=name, size_mb=1024, controller=bus, **kwargs)
 
 
@@ -44,7 +44,7 @@ def test_unplaced_devices_get_sequential_ports(caps, vm_minimal):
 
 def test_ide_uses_both_devices_on_a_port_before_the_next(caps, vm_minimal):
     """IDE is master/slave: two devices per port, unlike every other bus."""
-    vm_minimal.disks = [_disk(n, StorageControllerType.IDE) for n in "abcd"]
+    vm_minimal.disks = [_disk(n, BusType.IDE) for n in "abcd"]
     placed = place(vm_minimal, caps)
     assert [(p.port, p.unit) for p in placed] == [(0, 0), (0, 1), (1, 0), (1, 1)]
 
@@ -57,7 +57,7 @@ def test_sata_uses_one_device_per_port(caps, vm_minimal):
 def test_devices_on_different_buses_are_placed_independently(caps, vm_minimal):
     vm_minimal.disks = [
         _disk("sata-a"),
-        _disk("ide-a", StorageControllerType.IDE),
+        _disk("ide-a", BusType.IDE),
         _disk("sata-b"),
     ]
     placed = place(vm_minimal, caps)
@@ -100,9 +100,9 @@ def test_placement_does_not_modify_the_configuration(caps, vm_minimal):
 def test_the_same_configuration_always_places_the_same_way(caps, vm_minimal):
     vm_minimal.disks = [
         _disk("a"),
-        _disk("b", StorageControllerType.IDE),
+        _disk("b", BusType.IDE),
         _disk("c"),
-        _disk("d", StorageControllerType.IDE),
+        _disk("d", BusType.IDE),
     ]
     first = place(vm_minimal, caps)
     for _ in range(20):
@@ -128,7 +128,7 @@ def test_two_stated_positions_that_clash_are_refused(caps, vm_minimal):
 
 
 def test_a_port_the_bus_does_not_have_is_refused(caps, vm_minimal):
-    vm_minimal.disks = [_disk("a", StorageControllerType.IDE, port=9)]
+    vm_minimal.disks = [_disk("a", BusType.IDE, port=9)]
     with pytest.raises(ValidationError, match="port 9"):
         place(vm_minimal, caps)
 
@@ -141,9 +141,7 @@ def test_a_second_device_on_a_non_ide_port_is_refused(caps, vm_minimal):
 
 def test_a_declared_controllers_port_count_is_the_tighter_limit(caps, vm_minimal):
     vm_minimal.storage_controllers = [
-        StorageControllerConfig(
-            name="Small", controller_type=StorageControllerType.SATA, port_count=2
-        )
+        StorageControllerConfig(name="Small", controller_type=BusType.SATA, port_count=2)
     ]
     vm_minimal.disks = [_disk(n, controller_name="Small") for n in "abc"]
     with pytest.raises(ValidationError, match="all 2 position"):
@@ -152,8 +150,8 @@ def test_a_declared_controllers_port_count_is_the_tighter_limit(caps, vm_minimal
 
 def test_running_out_of_room_says_what_to_do(caps, vm_minimal):
     vm_minimal.disks = [
-        _disk("a", StorageControllerType.FLOPPY, type=DiskType.FLOPPY),
-        _disk("b", StorageControllerType.FLOPPY, type=DiskType.FLOPPY),
+        _disk("a", BusType.FLOPPY, type=DeviceKind.FLOPPY),
+        _disk("b", BusType.FLOPPY, type=DeviceKind.FLOPPY),
     ]
     with pytest.raises(ValidationError) as excinfo:
         place(vm_minimal, caps)
@@ -162,8 +160,8 @@ def test_running_out_of_room_says_what_to_do(caps, vm_minimal):
 
 
 def test_an_unsupported_bus_is_refused(caps, vm_minimal):
-    caps.buses.pop(StorageControllerType.NVME)
-    vm_minimal.disks = [_disk("a", StorageControllerType.NVME)]
+    caps.buses.pop(BusType.NVME)
+    vm_minimal.disks = [_disk("a", BusType.NVME)]
     with pytest.raises(ValidationError, match="does not support"):
         place(vm_minimal, caps)
 

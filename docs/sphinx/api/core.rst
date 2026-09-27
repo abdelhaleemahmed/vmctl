@@ -35,3 +35,84 @@ Exceptions
    :members:
    :undoc-members:
    :show-inheritance:
+
+Storage vocabulary
+------------------
+
+.. automodule:: vmctl.core.devices
+   :members:
+   :show-inheritance:
+
+Capabilities
+------------
+
+.. automodule:: vmctl.core.capabilities
+   :members:
+   :show-inheritance:
+
+Plans and steps
+---------------
+
+.. automodule:: vmctl.core.plan
+   :members:
+   :show-inheritance:
+
+Translation policy
+------------------
+
+.. automodule:: vmctl.core.translate
+   :members:
+   :show-inheritance:
+
+Field mapping and codecs
+------------------------
+
+.. automodule:: vmctl.core.mapping
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.codecs
+   :members:
+   :show-inheritance:
+
+Slot allocation
+---------------
+
+.. automodule:: vmctl.core.slots
+   :members:
+   :show-inheritance:
+
+Storage locations
+-----------------
+
+.. automodule:: vmctl.core.storage
+   :members:
+   :show-inheritance:
+
+Medium conversion
+-----------------
+
+.. automodule:: vmctl.core.convert
+   :members:
+   :show-inheritance:
+
+Migration
+---------
+
+.. automodule:: vmctl.core.migrate
+   :members:
+   :show-inheritance:
+
+Provider registry
+-----------------
+
+.. automodule:: vmctl.core.registry
+   :members:
+   :show-inheritance:
+
+Naming
+------
+
+.. automodule:: vmctl.core.naming
+   :members:
+   :show-inheritance:

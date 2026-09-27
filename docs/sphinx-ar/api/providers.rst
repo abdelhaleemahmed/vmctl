@@ -18,3 +18,23 @@
    :member-order: bysource
    :special-members: __init__
    :show-inheritance:
+
+.. automodule:: vmctl.providers.libvirt.backend
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.libvirt.parser
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.libvirt.emitter
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.libvirt.capabilities
+   :members:
+   :member-order: bysource
+   :show-inheritance:

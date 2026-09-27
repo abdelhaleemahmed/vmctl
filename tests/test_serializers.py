@@ -44,7 +44,7 @@ def test_saved_json_is_plain_data(tmp_path):
 def test_enums_are_serialised_as_strings(vm_full):
     data = YAMLSerializer().to_dict(vm_full)
     assert data["firmware"]["type"] == "efi64"
-    assert data["disks"][0]["type"] == "hdd"
+    assert data["disks"][0]["type"] == "disk"
     assert data["disks"][0]["format"] == "vdi"
     assert data["disks"][0]["variant"] == "thin"
     assert data["disks"][0]["controller"] == "sata"

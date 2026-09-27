@@ -20,10 +20,10 @@ from vmctl.core.translate import (
 from vmctl.core.vmconfig import (
     DiskConfig,
     DiskFormat,
-    DiskType,
-    DiskVariant,
+    DeviceKind,
+    Allocation,
     FirmwareType,
-    StorageControllerType,
+    BusType,
 )
 from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
@@ -130,10 +130,10 @@ def test_a_supported_value_is_left_alone(vbox):
 
 def test_an_unsupported_bus_is_refused_under_strict(libvirt):
     t = Translator(libvirt, Policy.STRICT)
-    disk = DiskConfig(name="d", size_mb=1024, controller=StorageControllerType.IDE)
+    disk = DiskConfig(name="d", size_mb=1024, controller=BusType.IDE)
     # The bus it *would* use is returned, so resolution can carry on and collect
     # every other problem before reporting.
-    assert t.bus_for(disk, "disks[0].controller") is StorageControllerType.VIRTIO_SCSI
+    assert t.bus_for(disk, "disks[0].controller") is BusType.VIRTIO_SCSI
     with pytest.raises(ValidationError, match="not supported"):
         t.finish()
 
@@ -145,25 +145,25 @@ def test_a_substituted_bus_lands_on_the_providers_idiomatic_one(libvirt):
     that hypervisor would have chosen.
     """
     t = Translator(libvirt, Policy.NEAREST)
-    disk = DiskConfig(name="d", size_mb=1024, controller=StorageControllerType.IDE)
-    assert t.bus_for(disk, "disks[0].controller") is StorageControllerType.VIRTIO_SCSI
+    disk = DiskConfig(name="d", size_mb=1024, controller=BusType.IDE)
+    assert t.bus_for(disk, "disks[0].controller") is BusType.VIRTIO_SCSI
 
 
 def test_an_optical_drive_substitutes_onto_a_bus_that_carries_one(vbox):
     """NVMe carries disks only, so a CD-ROM on it has to move."""
     t = Translator(vbox, Policy.NEAREST)
-    disk = DiskConfig(name="cd", type=DiskType.DVD, controller=StorageControllerType.NVME)
+    disk = DiskConfig(name="cd", type=DeviceKind.CDROM, controller=BusType.NVME)
     used = t.bus_for(disk, "disks[0].controller")
-    assert vbox.can_attach(DiskType.DVD, used)
-    assert used is StorageControllerType.IDE  # VirtualBox's idiomatic optical bus
+    assert vbox.can_attach(DeviceKind.CDROM, used)
+    assert used is BusType.IDE  # VirtualBox's idiomatic optical bus
 
 
 def test_a_device_kind_no_bus_carries_is_refused_whatever_the_policy(libvirt):
     """Substitution needs somewhere to substitute to."""
     for bus in list(libvirt.buses):
-        libvirt.attach[(DiskType.FLOPPY, bus)] = False
+        libvirt.attach[(DeviceKind.FLOPPY, bus)] = False
     t = Translator(libvirt, Policy.NEAREST)
-    disk = DiskConfig(name="f", type=DiskType.FLOPPY, controller=StorageControllerType.FLOPPY)
+    disk = DiskConfig(name="f", type=DeviceKind.FLOPPY, controller=BusType.FLOPPY)
     with pytest.raises(ValidationError, match="no bus"):
         t.bus_for(disk, "disks[0].controller")
 
@@ -180,21 +180,21 @@ def test_an_impossible_allocation_is_adjusted_even_under_strict(vbox):
     always adjusts -- and records it.
     """
     t = Translator(vbox, Policy.STRICT)
-    disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.RAW, variant=DiskVariant.THIN)
-    assert t.allocation_for(disk, DiskFormat.RAW, "disks[0]") is DiskVariant.THICK
+    disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.RAW, variant=Allocation.THIN)
+    assert t.allocation_for(disk, DiskFormat.RAW, "disks[0]") is Allocation.THICK
     assert t.report.substitutions[0].used == "thick"
 
 
 def test_qcow2_is_the_mirror_image(vbox):
     t = Translator(vbox, Policy.STRICT)
-    disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.QCOW2, variant=DiskVariant.THICK)
-    assert t.allocation_for(disk, DiskFormat.QCOW2, "disks[0]") is DiskVariant.THIN
+    disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.QCOW2, variant=Allocation.THICK)
+    assert t.allocation_for(disk, DiskFormat.QCOW2, "disks[0]") is Allocation.THIN
 
 
 def test_a_possible_allocation_is_untouched(vbox):
     t = Translator(vbox, Policy.STRICT)
-    disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.VDI, variant=DiskVariant.THICK)
-    assert t.allocation_for(disk, DiskFormat.VDI, "disks[0]") is DiskVariant.THICK
+    disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.VDI, variant=Allocation.THICK)
+    assert t.allocation_for(disk, DiskFormat.VDI, "disks[0]") is Allocation.THICK
     assert not t.report
 
 

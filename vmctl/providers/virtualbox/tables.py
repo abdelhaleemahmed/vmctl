@@ -12,7 +12,7 @@ Native spellings were taken from ``VBoxManage showvminfo --machinereadable`` and
 
 from ...core.codecs import EnumCodec, Int, OnOff, Str
 from ...core.mapping import Field
-from ...core.vmconfig import FirmwareType, StorageControllerType
+from ...core.vmconfig import FirmwareType, BusType
 
 #: Native firmware value -> model value. VirtualBox reports these in upper case,
 #: which is why a lower-case comparison made every EFI VM look like BIOS (F-02).
@@ -27,17 +27,17 @@ FIRMWARE = {
 #: ``VBoxManage storagectl --help``: BusLogic, I82078, ICH6, IntelAhci,
 #: LSILogic, LSILogicSAS, NVMe, PIIX3, PIIX4, USB, VirtIO.
 CONTROLLER_CHIPSETS = {
-    "piix3": StorageControllerType.IDE,
-    "piix4": StorageControllerType.IDE,
-    "ich6": StorageControllerType.IDE,
-    "intelahci": StorageControllerType.SATA,
-    "lsilogic": StorageControllerType.SCSI,
-    "buslogic": StorageControllerType.SCSI,
-    "lsilogicsas": StorageControllerType.SAS,
-    "nvme": StorageControllerType.NVME,
-    "i82078": StorageControllerType.FLOPPY,
-    "usb": StorageControllerType.USB,
-    "virtioscsi": StorageControllerType.VIRTIO_SCSI,
+    "piix3": BusType.IDE,
+    "piix4": BusType.IDE,
+    "ich6": BusType.IDE,
+    "intelahci": BusType.SATA,
+    "lsilogic": BusType.SCSI,
+    "buslogic": BusType.SCSI,
+    "lsilogicsas": BusType.SAS,
+    "nvme": BusType.NVME,
+    "i82078": BusType.FLOPPY,
+    "usb": BusType.USB,
+    "virtioscsi": BusType.VIRTIO_SCSI,
 }
 
 #: Scalar VM settings.

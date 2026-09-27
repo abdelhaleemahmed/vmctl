@@ -96,6 +96,18 @@ things prevented that:
 
 ### Added
 
+- **A disk's kind, its bus, its format and its allocation are now four separate
+  things.** `hdd` and `ssd` were never two kinds of device -- solid state is a
+  flag on a disk (`nonrotational`), which is how both VirtualBox and libvirt
+  model it. Configuration files written for 1.1.x keep loading: `type: ssd`
+  becomes a disk with the flag set, and the old names stay importable.
+- Solid-state disks are now actually created as such, and honestly: VirtualBox
+  marks the attachment, libvirt sets a rotation rate -- and on a bus that cannot
+  say it, such as virtio-blk, vmctl reports the setting as dropped instead of
+  handing back a spinning disk.
+- **virtio-blk** is now a bus vmctl knows. A libvirt domain using it used to be
+  read back as virtio-scsi and re-created on the wrong bus, which moved the
+  guest's `/dev/vda` to `/dev/sda`.
 - Providers now state **where they keep disk images** through one contract method
   instead of each naming it differently, including whether each VM gets its own
   subdirectory and which path separator the target host uses.

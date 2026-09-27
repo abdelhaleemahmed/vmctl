@@ -335,6 +335,39 @@ The same investigation found that floppy attachments were discarded outright by 
 disk to recreate". Together with `F-22` that meant a floppy drive was dropped
 twice over.
 
+### F-25 — A virtio-blk disk was read back as virtio-scsi · M *(fixed)*
+`vmctl/providers/libvirt/parser.py`
+
+Found while splitting the axes for `M-01`. `LIBVIRT_TO_BUS` mapped libvirt's
+`bus='virtio'` onto `VIRTIO_SCSI`, because that was the only virtio the model
+could name. The two are different buses: virtio-blk is a block device with no
+SCSI layer at all.
+
+So reading a domain that used virtio-blk and re-emitting it produced
+`bus='scsi'`, and the guest's `/dev/vda` became `/dev/sda` -- enough on its own
+to leave a machine unbootable, and silent.
+
+This is the clearest argument for `M-01` and not a tidy-up: the probe recording
+`tests/fixtures/libvirt_attach_matrix.json` had `disk|virtio: true` in it from the
+day it was captured, and the capability declaration could not repeat the
+measurement, because the vocabulary had no word for it. A stale comment in
+`libvirt/capabilities.py` -- "virtio-blk: the fastest disk bus, and the reason
+libvirt guests use it" -- sat above the *plain SCSI* entry, which is what a
+dropped declaration looks like after review.
+
+Fixed by adding `BusType.VIRTIO_BLK`, declaring its probed row, and mapping it
+both ways. Verified against real libvirt 11.10.0: a virtio-blk disk is created,
+read back as virtio-blk, and re-emitted as `vda`.
+
+### F-26 — A translation report named the wrong disk · S *(fixed)*
+`vmctl/providers/libvirt/emitter.py`
+
+Found by reading the output of a real run: a nonrotational virtio-blk disk
+declared *second* was reported as `disks[0]`. The device loop reused its
+`enumerate` index as a per-target-prefix counter, so every message emitted after
+that line named the wrong device. A report that points at the wrong device is
+worse than no report, since acting on it edits the wrong thing.
+
 ### F-22 — An empty removable drive is not represented at all · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py` (disk attachment filter)
 
@@ -1074,7 +1107,48 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > helper. Re-verified afterwards: the real VirtualBox-to-libvirt migration still
 > carries 8/8 settings.
 >
-> Remaining: `M-01`, `M-02`, `M-06` (the three-axis storage model), `A-05`, `A-10`.
+> **Tenth step done: `M-01` (the axes come apart).** `DiskType{HDD, SSD, DVD}`
+> answered two questions with one field, and `StorageControllerType` was named
+> after controllers while its values were buses. `core/devices.py` now holds
+> `DeviceKind`, `BusType`, `DiskFormat` and `Allocation`, and the model has
+> `nonrotational` where `ssd` used to be.
+>
+> The evidence that this was real rather than cosmetic was already in the tree.
+> `Capabilities.can_attach` had to fold `SSD` onto `HDD` before every lookup,
+> because no attach matrix has a row for it -- a kind that must be translated
+> away before use is not a kind. And the libvirt probe had recorded
+> `disk|virtio: true` since the day it was captured while the declaration stayed
+> silent, because the enum had no name for virtio-blk: `F-25`, a round trip that
+> moved a guest's disk from `/dev/vda` to `/dev/sda`. Reading the output of the
+> fixed run then turned up `F-26`, a report naming the wrong disk.
+>
+> `nonrotational` is not a decorative field: VirtualBox takes it on the
+> *attachment* (`storageattach --nonrotational on`, never on `createmedium`,
+> which is precisely why it was never a medium type), and libvirt states it as
+> `<target rotation_rate='1'>` -- but only on SCSI/IDE/SATA. Probed, not assumed:
+> libvirt 11.10.0 refuses it on virtio-blk with "rotation rate is only valid for
+> SCSI/IDE/SATA bus", so a solid-state disk there is *reported as dropped* rather
+> than quietly handed back spinning.
+>
+> Compatibility, in two halves. Old code: `DiskVariant` and
+> `StorageControllerType` are bound to the new enums, so `DiskVariant.THIN is
+> Allocation.THIN`; `DiskType` is a shim whose members *are* `DeviceKind`
+> members, so `device.kind is DiskType.DVD` still holds. Old configs: the loader
+> gained a `_from_legacy` hook, and `type: ssd` becomes a disk with the flag set.
+>
+> One promise had to be restated rather than kept. "Load then save is byte
+> identical" cannot survive a deliberate rename, so the test now states the two
+> things actually worth guaranteeing: saving twice is a fixed point, and
+> upgrading a 1.1.9 file changes *only* documented renames plus new fields at
+> their defaults -- anything else, such as a dropped controller name, fails.
+>
+> Verified on real hardware both ways: a 128 MB VirtualBox VM on the Windows host
+> with one solid-state and one spinning disk reads back `nonrotational` as `on`
+> and `off` respectively, and a libvirt domain round-trips virtio-blk as
+> virtio-blk with `rotation_rate='1'` on its virtio-scsi disk.
+>
+> Remaining: `M-02`, `M-06` (the device and controller shapes, and the rest of
+> the alias table), `A-05`, `A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1914,6 +1988,8 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-22 empty removable drive dropped entirely (narrow fix or M-02)
          [x] F-23 hpet/cpuexecutioncap/pagefusion were never read (fixed by A-11)
          [x] F-24 formats vmctl could create but not read back (fixed by M-03/A-02)
+         [x] F-25 virtio-blk read back as virtio-scsi (found by M-01)
+         [x] F-26 a translation report named the wrong disk
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -1924,7 +2000,7 @@ Phase 4  [x] H-01 .gitignore              [x] H-02 drop _build from git
          [x] H-03 single-source version   [x] H-04 CI
          [x] H-05 CHANGELOG + release.sh  [x] H-06 docs truth pass
          [x] H-07 VBox version floor      [x] H-08 prune exceptions
-Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
+Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [ ] M-02 StorageDevice + StorageController (id vs native_name)
          [x] M-03 support matrix incl. (kind x bus) attach table  + PROBE it
          [x] M-04 --disk-format option, provider-filtered choices

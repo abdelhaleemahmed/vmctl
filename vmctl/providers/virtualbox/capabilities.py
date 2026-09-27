@@ -25,9 +25,9 @@ Several of these are not documented anywhere obvious:
 from typing import Any, Dict
 
 from ...core.capabilities import BusSpec, Capabilities, FormatSpec, Support
-from ...core.vmconfig import DiskFormat, DiskType, FirmwareType, StorageControllerType
+from ...core.vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
 
-_BUS = StorageControllerType
+_BUS = BusType
 _ALL_ALLOC = ("thin", "thick")
 
 #: Bus rules. ``min_ports``/``max_ports`` are the ranges VirtualBox reported when
@@ -109,9 +109,9 @@ _CDROM_BUSES = (_BUS.IDE, _BUS.SATA, _BUS.SCSI, _BUS.SAS, _BUS.VIRTIO_SCSI, _BUS
 
 ATTACH: Dict[Any, bool] = {}
 for _bus in BUSES:
-    ATTACH[(DiskType.HDD, _bus)] = _bus in _DISK_BUSES
-    ATTACH[(DiskType.DVD, _bus)] = _bus in _CDROM_BUSES
-    ATTACH[(DiskType.FLOPPY, _bus)] = _bus is _BUS.FLOPPY
+    ATTACH[(DeviceKind.DISK, _bus)] = _bus in _DISK_BUSES
+    ATTACH[(DeviceKind.CDROM, _bus)] = _bus in _CDROM_BUSES
+    ATTACH[(DeviceKind.FLOPPY, _bus)] = _bus is _BUS.FLOPPY
 
 #: Format support. ``allocations`` records which allocations VirtualBox can
 #: actually create, which is not the same for every format.
@@ -161,9 +161,9 @@ class VirtualBoxCapabilities:
             formats=dict(FORMATS),
             native_format=DiskFormat.VDI,
             native_buses={
-                DiskType.HDD: _BUS.SATA,
-                DiskType.DVD: _BUS.IDE,
-                DiskType.FLOPPY: _BUS.FLOPPY,
+                DeviceKind.DISK: _BUS.SATA,
+                DeviceKind.CDROM: _BUS.IDE,
+                DeviceKind.FLOPPY: _BUS.FLOPPY,
             },
             removable_extensions=REMOVABLE_EXTENSIONS,
             firmware={

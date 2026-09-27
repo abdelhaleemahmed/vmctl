@@ -11,14 +11,14 @@ from ...core.vmconfig import (
     MemoryConfig,
     FirmwareConfig,
     DiskConfig,
-    DiskType,
+    DeviceKind,
     DiskFormat,
-    DiskVariant,
+    Allocation,
     NetworkConfig,
     NetworkType,
     BootConfig,
     StorageControllerConfig,
-    StorageControllerType,
+    BusType,
 )
 from ...core.exceptions import DependencyError, ProviderError
 from ...core.capabilities import Capabilities
@@ -137,7 +137,7 @@ class VirtualBoxParser:
         disk_info = {
             "size_mb": 20480,  # Default 20GB
             "format": default_format,
-            "variant": DiskVariant.THIN,
+            "variant": Allocation.THIN,
         }
 
         for line in raw_info.splitlines():
@@ -158,9 +158,9 @@ class VirtualBoxParser:
             elif lower.startswith("format variant:") or lower.startswith("variant:"):
                 variant_str = line.split(":", 1)[1].strip().lower()
                 if "fixed" in variant_str:
-                    disk_info["variant"] = DiskVariant.THICK
+                    disk_info["variant"] = Allocation.THICK
                 else:
-                    disk_info["variant"] = DiskVariant.THIN
+                    disk_info["variant"] = Allocation.THIN
 
         return disk_info
 
@@ -192,9 +192,9 @@ class VirtualBoxParser:
             return self.parse_medium_info(result.stdout, default_format)
         except subprocess.CalledProcessError:
             # If we can't get disk info, return defaults with format from extension
-            return {"size_mb": 20480, "format": default_format, "variant": DiskVariant.THIN}
+            return {"size_mb": 20480, "format": default_format, "variant": Allocation.THIN}
         except FileNotFoundError:
-            return {"size_mb": 20480, "format": default_format, "variant": DiskVariant.THIN}
+            return {"size_mb": 20480, "format": default_format, "variant": Allocation.THIN}
 
     def parse_vm(self, vm_name: str) -> VMConfig:
         """Read a VM from VirtualBox and parse it into a VMConfig.
@@ -391,7 +391,7 @@ class VirtualBoxParser:
             ctrl_name, port, device = attachment.rsplit("-", 2)
 
             # Find controller type by name
-            ctrl_type = controller_name_to_type.get(ctrl_name, StorageControllerType.SATA)
+            ctrl_type = controller_name_to_type.get(ctrl_name, BusType.SATA)
 
             # "none" means the slot exists but holds nothing at all.
             if not disk_path or disk_path == "none":
@@ -401,18 +401,18 @@ class VirtualBoxParser:
 
             # Decide what kind of device this is before probing. A floppy
             # controller carries floppy drives; an .iso is an optical medium.
-            if ctrl_type == StorageControllerType.FLOPPY:
-                disk_type = DiskType.FLOPPY
+            if ctrl_type == BusType.FLOPPY:
+                disk_type = DeviceKind.FLOPPY
             elif disk_path.lower().endswith(".iso"):
-                disk_type = DiskType.DVD
+                disk_type = DeviceKind.CDROM
             elif empty:
                 # A hard disk attachment is never empty, so an empty drive on a
                 # disk bus is an optical one.
-                disk_type = DiskType.DVD
+                disk_type = DeviceKind.CDROM
             else:
-                disk_type = DiskType.HDD
+                disk_type = DeviceKind.DISK
 
-            if disk_type in (DiskType.DVD, DiskType.FLOPPY):
+            if disk_type in (DeviceKind.CDROM, DeviceKind.FLOPPY):
                 # Removable media are *inserted*, not created, so their size,
                 # format and allocation carry no meaning for recreation. Do not
                 # probe them either: `showmediuminfo <path>` defaults to a HDD
@@ -437,6 +437,12 @@ class VirtualBoxParser:
                     name=f"disk_{ctrl_name}_{port}_{device}",
                     size_mb=disk_info["size_mb"],
                     type=disk_type,
+                    # Reported per attachment as "<controller>-nonrotational-<port>-<device>".
+                    # This is what `type: ssd` used to stand in for (M-01).
+                    nonrotational=config.get(f"{ctrl_name}-nonrotational-{port}-{device}", "off")
+                    .strip()
+                    .lower()
+                    == "on",
                     format=disk_info["format"],
                     variant=disk_info["variant"],
                     controller=ctrl_type,

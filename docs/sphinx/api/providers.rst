@@ -43,3 +43,35 @@ VirtualBox Capabilities
    :members:
    :undoc-members:
    :show-inheritance:
+
+libvirt Backend
+---------------
+
+.. automodule:: vmctl.providers.libvirt.backend
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+libvirt Parser
+--------------
+
+.. automodule:: vmctl.providers.libvirt.parser
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+libvirt Emitter
+---------------
+
+.. automodule:: vmctl.providers.libvirt.emitter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+libvirt Capabilities
+--------------------
+
+.. automodule:: vmctl.providers.libvirt.capabilities
+   :members:
+   :undoc-members:
+   :show-inheritance:

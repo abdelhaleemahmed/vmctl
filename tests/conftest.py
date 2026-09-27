@@ -27,15 +27,15 @@ from vmctl.core.vmconfig import (
     CPUConfig,
     DiskConfig,
     DiskFormat,
-    DiskType,
-    DiskVariant,
+    DeviceKind,
+    Allocation,
     FirmwareConfig,
     FirmwareType,
     MemoryConfig,
     NetworkConfig,
     NetworkType,
     StorageControllerConfig,
-    StorageControllerType,
+    BusType,
     VMConfig,
 )
 from vmctl.providers.virtualbox.parser import VirtualBoxParser
@@ -104,7 +104,7 @@ def make_fixture_probe(label: str, strict: bool = True) -> Callable[[str], Dict[
                     f"No showmediuminfo fixture for {path!r} (label {label!r}). "
                     f"Known: {sorted(table)}"
                 )
-            return {"size_mb": 20480, "format": default_format, "variant": DiskVariant.THIN}
+            return {"size_mb": 20480, "format": default_format, "variant": Allocation.THIN}
         return parser.parse_medium_info(table[path], default_format)
 
     return probe
@@ -209,10 +209,10 @@ def vm_full() -> VMConfig:
             DiskConfig(
                 name="system",
                 size_mb=51200,
-                type=DiskType.HDD,
+                type=DeviceKind.DISK,
                 format=DiskFormat.VDI,
-                variant=DiskVariant.THIN,
-                controller=StorageControllerType.SATA,
+                variant=Allocation.THIN,
+                controller=BusType.SATA,
                 controller_name="SATA Controller",
                 port=0,
                 device=0,
@@ -221,10 +221,11 @@ def vm_full() -> VMConfig:
             DiskConfig(
                 name="data",
                 size_mb=102400,
-                type=DiskType.SSD,
+                type=DeviceKind.DISK,
+                nonrotational=True,
                 format=DiskFormat.VMDK,
-                variant=DiskVariant.THICK,
-                controller=StorageControllerType.SAS,
+                variant=Allocation.THICK,
+                controller=BusType.SAS,
                 controller_name="SAS Controller",
                 port=1,
                 device=0,
@@ -232,8 +233,8 @@ def vm_full() -> VMConfig:
             DiskConfig(
                 name="cd",
                 size_mb=700,
-                type=DiskType.DVD,
-                controller=StorageControllerType.IDE,
+                type=DeviceKind.CDROM,
+                controller=BusType.IDE,
                 controller_name="IDE Controller",
                 port=1,
                 device=0,
@@ -255,15 +256,15 @@ def vm_full() -> VMConfig:
         storage_controllers=[
             StorageControllerConfig(
                 name="SATA Controller",
-                controller_type=StorageControllerType.SATA,
+                controller_type=BusType.SATA,
                 port_count=2,
                 bootable=True,
             ),
             StorageControllerConfig(
-                name="SAS Controller", controller_type=StorageControllerType.SAS, port_count=16
+                name="SAS Controller", controller_type=BusType.SAS, port_count=16
             ),
             StorageControllerConfig(
-                name="IDE Controller", controller_type=StorageControllerType.IDE, port_count=2
+                name="IDE Controller", controller_type=BusType.IDE, port_count=2
             ),
         ],
         ostype="Ubuntu_64",

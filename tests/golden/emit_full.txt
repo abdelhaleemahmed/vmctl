@@ -8,7 +8,7 @@ VBoxManage storagectl full-vm --name IDE Controller --add ide --controller PIIX4
 VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/full-vm/full-vm_system.vdi --size 51200 --format VDI --variant Standard
 VBoxManage storageattach full-vm --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/full-vm/full-vm_system.vdi
 VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/full-vm/full-vm_data.vmdk --size 102400 --format VMDK --variant Fixed
-VBoxManage storageattach full-vm --storagectl SAS Controller --port 1 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/full-vm/full-vm_data.vmdk
+VBoxManage storageattach full-vm --storagectl SAS Controller --port 1 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/full-vm/full-vm_data.vmdk --nonrotational on
 VBoxManage storageattach full-vm --storagectl IDE Controller --port 1 --device 0 --type dvddrive --medium emptydrive
 VBoxManage modifyvm full-vm --nic1 nat --nictype1 82540EM --cableconnected1 on
 VBoxManage modifyvm full-vm --nic2 bridged --nictype2 82540EM --cableconnected2 on --bridgeadapter2 eth0 --macaddress2 080027AA0001 --promiscuous2 allow-all

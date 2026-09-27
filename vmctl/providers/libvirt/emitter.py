@@ -29,7 +29,7 @@ from ...core.naming import check_name
 from ...core.plan import Plan, Step, StepKind
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy, Translator
-from ...core.vmconfig import DiskType, VMConfig
+from ...core.vmconfig import DeviceKind, VMConfig
 from .capabilities import LibvirtCapabilities
 from .tables import (
     BOOT_DEVICE,
@@ -40,6 +40,8 @@ from .tables import (
     KIND_TO_DEVICE,
     NETWORK_TO_LIBVIRT,
     NIC_MODEL_FROM_NATIVE,
+    ROTATION_RATE_BUSES,
+    SSD_ROTATION_RATE,
     TARGET_PREFIX,
 )
 
@@ -225,9 +227,13 @@ class LibvirtEmitter:
                 needed_controllers[bus] = model
 
             prefix = TARGET_PREFIX.get(bus, "sd")
-            index = counters.get(prefix, 0)
-            counters[prefix] = index + 1
-            target_dev = f"{prefix}{chr(ord('a') + index)}"
+            # Not `index`: reusing the loop variable here made every message
+            # emitted below name the wrong disk -- a nonrotational virtio-blk
+            # disk was reported as `disks[0]` because it was the first on its
+            # target prefix (F-26).
+            position = counters.get(prefix, 0)
+            counters[prefix] = position + 1
+            target_dev = f"{prefix}{chr(ord('a') + position)}"
 
             device_kind = KIND_TO_DEVICE.get(disk.type, "disk")
             source: Optional[str] = None
@@ -253,8 +259,21 @@ class LibvirtEmitter:
                 ET.SubElement(disk_el, "driver", name="qemu", type=driver_type)
             if source:
                 ET.SubElement(disk_el, "source", file=source)
-            ET.SubElement(disk_el, "target", dev=target_dev, bus=bus)
-            if disk.readonly if hasattr(disk, "readonly") else disk.type == DiskType.DVD:
+            target_attrs = {"dev": target_dev, "bus": bus}
+            if disk.nonrotational and not disk.is_removable:
+                if bus in ROTATION_RATE_BUSES:
+                    target_attrs["rotation_rate"] = SSD_ROTATION_RATE
+                elif translator is not None:
+                    # virtio-blk has no rotation rate at all, so saying nothing
+                    # would quietly present a solid-state disk as spinning.
+                    translator.drop(
+                        f"disks[{index}].nonrotational",
+                        True,
+                        f"libvirt accepts a rotation rate only on "
+                        f"{'/'.join(ROTATION_RATE_BUSES)}, not {bus}",
+                    )
+            ET.SubElement(disk_el, "target", target_attrs)
+            if disk.readonly if hasattr(disk, "readonly") else disk.type == DeviceKind.CDROM:
                 ET.SubElement(disk_el, "readonly")
 
         # Controllers come after the disks in document order only because

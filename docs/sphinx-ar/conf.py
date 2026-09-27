@@ -39,6 +39,8 @@ autodoc_default_options = {
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 napoleon_include_init_with_doc = True
+# انظر conf.py الإنجليزي: يمنع وصف الحقل مرتين (مرة من docstring ومرة من autodoc).
+napoleon_use_ivar = True
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),

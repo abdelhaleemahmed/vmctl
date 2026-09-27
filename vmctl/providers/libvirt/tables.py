@@ -14,31 +14,36 @@ from ...core.codecs import EnumCodec, Int, OnOff, Str
 from ...core.mapping import Field
 from ...core.vmconfig import (
     DiskFormat,
-    DiskType,
+    DeviceKind,
     FirmwareType,
     NetworkType,
-    StorageControllerType,
+    BusType,
 )
 
 #: Model's bus -> libvirt ``<target bus='...'>`` value. virtio-scsi is expressed
 #: as ``bus='scsi'`` plus a ``<controller model='virtio-scsi'>``, which is why it
 #: shares a value with plain SCSI.
 BUS_TO_LIBVIRT = {
-    StorageControllerType.IDE: "ide",
-    StorageControllerType.SATA: "sata",
-    StorageControllerType.SCSI: "scsi",
-    StorageControllerType.SAS: "scsi",
-    StorageControllerType.VIRTIO_SCSI: "scsi",
-    StorageControllerType.USB: "usb",
-    StorageControllerType.NVME: "nvme",
-    StorageControllerType.FLOPPY: "fdc",
+    BusType.IDE: "ide",
+    # virtio-blk is a plain block device with no SCSI layer -- a different bus
+    # from virtio-scsi, not a spelling of it. The old model had no name for it,
+    # so a domain using it was read back as virtio-scsi and re-emitted on
+    # bus='scsi': the guest's /dev/vda silently became /dev/sda (F-25, M-01).
+    BusType.VIRTIO_BLK: "virtio",
+    BusType.SATA: "sata",
+    BusType.SCSI: "scsi",
+    BusType.SAS: "scsi",
+    BusType.VIRTIO_SCSI: "scsi",
+    BusType.USB: "usb",
+    BusType.NVME: "nvme",
+    BusType.FLOPPY: "fdc",
 }
 
 #: ``<controller model='...'>`` to add for buses that need one.
 BUS_CONTROLLER_MODEL = {
-    StorageControllerType.VIRTIO_SCSI: "virtio-scsi",
-    StorageControllerType.SCSI: "lsilogic",
-    StorageControllerType.SAS: "lsisas1078",
+    BusType.VIRTIO_SCSI: "virtio-scsi",
+    BusType.SCSI: "lsilogic",
+    BusType.SAS: "lsisas1078",
 }
 
 #: Target device prefix per libvirt bus. libvirt derives the rest, but a name is
@@ -53,12 +58,22 @@ TARGET_PREFIX = {
     "nvme": "vd",
 }
 
+#: Buses that accept ``<target rotation_rate='...'>``, which is how libvirt says
+#: solid-state. Measured, not assumed: on libvirt 11.10.0 any other bus is
+#: refused with "rotation rate is only valid for SCSI/IDE/SATA bus" -- notably
+#: virtio-blk, so a nonrotational disk there is reported as dropped rather than
+#: silently presented as spinning (M-01).
+ROTATION_RATE_BUSES = ("scsi", "ide", "sata")
+
+#: What libvirt calls a solid-state disk. QEMU takes a rate in RPM; 1 is the
+#: convention for "not rotating at all".
+SSD_ROTATION_RATE = "1"
+
 #: Device kind -> libvirt ``<disk device='...'>``.
 KIND_TO_DEVICE = {
-    DiskType.HDD: "disk",
-    DiskType.SSD: "disk",
-    DiskType.DVD: "cdrom",
-    DiskType.FLOPPY: "floppy",
+    DeviceKind.DISK: "disk",
+    DeviceKind.CDROM: "cdrom",
+    DeviceKind.FLOPPY: "floppy",
 }
 
 #: Model format -> libvirt ``<driver type='...'>``.

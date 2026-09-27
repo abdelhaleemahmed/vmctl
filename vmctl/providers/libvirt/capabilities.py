@@ -26,9 +26,9 @@ PLAN.md -- for libvirt that is a requirement rather than a refinement.
 """
 
 from ...core.capabilities import BusSpec, Capabilities, FormatSpec, Support
-from ...core.vmconfig import DiskFormat, DiskType, FirmwareType, StorageControllerType
+from ...core.vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
 
-_BUS = StorageControllerType
+_BUS = BusType
 
 #: libvirt assigns addresses itself, so port counts are vmctl's own bookkeeping
 #: rather than a limit the hypervisor imposes. They are generous on purpose.
@@ -41,30 +41,41 @@ BUSES = {
         "usb", "qemu-xhci", 1, 8, default_ports=8, bootable=False, controller_name="usb0"
     ),
     _BUS.FLOPPY: BusSpec("fdc", "fdc", 1, 2, default_ports=2, controller_name="fdc0"),
-    # virtio-blk: the fastest disk bus, and the reason libvirt guests use it.
-    # It cannot carry removable media.
     _BUS.SCSI: BusSpec("scsi", "lsilogic", 1, 256, default_ports=256, controller_name="scsi-lsi0"),
+    # virtio-blk: the fastest disk bus, and the reason to run a guest under KVM.
+    # It needs no controller element of its own, and cannot carry removable
+    # media. Declarable only since M-01 gave the model a name for it.
+    _BUS.VIRTIO_BLK: BusSpec(
+        "virtio", "virtio-blk", 1, 256, default_ports=256, controller_name="virtio-blk0"
+    ),
 }
 
 #: Measured on this build with machine type q35.
 ATTACH = {
-    (DiskType.HDD, _BUS.SATA): True,
-    (DiskType.DVD, _BUS.SATA): True,
-    (DiskType.FLOPPY, _BUS.SATA): False,
-    (DiskType.HDD, _BUS.VIRTIO_SCSI): True,
-    (DiskType.DVD, _BUS.VIRTIO_SCSI): True,
-    (DiskType.FLOPPY, _BUS.VIRTIO_SCSI): False,
-    (DiskType.HDD, _BUS.USB): True,
-    (DiskType.DVD, _BUS.USB): True,
-    (DiskType.FLOPPY, _BUS.USB): False,
-    (DiskType.HDD, _BUS.FLOPPY): False,
-    (DiskType.DVD, _BUS.FLOPPY): False,
-    (DiskType.FLOPPY, _BUS.FLOPPY): True,
+    (DeviceKind.DISK, _BUS.SATA): True,
+    (DeviceKind.CDROM, _BUS.SATA): True,
+    (DeviceKind.FLOPPY, _BUS.SATA): False,
+    (DeviceKind.DISK, _BUS.VIRTIO_SCSI): True,
+    (DeviceKind.CDROM, _BUS.VIRTIO_SCSI): True,
+    (DeviceKind.FLOPPY, _BUS.VIRTIO_SCSI): False,
+    (DeviceKind.DISK, _BUS.USB): True,
+    (DeviceKind.CDROM, _BUS.USB): True,
+    (DeviceKind.FLOPPY, _BUS.USB): False,
+    (DeviceKind.DISK, _BUS.FLOPPY): False,
+    (DeviceKind.CDROM, _BUS.FLOPPY): False,
+    (DeviceKind.FLOPPY, _BUS.FLOPPY): True,
     # The LSI controller is absent from this QEMU build, so plain SCSI is
     # declared unusable here even though libvirt understands the bus.
-    (DiskType.HDD, _BUS.SCSI): False,
-    (DiskType.DVD, _BUS.SCSI): False,
-    (DiskType.FLOPPY, _BUS.SCSI): False,
+    (DeviceKind.DISK, _BUS.SCSI): False,
+    (DeviceKind.CDROM, _BUS.SCSI): False,
+    (DeviceKind.FLOPPY, _BUS.SCSI): False,
+    # `disk|virtio: true` has been in the recording since it was first captured;
+    # the declaration could not say so until the model had the word (M-01).
+    # An optical drive on it is refused with "disk type of 'vda' does not support
+    # ejectable media", which is a property of the bus and holds everywhere.
+    (DeviceKind.DISK, _BUS.VIRTIO_BLK): True,
+    (DeviceKind.CDROM, _BUS.VIRTIO_BLK): False,
+    (DeviceKind.FLOPPY, _BUS.VIRTIO_BLK): False,
 }
 
 #: QEMU's native format is qcow2; raw is universal. The rest it can read through
@@ -105,10 +116,13 @@ class LibvirtCapabilities:
             formats=dict(FORMATS),
             native_format=DiskFormat.QCOW2,
             native_buses={
-                # virtio is the reason to run a guest under KVM at all.
-                DiskType.HDD: _BUS.VIRTIO_SCSI,
-                DiskType.DVD: _BUS.SATA,
-                DiskType.FLOPPY: _BUS.FLOPPY,
+                # virtio-scsi rather than the faster virtio-blk: one controller
+                # carries both disks and optical drives, so a VM arriving from
+                # another hypervisor with an installer DVD keeps it. virtio-blk
+                # is available and is the better choice for a disk-only guest.
+                DeviceKind.DISK: _BUS.VIRTIO_SCSI,
+                DeviceKind.CDROM: _BUS.SATA,
+                DeviceKind.FLOPPY: _BUS.FLOPPY,
             },
             removable_extensions=REMOVABLE_EXTENSIONS,
             firmware={

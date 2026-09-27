@@ -9,11 +9,11 @@ import pytest
 
 from vmctl.core.vmconfig import (
     DiskFormat,
-    DiskType,
-    DiskVariant,
+    DeviceKind,
+    Allocation,
     FirmwareType,
     NetworkType,
-    StorageControllerType,
+    BusType,
 )
 
 from conftest import parse_label, read_fixture
@@ -68,11 +68,11 @@ def test_bios_minimal_shape():
     assert vm.boot.ioapic is True
     assert vm.rtc_utc is True
     assert [sc.name for sc in vm.storage_controllers] == ["SATA"]
-    assert vm.storage_controllers[0].controller_type == StorageControllerType.SATA
+    assert vm.storage_controllers[0].controller_type == BusType.SATA
     assert len(vm.disks) == 1
     assert vm.disks[0].size_mb == 64
     assert vm.disks[0].format == DiskFormat.VDI
-    assert vm.disks[0].variant == DiskVariant.THIN
+    assert vm.disks[0].variant == Allocation.THIN
     assert len(vm.networks) == 1
     assert vm.networks[0].network_type == NetworkType.NAT
 
@@ -89,7 +89,7 @@ def test_controller_name_containing_dashes_is_split_correctly():
     assert "SAS-II Controller" in names
     archive = [d for d in vm.disks if d.disk_path.endswith("arch.vhd")][0]
     assert archive.controller_name == "SAS-II Controller"
-    assert archive.controller == StorageControllerType.SAS
+    assert archive.controller == BusType.SAS
     assert archive.port == 0 and archive.device == 0
 
 
@@ -103,12 +103,12 @@ def test_multidisk_formats_come_from_the_medium_probe():
     assert by_name["arch.vhd"].format == DiskFormat.VHD
     assert by_name["arch.vhd"].size_mb == 128
     # Created with --variant Fixed; the parser must say so (F-20).
-    assert by_name["arch.vhd"].variant == DiskVariant.THICK
+    assert by_name["arch.vhd"].variant == Allocation.THICK
 
 
 def test_iso_is_identified_as_optical_media():
     vm = parse_label("iso_attached")
-    optical = [d for d in vm.disks if d.type == DiskType.DVD]
+    optical = [d for d in vm.disks if d.type == DeviceKind.CDROM]
     assert len(optical) == 1
     assert optical[0].disk_path.endswith(".iso")
     assert optical[0].controller_name == "IDE Controller"
@@ -130,9 +130,9 @@ def test_empty_and_absent_attachments_are_told_apart():
     assert "emptydrive" not in paths
 
     kinds = sorted(d.type.value for d in vm.disks)
-    assert kinds == ["dvd", "floppy", "hdd"]
+    assert kinds == ["cdrom", "disk", "floppy"]
 
-    floppy = [d for d in vm.disks if d.type == DiskType.FLOPPY][0]
+    floppy = [d for d in vm.disks if d.type == DeviceKind.FLOPPY][0]
     assert floppy.source is None and floppy.disk_path is None
 
 
@@ -209,7 +209,7 @@ def test_medium_info_decodes_capacity_format_and_variant(parser):
     assert info == {
         "size_mb": 128,
         "format": DiskFormat.VHD,
-        "variant": DiskVariant.THICK,
+        "variant": Allocation.THICK,
     }
 
 
@@ -219,14 +219,14 @@ def test_medium_info_accepts_the_legacy_variant_prefix(parser):
         "Capacity: 100 MBytes\nStorage format: VDI\nVariant: fixed default\n",
         DiskFormat.VDI,
     )
-    assert info["variant"] == DiskVariant.THICK
+    assert info["variant"] == Allocation.THICK
 
 
 def test_medium_info_falls_back_to_the_supplied_default(parser):
     info = parser.parse_medium_info("nothing useful here\n", DiskFormat.VMDK)
     assert info["format"] == DiskFormat.VMDK
     assert info["size_mb"] == 20480
-    assert info["variant"] == DiskVariant.THIN
+    assert info["variant"] == Allocation.THIN
 
 
 def test_parser_never_touches_the_hypervisor(parser):
@@ -234,7 +234,7 @@ def test_parser_never_touches_the_hypervisor(parser):
     vm = parser.parse_text(
         "x",
         read_fixture("showvminfo_bios_minimal.txt"),
-        probe=lambda p: {"size_mb": 1, "format": DiskFormat.VDI, "variant": DiskVariant.THIN},
+        probe=lambda p: {"size_mb": 1, "format": DiskFormat.VDI, "variant": Allocation.THIN},
     )
     assert vm.disks[0].size_mb == 1
 
@@ -265,7 +265,7 @@ def test_floppy_controller_is_not_typed_as_sata():
     """F-15 — an unmapped controller type silently becomes SATA."""
     vm = parse_label("floppy_first")
     floppy = [sc for sc in vm.storage_controllers if sc.name == "Floppy"][0]
-    assert floppy.controller_type != StorageControllerType.SATA
+    assert floppy.controller_type != BusType.SATA
 
 
 # ---------------------------------------------------------------------------
@@ -313,17 +313,17 @@ def test_escaped_quotes_in_values_are_decoded(parser):
 @pytest.mark.parametrize(
     "chipset,expected",
     [
-        ("PIIX3", StorageControllerType.IDE),
-        ("PIIX4", StorageControllerType.IDE),
-        ("ICH6", StorageControllerType.IDE),
-        ("IntelAhci", StorageControllerType.SATA),
-        ("LsiLogic", StorageControllerType.SCSI),
-        ("BusLogic", StorageControllerType.SCSI),
-        ("LsiLogicSas", StorageControllerType.SAS),
-        ("NVMe", StorageControllerType.NVME),
-        ("I82078", StorageControllerType.FLOPPY),
-        ("USB", StorageControllerType.USB),
-        ("VirtioSCSI", StorageControllerType.VIRTIO_SCSI),
+        ("PIIX3", BusType.IDE),
+        ("PIIX4", BusType.IDE),
+        ("ICH6", BusType.IDE),
+        ("IntelAhci", BusType.SATA),
+        ("LsiLogic", BusType.SCSI),
+        ("BusLogic", BusType.SCSI),
+        ("LsiLogicSas", BusType.SAS),
+        ("NVMe", BusType.NVME),
+        ("I82078", BusType.FLOPPY),
+        ("USB", BusType.USB),
+        ("VirtioSCSI", BusType.VIRTIO_SCSI),
     ],
 )
 def test_every_controller_chipset_virtualbox_offers(parser, chipset, expected):
@@ -404,7 +404,7 @@ def test_a_disk_in_any_supported_format_is_recognised(parser, ext, expected):
         probe=lambda p: {
             "size_mb": 64,
             "format": parser.default_format_for(p),
-            "variant": DiskVariant.THIN,
+            "variant": Allocation.THIN,
         },
     )
     assert len(vm.disks) == 1, "the disk was filtered out and a default invented"
@@ -440,7 +440,7 @@ def test_an_empty_optical_drive_is_kept(parser):
         '"IDE-1-0"="emptydrive"\n'
     )
     vm = parser.parse_text("x", raw)
-    optical = [d for d in vm.disks if d.type == DiskType.DVD]
+    optical = [d for d in vm.disks if d.type == DeviceKind.CDROM]
     assert len(optical) == 1
     assert optical[0].source is None
     assert optical[0].disk_path is None
@@ -454,7 +454,7 @@ def test_an_empty_floppy_drive_is_kept_as_a_floppy(parser):
         '"Floppy-0-0"="emptydrive"\n'
     )
     vm = parser.parse_text("x", raw)
-    assert [d.type for d in vm.disks] == [DiskType.FLOPPY]
+    assert [d.type for d in vm.disks] == [DeviceKind.FLOPPY]
 
 
 def test_a_slot_holding_nothing_is_still_skipped(parser):
@@ -467,3 +467,27 @@ def test_a_slot_holding_nothing_is_still_skipped(parser):
     vm = parser.parse_text("x", raw)
     # VMConfig supplies a default disk when a VM genuinely has none.
     assert all(d.disk_path is None for d in vm.disks)
+
+
+def test_solid_state_is_read_from_the_attachment_not_invented():
+    """`type: ssd` was a stand-in for a flag VirtualBox reports per attachment.
+
+    The captured VMs all report ``nonrotational="off"``, so this flips one on in
+    the capture: the model has to follow what the hypervisor says, not a field
+    the user happened to write (M-01).
+    """
+    from vmctl.providers.virtualbox.parser import VirtualBoxParser
+    from conftest import make_fixture_probe
+
+    raw = read_fixture("showvminfo_multidisk.txt")
+    assert '"SATA Controller-nonrotational-0-0"="off"' in raw
+    flipped = raw.replace(
+        '"SATA Controller-nonrotational-0-0"="off"',
+        '"SATA Controller-nonrotational-0-0"="on"',
+    )
+    vm = VirtualBoxParser().parse_text("multidisk", flipped, probe=make_fixture_probe("multidisk"))
+    by_slot = {(d.controller_name, d.port, d.device): d for d in vm.disks}
+    assert by_slot[("SATA Controller", 0, 0)].nonrotational is True
+    assert all(
+        not d.nonrotational for k, d in by_slot.items() if k != ("SATA Controller", 0, 0)
+    ), "only the attachment that says so is solid state"

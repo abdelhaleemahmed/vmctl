@@ -22,35 +22,41 @@ from ...core.vmconfig import (
     BootConfig,
     CPUConfig,
     DiskConfig,
-    DiskType,
+    DeviceKind,
     FirmwareConfig,
     MemoryConfig,
     NetworkConfig,
     NetworkType,
     StorageControllerConfig,
-    StorageControllerType,
+    BusType,
     VMConfig,
 )
 from .capabilities import LibvirtCapabilities
-from .tables import BOOT_DEVICE, DRIVER_TO_FORMAT, FIELDS, NETWORK_TO_LIBVIRT
+from .tables import (
+    BOOT_DEVICE,
+    DRIVER_TO_FORMAT,
+    FIELDS,
+    NETWORK_TO_LIBVIRT,
+    SSD_ROTATION_RATE,
+)
 
 #: libvirt bus -> model bus. Ambiguous cases are resolved by the controller
 #: model: ``bus='scsi'`` is virtio-scsi or plain SCSI depending on it.
 LIBVIRT_TO_BUS = {
-    "sata": StorageControllerType.SATA,
-    "ide": StorageControllerType.IDE,
-    "usb": StorageControllerType.USB,
-    "fdc": StorageControllerType.FLOPPY,
-    "nvme": StorageControllerType.NVME,
-    "scsi": StorageControllerType.VIRTIO_SCSI,
-    "virtio": StorageControllerType.VIRTIO_SCSI,
+    "sata": BusType.SATA,
+    "ide": BusType.IDE,
+    "usb": BusType.USB,
+    "fdc": BusType.FLOPPY,
+    "nvme": BusType.NVME,
+    "scsi": BusType.VIRTIO_SCSI,
+    "virtio": BusType.VIRTIO_BLK,
 }
 
 DEVICE_TO_KIND = {
-    "disk": DiskType.HDD,
-    "cdrom": DiskType.DVD,
-    "floppy": DiskType.FLOPPY,
-    "lun": DiskType.HDD,
+    "disk": DeviceKind.DISK,
+    "cdrom": DeviceKind.CDROM,
+    "floppy": DeviceKind.FLOPPY,
+    "lun": DeviceKind.DISK,
 }
 
 #: Reverse of the boot map, for reading a domain's boot order.
@@ -212,7 +218,7 @@ class LibvirtParser:
                 models.setdefault(ctype, model)
 
         disks: List[DiskConfig] = []
-        buses_seen: Dict[StorageControllerType, str] = {}
+        buses_seen: Dict[BusType, str] = {}
 
         for index, disk_el in enumerate(root.findall("devices/disk")):
             target = disk_el.find("target")
@@ -220,7 +226,7 @@ class LibvirtParser:
                 continue
             libvirt_bus = target.get("bus", "sata")
             bus = self._resolve_bus(libvirt_bus, models.get("scsi"))
-            kind = DEVICE_TO_KIND.get(disk_el.get("device", "disk"), DiskType.HDD)
+            kind = DEVICE_TO_KIND.get(disk_el.get("device", "disk"), DeviceKind.DISK)
 
             source_el = disk_el.find("source")
             source = source_el.get("file") if source_el is not None else None
@@ -229,7 +235,11 @@ class LibvirtParser:
             driver_type = driver.get("type") if driver is not None else None
             fmt = DRIVER_TO_FORMAT.get(driver_type or "", self.capabilities.native_format)
 
-            removable = kind in (DiskType.DVD, DiskType.FLOPPY)
+            # libvirt states solid-state as a rotation rate; anything but the
+            # "not rotating" convention means a spinning disk.
+            nonrotational = target.get("rotation_rate") == SSD_ROTATION_RATE
+
+            removable = kind in (DeviceKind.CDROM, DeviceKind.FLOPPY)
             controller_name = buses_seen.setdefault(bus, self._controller_name(bus))
             disks.append(
                 DiskConfig(
@@ -237,6 +247,7 @@ class LibvirtParser:
                     size_mb=0 if removable else _image_size_mb(source, probe),
                     type=kind,
                     format=fmt,
+                    nonrotational=nonrotational,
                     controller=bus,
                     controller_name=controller_name,
                     port=index,
@@ -255,25 +266,25 @@ class LibvirtParser:
                     name=name,
                     controller_type=bus,
                     port_count=spec.default_ports if spec else 1,
-                    bootable=bus is not StorageControllerType.USB,
+                    bootable=bus is not BusType.USB,
                 )
             )
         return controllers, disks
 
-    def _controller_name(self, bus: StorageControllerType) -> str:
+    def _controller_name(self, bus: BusType) -> str:
         spec = self.capabilities.bus(bus)
         return spec.controller_name if spec else bus.value
 
     @staticmethod
-    def _resolve_bus(libvirt_bus: str, scsi_model: Optional[str]) -> StorageControllerType:
+    def _resolve_bus(libvirt_bus: str, scsi_model: Optional[str]) -> BusType:
         """Map a libvirt bus to a model bus.
 
         ``bus='scsi'`` is ambiguous: it is virtio-scsi or plain SCSI depending on
         the controller model in the same document.
         """
         if libvirt_bus == "scsi" and scsi_model and "virtio" not in scsi_model:
-            return StorageControllerType.SCSI
-        return LIBVIRT_TO_BUS.get(libvirt_bus, StorageControllerType.SATA)
+            return BusType.SCSI
+        return LIBVIRT_TO_BUS.get(libvirt_bus, BusType.SATA)
 
     def _parse_networks(self, root: ET.Element) -> List[NetworkConfig]:
         """Build network adapters from the document."""

@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
-from .vmconfig import DiskFormat, DiskType, FirmwareType, StorageControllerType
+from .vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
 
 
 class Support(Enum):
@@ -141,9 +141,9 @@ class Capabilities:
     max_disks: int = 255
 
     #: Bus -> its rules.
-    buses: Dict[StorageControllerType, BusSpec] = field(default_factory=dict)
+    buses: Dict[BusType, BusSpec] = field(default_factory=dict)
     #: (device kind, bus) -> whether the provider will attach it.
-    attach: Dict[Tuple[DiskType, StorageControllerType], bool] = field(default_factory=dict)
+    attach: Dict[Tuple[DeviceKind, BusType], bool] = field(default_factory=dict)
     #: Image format -> how well it is supported.
     formats: Dict[DiskFormat, FormatSpec] = field(default_factory=dict)
     #: Format used when a configuration does not name one.
@@ -151,7 +151,7 @@ class Capabilities:
     #: The bus a provider would idiomatically put each device kind on. Used when
     #: a bus has to be substituted, so the result lands somewhere a user of that
     #: hypervisor would expect rather than merely somewhere valid.
-    native_buses: Dict[DiskType, StorageControllerType] = field(default_factory=dict)
+    native_buses: Dict[DeviceKind, BusType] = field(default_factory=dict)
 
     firmware: Dict[FirmwareType, Support] = field(default_factory=dict)
     #: What a VM name may contain. A name is interpolated into file paths and,
@@ -178,11 +178,11 @@ class Capabilities:
 
     # -- queries -------------------------------------------------------------
 
-    def bus(self, bus: StorageControllerType) -> Optional[BusSpec]:
+    def bus(self, bus: BusType) -> Optional[BusSpec]:
         """Return the rules for a bus, or None when it is unsupported."""
         return self.buses.get(bus)
 
-    def can_attach(self, kind: DiskType, bus: StorageControllerType) -> bool:
+    def can_attach(self, kind: DeviceKind, bus: BusType) -> bool:
         """Whether this provider will put a device of *kind* on *bus*.
 
         Args:
@@ -194,16 +194,13 @@ class Capabilities:
             treated as unsupported, so a table that has not been probed refuses
             rather than guessing.
         """
-        # SSD is a hint on a disk, not a different kind of device.
-        if kind is DiskType.SSD:
-            kind = DiskType.HDD
         return self.attach.get((kind, bus), False)
 
-    def buses_for(self, kind: DiskType) -> List[StorageControllerType]:
+    def buses_for(self, kind: DeviceKind) -> List[BusType]:
         """Return every bus that will carry a device of *kind*."""
         return [b for b in self.buses if self.can_attach(kind, b)]
 
-    def native_bus(self, kind: DiskType) -> Optional[StorageControllerType]:
+    def native_bus(self, kind: DeviceKind) -> Optional[BusType]:
         """Return the idiomatic bus for a device kind, if one is declared.
 
         Args:
@@ -212,8 +209,6 @@ class Capabilities:
         Returns:
             The preferred bus, or None when the provider does not say.
         """
-        if kind is DiskType.SSD:
-            kind = DiskType.HDD
         preferred = self.native_buses.get(kind)
         if preferred is not None and self.can_attach(kind, preferred):
             return preferred

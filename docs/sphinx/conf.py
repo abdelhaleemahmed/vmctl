@@ -57,6 +57,12 @@ napoleon_include_private_with_doc = False
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
 napoleon_use_rtype = True
+# Render an `Attributes:` section as :ivar: fields rather than as separate object
+# descriptions. Without this, a dataclass field is described twice -- once by the
+# docstring and once by autodoc reading the annotation -- and Sphinx reports a
+# duplicate that `suppress_warnings = ['autodoc']` does not cover, because it
+# comes from the Python domain rather than from autodoc.
+napoleon_use_ivar = True
 
 # ---------------------------------------------------------------------------
 # Intersphinx

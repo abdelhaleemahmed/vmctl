@@ -21,16 +21,16 @@ from vmctl.core.vmconfig import (
     CPUConfig,
     DiskConfig,
     DiskFormat,
-    DiskType,
+    DeviceKind,
     FirmwareConfig,
     MemoryConfig,
     NetworkConfig,
-    StorageControllerType,
+    BusType,
     VMConfig,
 )
 
 
-def _caps(provider, native=DiskFormat.QCOW2, buses=(StorageControllerType.SATA,)):
+def _caps(provider, native=DiskFormat.QCOW2, buses=(BusType.SATA,)):
     return Capabilities(
         provider=provider,
         buses={
@@ -38,16 +38,16 @@ def _caps(provider, native=DiskFormat.QCOW2, buses=(StorageControllerType.SATA,)
             for b in buses
         },
         attach={
-            (kind, b): kind is not DiskType.FLOPPY
+            (kind, b): kind is not DeviceKind.FLOPPY
             for b in buses
-            for kind in (DiskType.HDD, DiskType.DVD, DiskType.FLOPPY)
+            for kind in (DeviceKind.DISK, DeviceKind.CDROM, DeviceKind.FLOPPY)
         },
         formats={
             native: FormatSpec(Support.NATIVE, (native.value,), native.value),
             DiskFormat.VDI: FormatSpec(Support.READ_ONLY, ("vdi",), "vdi", ()),
         },
         native_format=native,
-        native_buses={DiskType.HDD: buses[0]},
+        native_buses={DeviceKind.DISK: buses[0]},
         evidence="fake",
     )
 
@@ -116,7 +116,7 @@ def source_vm(tmp_path):
                 name="root",
                 size_mb=1024,
                 format=DiskFormat.VDI,
-                controller=StorageControllerType.SATA,
+                controller=BusType.SATA,
                 disk_path=str(image),
             )
         ],
@@ -265,7 +265,7 @@ def test_an_unreachable_image_is_reported_not_pretended_away(source_vm):
 def test_removable_media_do_not_carry_their_path_over(source_vm):
     """An ISO path on the source host means nothing on the target."""
     source_vm.disks.append(
-        DiskConfig(name="cd", type=DiskType.DVD, source="/host/install.iso", port=1)
+        DiskConfig(name="cd", type=DeviceKind.CDROM, source="/host/install.iso", port=1)
     )
     migration = plan_migration(
         FakeProvider("virtualbox", source_vm),
@@ -273,7 +273,7 @@ def test_removable_media_do_not_carry_their_path_over(source_vm):
         "src",
         with_disks=True,
     )
-    cd = [d for d in migration.vm.disks if d.type is DiskType.DVD][0]
+    cd = [d for d in migration.vm.disks if d.type is DeviceKind.CDROM][0]
     assert cd.source is None
 
 

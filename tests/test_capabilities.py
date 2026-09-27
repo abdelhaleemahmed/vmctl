@@ -13,12 +13,12 @@ from pathlib import Path
 import pytest
 
 from vmctl.core.capabilities import Support
-from vmctl.core.vmconfig import DiskFormat, DiskType, StorageControllerType
+from vmctl.core.vmconfig import DiskFormat, DeviceKind, BusType
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-KIND_NAMES = {"disk": DiskType.HDD, "cdrom": DiskType.DVD, "floppy": DiskType.FLOPPY}
+KIND_NAMES = {"disk": DeviceKind.DISK, "cdrom": DeviceKind.CDROM, "floppy": DeviceKind.FLOPPY}
 
 
 @pytest.fixture(scope="module")
@@ -53,7 +53,7 @@ def test_every_probed_attachment_matches_the_declaration(caps, probed_attach):
         if observed is None:
             continue  # the controller itself could not be created in that probe
         kind = KIND_NAMES[kind_name]
-        bus = StorageControllerType(bus_name)
+        bus = BusType(bus_name)
         declared = caps.can_attach(kind, bus)
         if declared != observed:
             mismatches.append(f"{key}: declared={declared} observed={observed}")
@@ -63,7 +63,7 @@ def test_every_probed_attachment_matches_the_declaration(caps, probed_attach):
 def test_every_probed_port_range_matches_the_declaration(caps, probed_attach):
     mismatches = []
     for bus_name, (low, high) in probed_attach["port_ranges"].items():
-        spec = caps.bus(StorageControllerType(bus_name))
+        spec = caps.bus(BusType(bus_name))
         assert spec is not None, bus_name
         if (spec.min_ports, spec.max_ports) != (low, high):
             mismatches.append(
@@ -75,31 +75,36 @@ def test_every_probed_port_range_matches_the_declaration(caps, probed_attach):
 
 def test_nvme_carries_disks_only(caps):
     """Measured: "The attachment is not supported by the storage controller"."""
-    assert caps.can_attach(DiskType.HDD, StorageControllerType.NVME)
-    assert not caps.can_attach(DiskType.DVD, StorageControllerType.NVME)
-    assert not caps.can_attach(DiskType.FLOPPY, StorageControllerType.NVME)
+    assert caps.can_attach(DeviceKind.DISK, BusType.NVME)
+    assert not caps.can_attach(DeviceKind.CDROM, BusType.NVME)
+    assert not caps.can_attach(DeviceKind.FLOPPY, BusType.NVME)
 
 
 def test_only_the_floppy_controller_carries_a_floppy(caps):
     for bus in caps.buses:
-        expected = bus is StorageControllerType.FLOPPY
-        assert caps.can_attach(DiskType.FLOPPY, bus) is expected, bus
+        expected = bus is BusType.FLOPPY
+        assert caps.can_attach(DeviceKind.FLOPPY, bus) is expected, bus
 
 
 def test_the_floppy_controller_carries_nothing_else(caps):
-    assert not caps.can_attach(DiskType.HDD, StorageControllerType.FLOPPY)
-    assert not caps.can_attach(DiskType.DVD, StorageControllerType.FLOPPY)
+    assert not caps.can_attach(DeviceKind.DISK, BusType.FLOPPY)
+    assert not caps.can_attach(DeviceKind.CDROM, BusType.FLOPPY)
 
 
-def test_an_ssd_is_a_disk_not_a_separate_kind(caps):
-    """SSD is a hint on a disk, so it attaches wherever a disk does."""
-    for bus in caps.buses:
-        assert caps.can_attach(DiskType.SSD, bus) == caps.can_attach(DiskType.HDD, bus)
+def test_there_is_no_separate_kind_for_solid_state(caps):
+    """Solid state is a flag on a disk, not a kind of device (M-01).
+
+    The old model had `DiskType.SSD`, and every lookup here had to fold it onto
+    HDD first -- no hypervisor's attach matrix has a row for it. A kind that has
+    to be translated away before it can be used is not a kind.
+    """
+    assert [k.value for k in DeviceKind] == ["disk", "cdrom", "floppy"]
+    assert not any(k.value == "ssd" for k in DeviceKind)
 
 
 def test_an_unknown_combination_is_refused_rather_than_guessed(caps):
-    caps.attach.pop((DiskType.DVD, StorageControllerType.SATA), None)
-    assert caps.can_attach(DiskType.DVD, StorageControllerType.SATA) is False
+    caps.attach.pop((DeviceKind.CDROM, BusType.SATA), None)
+    assert caps.can_attach(DeviceKind.CDROM, BusType.SATA) is False
 
 
 # ---------------------------------------------------------------------------
@@ -110,10 +115,10 @@ def test_an_unknown_combination_is_refused_rather_than_guessed(caps):
 @pytest.mark.parametrize(
     "bus,ports",
     [
-        (StorageControllerType.IDE, 2),
-        (StorageControllerType.SCSI, 16),
-        (StorageControllerType.USB, 8),
-        (StorageControllerType.FLOPPY, 1),
+        (BusType.IDE, 2),
+        (BusType.SCSI, 16),
+        (BusType.USB, 8),
+        (BusType.FLOPPY, 1),
     ],
 )
 def test_buses_that_accept_exactly_one_port_count(caps, bus, ports):
@@ -126,7 +131,7 @@ def test_buses_that_accept_exactly_one_port_count(caps, bus, ports):
 
 
 def test_a_flexible_bus_clamps_into_its_range(caps):
-    spec = caps.bus(StorageControllerType.SATA)
+    spec = caps.bus(BusType.SATA)
     assert spec.fixed_port_count is None
     assert spec.clamp_ports(4) == 4
     assert spec.clamp_ports(99) == 30
@@ -134,13 +139,13 @@ def test_a_flexible_bus_clamps_into_its_range(caps):
 
 
 def test_ide_carries_two_devices_per_port(caps):
-    assert caps.bus(StorageControllerType.IDE).units_per_port == 2
-    assert caps.bus(StorageControllerType.SATA).units_per_port == 1
+    assert caps.bus(BusType.IDE).units_per_port == 2
+    assert caps.bus(BusType.SATA).units_per_port == 1
 
 
 def test_usb_is_not_bootable(caps):
-    assert caps.bus(StorageControllerType.USB).bootable is False
-    assert caps.bus(StorageControllerType.SATA).bootable is True
+    assert caps.bus(BusType.USB).bootable is False
+    assert caps.bus(BusType.SATA).bootable is True
 
 
 # ---------------------------------------------------------------------------

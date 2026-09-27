@@ -168,12 +168,12 @@ class LibvirtBackend(BaseProvider):
             the format is the provider's native one when the image cannot be
             read, which is what happens for an image that does not exist yet.
         """
-        from ...core.vmconfig import DiskVariant
+        from ...core.vmconfig import Allocation
 
         fallback = {
             "size_mb": 0,
             "format": self.parser.capabilities.native_format,
-            "variant": DiskVariant.THIN,
+            "variant": Allocation.THIN,
         }
         try:
             result = subprocess.run(
@@ -196,7 +196,7 @@ class LibvirtBackend(BaseProvider):
         # A qcow2 image reports its allocated size; a fully allocated one is
         # effectively preallocated.
         actual = int(info.get("actual-size") or 0)
-        variant = DiskVariant.THICK if virtual and actual >= virtual * 0.9 else DiskVariant.THIN
+        variant = Allocation.THICK if virtual and actual >= virtual * 0.9 else Allocation.THIN
         return {
             "size_mb": max(0, virtual // (1024 * 1024)),
             "format": fmt or fallback["format"],

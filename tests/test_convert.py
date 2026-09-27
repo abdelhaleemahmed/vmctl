@@ -15,7 +15,7 @@ from vmctl.core.convert import (
 )
 from vmctl.core.exceptions import ProviderError
 from vmctl.core.plan import StepKind
-from vmctl.core.vmconfig import DiskConfig, DiskFormat, DiskType
+from vmctl.core.vmconfig import DiskConfig, DiskFormat, DeviceKind
 from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
 from vmctl.providers.libvirt.convert import QemuImgConverter
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
@@ -94,7 +94,7 @@ def test_an_image_the_target_can_create_is_left_alone(vm_minimal):
 def test_removable_media_are_never_converted(vm_minimal):
     """An ISO is inserted, not created, so its format is not ours to change."""
     caps = LibvirtCapabilities.get()
-    vm_minimal.disks = [DiskConfig(name="cd", type=DiskType.DVD, source="/iso/install.iso")]
+    vm_minimal.disks = [DiskConfig(name="cd", type=DeviceKind.CDROM, source="/iso/install.iso")]
     assert conversions_for(vm_minimal, caps, lambda vm, d, ext: "/out/x") == []
 
 

@@ -7,12 +7,12 @@ import pytest
 from vmctl.core.exceptions import ValidationError
 from vmctl.core.vmconfig import (
     DiskConfig,
-    DiskType,
+    DeviceKind,
     FirmwareType,
     NetworkConfig,
     NetworkType,
     StorageControllerConfig,
-    StorageControllerType,
+    BusType,
 )
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 from vmctl.validators.vm_validator import VMValidator
@@ -84,9 +84,9 @@ def test_removable_devices_are_exempt_from_size_limits(validator, vm_minimal):
     vm_minimal.disks.append(
         DiskConfig(
             name="cd",
-            type=DiskType.DVD,
+            type=DeviceKind.CDROM,
             size_mb=0,
-            controller=StorageControllerType.IDE,
+            controller=BusType.IDE,
             controller_name="IDE Controller",
             port=0,
         )
@@ -102,8 +102,8 @@ def test_duplicate_disk_names_rejected(validator, vm_minimal):
 
 def test_duplicate_controller_names_rejected(validator, vm_minimal):
     vm_minimal.storage_controllers = [
-        StorageControllerConfig(name="SATA", controller_type=StorageControllerType.SATA),
-        StorageControllerConfig(name="SATA", controller_type=StorageControllerType.SATA),
+        StorageControllerConfig(name="SATA", controller_type=BusType.SATA),
+        StorageControllerConfig(name="SATA", controller_type=BusType.SATA),
     ]
     with pytest.raises(ValidationError, match="unique"):
         validator.validate(vm_minimal)
@@ -139,9 +139,7 @@ def test_devices_that_do_not_state_a_position_do_not_collide(validator, vm_minim
 
 def test_port_beyond_the_controller_port_count_is_rejected(validator, vm_minimal):
     vm_minimal.storage_controllers = [
-        StorageControllerConfig(
-            name="SATA Controller", controller_type=StorageControllerType.SATA, port_count=2
-        )
+        StorageControllerConfig(name="SATA Controller", controller_type=BusType.SATA, port_count=2)
     ]
     vm_minimal.disks[0].controller_name = "SATA Controller"
     vm_minimal.disks[0].port = 5
@@ -151,12 +149,10 @@ def test_port_beyond_the_controller_port_count_is_rejected(validator, vm_minimal
 
 def test_ide_allows_two_devices_per_port_and_no_more(validator, vm_minimal):
     vm_minimal.storage_controllers = [
-        StorageControllerConfig(
-            name="IDE Controller", controller_type=StorageControllerType.IDE, port_count=2
-        )
+        StorageControllerConfig(name="IDE Controller", controller_type=BusType.IDE, port_count=2)
     ]
     vm_minimal.disks[0].controller_name = "IDE Controller"
-    vm_minimal.disks[0].controller = StorageControllerType.IDE
+    vm_minimal.disks[0].controller = BusType.IDE
     vm_minimal.disks[0].device = 1
     validator.validate(vm_minimal)  # master/slave is fine
     vm_minimal.disks[0].device = 2
@@ -166,9 +162,7 @@ def test_ide_allows_two_devices_per_port_and_no_more(validator, vm_minimal):
 
 def test_sata_allows_only_one_device_per_port(validator, vm_minimal):
     vm_minimal.storage_controllers = [
-        StorageControllerConfig(
-            name="SATA Controller", controller_type=StorageControllerType.SATA, port_count=4
-        )
+        StorageControllerConfig(name="SATA Controller", controller_type=BusType.SATA, port_count=4)
     ]
     vm_minimal.disks[0].controller_name = "SATA Controller"
     vm_minimal.disks[0].device = 1
@@ -201,9 +195,9 @@ def test_too_many_network_adapters_uses_the_provider_limit(validator, vm_minimal
 def test_unsupported_controller_bus_is_rejected(vm_minimal):
     """A bus the provider does not declare must be refused, not attempted."""
     caps = VirtualBoxCapabilities.get()
-    caps.buses.pop(StorageControllerType.NVME)
+    caps.buses.pop(BusType.NVME)
     vm_minimal.storage_controllers = [
-        StorageControllerConfig(name="NVMe Controller", controller_type=StorageControllerType.NVME)
+        StorageControllerConfig(name="NVMe Controller", controller_type=BusType.NVME)
     ]
     with pytest.raises(ValidationError, match="not supported"):
         VMValidator(caps).validate(vm_minimal)
@@ -214,7 +208,7 @@ def test_every_bus_phase_1_added_is_accepted(validator, vm_minimal):
     for bus, ports in (("nvme", 8), ("floppy", 1), ("usb", 8), ("virtio-scsi", 16)):
         vm_minimal.storage_controllers = [
             StorageControllerConfig(
-                name=f"{bus} ctl", controller_type=StorageControllerType(bus), port_count=ports
+                name=f"{bus} ctl", controller_type=BusType(bus), port_count=ports
             )
         ]
         validator.validate(vm_minimal)
@@ -246,7 +240,7 @@ def test_unaligned_memory_warns(validator, vm_minimal):
 
 
 def test_nothing_bootable_warns(validator, vm_minimal):
-    vm_minimal.disks = [DiskConfig(name="cd", type=DiskType.DVD, size_mb=0)]
+    vm_minimal.disks = [DiskConfig(name="cd", type=DeviceKind.CDROM, size_mb=0)]
     vm_minimal.boot.order = ["floppy", "none"]
     warnings = validator.validate(vm_minimal)
     assert any("will not boot" in w for w in warnings)
@@ -260,7 +254,7 @@ def test_default_boot_order_without_floppy_or_dvd_does_not_warn(validator, vm_mi
 
 
 def test_size_on_a_removable_device_warns(validator, vm_minimal):
-    vm_minimal.disks.append(DiskConfig(name="cd", type=DiskType.DVD, size_mb=4096, port=1))
+    vm_minimal.disks.append(DiskConfig(name="cd", type=DeviceKind.CDROM, size_mb=4096, port=1))
     warnings = validator.validate(vm_minimal)
     assert any("is ignored" in w for w in warnings)
 
