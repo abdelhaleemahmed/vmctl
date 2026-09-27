@@ -2144,11 +2144,39 @@ the model (E-03, E-05) want Phase 5 first.
 
 ### Tier A — completes the promise
 
-- **E-01 `vmctl diff <vm> <file>` · M.** Show the drift between a live VM and a
+- **E-01 `vmctl diff <vm> <file>` · M. *(done)*** Show the drift between a live VM and a
   config file, as a field-level diff. This is the single most valuable missing
   command for a config-as-code tool, it is read-only and safe, and it reuses
   the parser plus the serializer you already have. Also the fastest way for a
   user to see that a round trip was faithful.
+
+  > Done, in `core/diff.py` so that `E-02 apply` can reuse the comparison. Exit codes
+  > follow diff(1) -- 0 same, 1 differs, 2 error -- which needed a second failure path
+  > in the CLI, since everywhere else 1 means "something went wrong".
+  >
+  > Writing it was almost entirely about deciding **what not to report**, and the first
+  > run against a real VM showed why: it printed five differences, four of which were
+  > noise. Three rules came out of that.
+  >
+  > *Only what the file actually states is compared.* A `VMConfig` loaded from a file is
+  > full of defaults, and a default is not a request -- a file that never mentions
+  > `bootable` would otherwise disagree with every VM whose first disk boots. So the raw
+  > file is read a second time and `stated_paths()` records which fields it contains.
+  >
+  > *A field only one side can know is not drift.* A device's name (most hypervisors
+  > have nowhere to put one), a generated MAC, `disk_path`, a provider's native hints.
+  > And symmetrically: a field the *VM* cannot report is not a contradiction either --
+  > QEMU records no device position, so a file asking for `slot: 0` is not in
+  > disagreement with a VM that has no answer.
+  >
+  > *Devices are matched by bus and order, not by raw address.* Matching on the address
+  > made one unchanged device look like one added and one removed, because a provider
+  > that assigns addresses itself reports none.
+  >
+  > It also found a real inconsistency: `BootConfig.order` defaulted to three slots
+  > while every parser produced four, so a VM differed from the file it was made from
+  > in a field neither had mentioned. The model now pads to the four slots providers
+  > actually address.
 - **E-02 `vmctl apply <file>` (idempotent converge) · L.** Create when absent,
   otherwise emit only the `modifyvm`/`storageattach` calls needed to reconcile.
   Dry-run by default, printing the plan like `import` does. This is the real
@@ -2441,7 +2469,7 @@ Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [x] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
-Phase 7  [ ] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema
+Phase 7  [x] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [ ] E-03 clone-disks  [ ] E-05 capability probing
          [ ] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C

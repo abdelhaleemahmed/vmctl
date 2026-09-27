@@ -96,6 +96,14 @@ things prevented that:
 
 ### Added
 
+- **`vmctl diff <vm> <file>`** shows how a VM differs from a config file, field by
+  field. Read-only, and it exits 1 when they differ so a pipeline can watch for drift.
+  Only what the file actually states is compared -- a default is not a request -- and
+  devices are matched by where they are rather than by a name most hypervisors cannot
+  store.
+- Fixed: a VM's boot order had three slots in a fresh config and four when read back
+  from a hypervisor, so a VM differed from the file it was created from in a field
+  neither had mentioned.
 - **`vmctl capabilities`** prints what a hypervisor can actually do: formats, buses,
   which device kinds attach to which bus, limits — and where each figure was
   measured. `--format json` for scripts.

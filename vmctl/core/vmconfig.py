@@ -671,7 +671,7 @@ class BootConfig:
         hpet: Enable High Precision Event Timer.
     """
 
-    order: List[str] = field(default_factory=lambda: ["disk", "dvd", "none"])
+    order: List[str] = field(default_factory=lambda: ["disk", "dvd", "none", "none"])
     boot1: str = "disk"
     boot2: str = "dvd"
     boot3: str = "none"
@@ -679,6 +679,19 @@ class BootConfig:
     acpi: bool = True
     ioapic: bool = False
     hpet: bool = False
+
+    #: How many slots the order has. Every provider addresses boot devices by slot
+    #: -- VirtualBox literally as boot1..boot4 -- so the list is padded to that
+    #: length. It used to default to three while every parser produced four, which
+    #: made a VM differ from the file it was created from in a field neither had
+    #: mentioned.
+    SLOTS = 4
+
+    def __post_init__(self) -> None:
+        """Pad or trim the order to the four slots providers address."""
+        order = list(self.order)[: self.SLOTS]
+        order += ["none"] * (self.SLOTS - len(order))
+        self.order = order
 
     def to_dict(self) -> dict:
         """Return boot configuration as a plain dictionary.

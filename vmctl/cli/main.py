@@ -14,6 +14,7 @@ from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
 from vmctl.core.convert import convert as plan_convert
+from vmctl.core.diff import diff, stated_paths, summarise
 from vmctl.core.migrate import plan_migration
 from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import DeviceKind, DiskFormat
@@ -188,6 +189,33 @@ def _write_plan(plan, out: str) -> None:
 
     for path in written:
         click.echo(f"Wrote {path}")
+
+
+def _read_mapping(path: Path) -> dict:
+    """Return a config file as the plain mapping it is.
+
+    Loading it into a :class:`VMConfig` fills in every default, which is exactly what
+    ``diff`` must not treat as a request -- so the file is read twice, once as a VM and
+    once as what was written.
+    """
+    text = path.read_text()
+    if path.suffix.lower() in (".json",):
+        return json.loads(text) or {}
+    import yaml
+
+    return yaml.safe_load(text) or {}
+
+
+def _fail_with(exc: Exception, code: int) -> None:
+    """Report an error and exit with a specific code.
+
+    ``diff`` follows diff(1), where 1 means "they differ" -- so its errors have to be
+    distinguishable from its findings, or a script cannot tell them apart.
+    """
+    try:
+        _fail(exc)
+    except SystemExit:
+        sys.exit(code)
 
 
 def _fail(exc: Exception) -> None:
@@ -1129,6 +1157,61 @@ def cmd_providers():
             status += " *"
         click.echo(f"{entry.name:<14} {status:<12} {version:<12} {entry.description}")
     click.echo("\n* the provider vmctl would use by default")
+
+
+# ---------------------------------------------------------------------------
+# diff
+# ---------------------------------------------------------------------------
+
+
+@cli.command("diff")
+@click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.argument("config_file", type=click.Path(exists=True, path_type=Path))
+@click.pass_context
+def cmd_diff(ctx, vm_name, config_file):
+    """Show how a VM differs from a configuration file.
+
+    Read-only. Reads the VM from the hypervisor, loads the file, and compares them
+    field by field -- which is also the quickest way to see whether an export and
+    re-import was faithful.
+
+    Devices are matched by where they are (bus, slot, unit) rather than by name,
+    because a device's name is something most hypervisors have nowhere to store.
+    Anything only one side can know -- a generated MAC, a provider's own identifiers,
+    the path an image happens to have on this host -- is not reported as drift.
+
+    \b
+    Exit codes, the same as diff(1):
+      0  the VM matches the file
+      1  they differ
+      2  something went wrong
+
+    \b
+    Examples:
+      vmctl diff web-01 web-01.yaml
+      vmctl diff web-01 web-01.yaml || echo "drifted"
+    """
+    try:
+        engine = _engine(ctx)
+        live = engine.read_vm(vm_name)
+        # The same loader `import` uses, so a file that imports also diffs.
+        desired = engine.import_vm(config_file)
+        # ...and the raw file as well, because only what it actually states is worth
+        # comparing: a default is not a request (E-01).
+        stated = stated_paths(_read_mapping(config_file))
+    except Exception as exc:
+        _fail_with(exc, 2)
+        return
+
+    changes = diff(live, desired, stated)
+    if not changes:
+        click.echo(f"{vm_name} matches {config_file}")
+        return
+
+    click.echo(f"{vm_name} vs {config_file}: {summarise(changes)}")
+    for change in changes:
+        click.echo(f"  {change.render()}")
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

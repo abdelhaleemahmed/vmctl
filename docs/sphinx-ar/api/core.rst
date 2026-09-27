@@ -78,3 +78,8 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.core.diff
+   :members:
+   :member-order: bysource
+   :show-inheritance:

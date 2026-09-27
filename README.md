@@ -140,6 +140,25 @@ A substitution lands on the bus that hypervisor's own users would pick — a dis
 moves to `virtio-scsi` under libvirt, an optical drive to `sata` — rather than
 merely somewhere valid.
 
+### Has It Drifted?
+
+`vmctl diff` compares a VM against a file, field by field. Read-only, and it exits 1
+when they differ — so a pipeline can watch for drift.
+
+```
+$ vmctl diff web-01 web-01.yaml
+web-01 vs web-01.yaml: 2 changed, 1 removed
+  ~ cpu.count  vm 2  file 4
+  ~ storage[sata/0].size_mb  vm 20480  file 51200
+  - storage[scsi/0]  only on the VM: disk, scsi, 4096 MB
+```
+
+Only what the file actually says is compared: a default is not a request, so a file
+that never mentions `bootable` does not "disagree" with every VM whose first disk
+boots. Devices are matched by where they are rather than by name, because most
+hypervisors have nowhere to store a device's name. It is also the quickest way to
+check that an export and re-import was faithful.
+
 ### What Can This Hypervisor Do?
 
 `vmctl capabilities` prints the declaration the validator and the translator read,
@@ -311,6 +330,7 @@ VM — set it in the config file.
 | Command | Description |
 |---------|-------------|
 | `vmctl providers` | List hypervisors and whether they work here |
+| `vmctl diff <vm> <file>` | Show how a VM differs from a config file (exit 1 when it does) |
 | `vmctl capabilities [--format json]` | Print what this hypervisor supports: formats, buses, the attach matrix, limits — and where each figure was measured |
 | `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute] [--out PATH]` | Recreate a VM on another hypervisor |
 | `vmctl convert <src> <dst> [--to FMT] [--execute]` | Convert a disk image between formats |

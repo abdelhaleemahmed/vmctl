@@ -103,6 +103,13 @@ Migration
    :members:
    :show-inheritance:
 
+Drift
+-----
+
+.. automodule:: vmctl.core.diff
+   :members:
+   :show-inheritance:
+
 Provider registry
 -----------------
 

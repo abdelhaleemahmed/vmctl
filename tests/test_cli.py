@@ -730,3 +730,43 @@ def test_out_does_not_execute_anything(runner, tmp_path):
     )
     assert "Dry-run" in result.output
     assert not (tmp_path / "out-demo").exists()
+
+
+# ---------------------------------------------------------------------------
+# diff (E-01)
+# ---------------------------------------------------------------------------
+
+
+def test_diff_says_nothing_when_a_vm_matches_its_file(runner, vbox, tmp_path):
+    """The export/re-import faithfulness check, as a command."""
+    config = tmp_path / "vm.yaml"
+    assert runner.invoke(cli, ["export", "bios-minimal", "-o", str(config)]).exit_code == 0
+    result = runner.invoke(cli, ["diff", "bios-minimal", str(config)])
+    assert result.exit_code == 0
+    assert "matches" in result.output
+
+
+def test_diff_exits_one_when_they_differ(runner, vbox, tmp_path):
+    """diff(1)'s convention, so a pipeline can act on it: 0 same, 1 differs, 2 error."""
+    config = tmp_path / "vm.yaml"
+    runner.invoke(cli, ["export", "bios-minimal", "-o", str(config)])
+    config.write_text(config.read_text().replace("count: 1", "count: 8"))
+    result = runner.invoke(cli, ["diff", "bios-minimal", str(config)])
+    assert result.exit_code == 1
+    assert "cpu.count" in result.output
+    assert "vm 1" in result.output and "file 8" in result.output
+
+
+def test_diff_exits_two_when_something_goes_wrong(runner, vbox, tmp_path):
+    """An error has to be distinguishable from a finding, or 1 means two things."""
+    config = tmp_path / "vm.yaml"
+    config.write_text("name: x\ncpu:\n  count: notanumber\n")
+    result = runner.invoke(cli, ["diff", "bios-minimal", str(config)])
+    assert result.exit_code == 2
+
+
+def test_diff_changes_nothing(runner, vbox, tmp_path):
+    config = tmp_path / "vm.yaml"
+    runner.invoke(cli, ["export", "bios-minimal", "-o", str(config)])
+    runner.invoke(cli, ["diff", "bios-minimal", str(config)])
+    assert not any(c[1] in ("modifyvm", "createvm", "storageattach", "unregistervm") for c in vbox)
