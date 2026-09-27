@@ -19,7 +19,7 @@ from typing import List, Optional
 from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
 from ..core.slots import place
-from ..core.translate import Policy
+from ..core.translate import Policy, Translator
 from ..core.vmconfig import DiskType, FirmwareType, VMConfig
 
 
@@ -131,18 +131,6 @@ class VMValidator:
             warnings: Where to record substitutable findings.
         """
 
-        def _reject(error: ValidationError, note: str) -> None:
-            """Raise under strict; stand aside otherwise.
-
-            Under a substituting policy this says nothing: the translator makes
-            the substitution and reports it precisely ("used vdi instead of
-            vhdx"), so warning here as well would say the same thing twice, less
-            usefully. The note is kept as the argument for readability at the
-            call site.
-            """
-            if not policy.may_substitute:
-                raise error
-
         caps = self.capabilities
 
         if vm.cpu.count > caps.max_cpus:
@@ -241,45 +229,16 @@ class VMValidator:
                     expected=f"{spec.min_ports}-{spec.max_ports}",
                 )
 
-        # Which device kinds each bus carries, and which formats the provider can
-        # create, are measured facts about the hypervisor -- see the provider's
-        # capability module (M-03).
+        # Which bus carries which device kind, and which formats can be created,
+        # are the translator's questions: it knows the policy, and it collects
+        # every problem before reporting them together. Checking here as well
+        # meant refusing on the first one, and made --policy nearest impossible.
+        translator = Translator(caps, policy)
         for i, disk in enumerate(vm.disks):
-            if not caps.can_attach(disk.type, disk.controller):
-                usable = caps.buses_for(disk.type)
-                _reject(
-                    ValidationError(
-                        f"disks[{i}] ({disk.name}) is a {disk.type.value} device "
-                        f"on the {disk.controller.value} bus, which this provider "
-                        f"does not support",
-                        field=f"disks[{i}].controller",
-                        value=disk.controller.value,
-                        expected=" | ".join(sorted(b.value for b in usable)) or "(none)",
-                        recovery_hint="Pass --policy nearest to let vmctl choose a "
-                        "supported bus and tell you which.",
-                    ),
-                    f"disks[{i}] ({disk.name}) is on the {disk.controller.value} "
-                    f"bus, which this provider does not support for a "
-                    f"{disk.type.value} device; it will be moved",
-                )
-            if disk.is_removable:
-                continue
-            fmt = caps.format_spec(disk.format)
-            if not fmt.support.creatable:
-                _reject(
-                    ValidationError(
-                        f"disks[{i}] ({disk.name}) uses format "
-                        f"{disk.format.value!r}, which {fmt.support.describe()} "
-                        f"here",
-                        field=f"disks[{i}].format",
-                        value=disk.format.value,
-                        expected=" | ".join(sorted(f.value for f in caps.creatable_formats())),
-                        recovery_hint="Pass --policy nearest to let vmctl "
-                        "substitute a supported format and tell you which.",
-                    ),
-                    f"disks[{i}] ({disk.name}) uses format {disk.format.value!r}, "
-                    f"which {fmt.support.describe()} here; it will be substituted",
-                )
+            translator.bus_for(disk, f"disks[{i}].controller")
+            if not disk.is_removable:
+                translator.format_for(disk, f"disks[{i}].format")
+        translator.finish()
 
     def _validate_storage_topology(self, vm: VMConfig) -> None:
         """Check that the storage layout is physically possible.

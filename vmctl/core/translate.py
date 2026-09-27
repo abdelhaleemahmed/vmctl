@@ -81,6 +81,27 @@ class Drop:
 
 
 @dataclass(frozen=True)
+class Refusal:
+    """A value the provider cannot accept, under a policy that will not change it.
+
+    Collected rather than raised immediately: refusing on the first problem makes
+    a user fix one thing, run again, and find the next. One error listing all of
+    them is the same information in one pass.
+    """
+
+    field: str
+    requested: Any
+    would_use: Any
+    reason: str
+
+    def render(self) -> str:
+        return (
+            f"{self.field}: {self.requested} is not supported ({self.reason}); "
+            f"{self.would_use} would be used instead"
+        )
+
+
+@dataclass(frozen=True)
 class Conversion:
     """A medium that has to be converted before the provider can use it."""
 
@@ -110,6 +131,9 @@ class TranslationReport:
     substitutions: List[Substitution] = field(default_factory=list)
     drops: List[Drop] = field(default_factory=list)
     conversions: List[Conversion] = field(default_factory=list)
+    #: Values a strict policy will not accept. Populated as they are found and
+    #: reported together by :meth:`Translator.finish`.
+    refusals: List["Refusal"] = field(default_factory=list)
 
     def __bool__(self) -> bool:
         """True when anything did not carry over exactly."""
@@ -166,14 +190,38 @@ class Translator:
 
     # -- helpers -------------------------------------------------------------
 
-    def _refuse(self, where: str, requested: Any, reason: str, options: Any) -> None:
+    def _refuse(self, where: str, requested: Any, reason: str, would_use: Any) -> None:
+        """Record that a strict policy will not accept this value.
+
+        Nothing is raised here: emission carries on with the substitute so that
+        every problem is found in one pass, and :meth:`finish` reports them all.
+        """
+        self.report.refusals.append(Refusal(where, requested, would_use, reason))
+
+    def finish(self) -> None:
+        """Report everything a strict policy refused, as one error.
+
+        Called when a plan is complete. Under a substituting policy there is
+        nothing to report and this does nothing.
+
+        Raises:
+            ValidationError: If any value was refused.
+        """
+        refusals = self.report.refusals
+        if not refusals:
+            return
+        if len(refusals) == 1:
+            summary = refusals[0].render()
+        else:
+            summary = (
+                f"{len(refusals)} settings are not supported by " f"{self.capabilities.provider}"
+            )
         raise ValidationError(
-            f"{where}: {requested} is not supported by {self.capabilities.provider} " f"({reason})",
-            field=where,
-            value=requested,
-            expected=options,
-            recovery_hint="Pass --policy nearest to let vmctl substitute a "
-            "supported value, and it will tell you what it changed.",
+            summary,
+            field=refusals[0].field if len(refusals) == 1 else None,
+            constraints=[r.render() for r in refusals] if len(refusals) > 1 else None,
+            recovery_hint="Pass --policy nearest to substitute these and be told "
+            "what changed, or --policy convert to convert disk images too.",
         )
 
     def drop(self, where: str, requested: Any, reason: str) -> None:
@@ -206,7 +254,6 @@ class Translator:
         if spec.support.creatable:
             return requested
 
-        creatable = sorted(f.value for f in self.capabilities.creatable_formats())
         native = self.capabilities.native_format
 
         if not self.policy.may_substitute:
@@ -214,8 +261,9 @@ class Translator:
                 where,
                 requested.value,
                 f"this format {spec.support.describe()}",
-                " | ".join(creatable),
+                native.value,
             )
+            return native
 
         # Converting needs something to convert *from*. A configuration that
         # merely describes a disk to create has no image yet, so calling that a
@@ -295,20 +343,26 @@ class Translator:
         readable = " | ".join(sorted(b.value for b in options)) or "(none)"
 
         if not options:
-            self._refuse(
-                where,
-                requested.value,
-                f"{self.capabilities.provider} has no bus that carries a "
-                f"{disk.type.value} device",
-                readable,
+            # Nothing to substitute to, so this cannot be deferred: no policy
+            # makes a device attachable to a bus that does not exist.
+            raise ValidationError(
+                f"{where}: {self.capabilities.provider} has no bus that carries "
+                f"a {disk.type.value} device",
+                field=where,
+                value=requested.value,
+                expected=readable,
             )
+
+        preferred_now = self.capabilities.native_bus(disk.type)
+        fallback = preferred_now or sorted(options, key=lambda b: b.value)[0]
         if not self.policy.may_substitute:
             self._refuse(
                 where,
                 requested.value,
                 f"a {disk.type.value} device cannot go on that bus",
-                readable,
+                fallback.value,
             )
+            return fallback
 
         # Prefer the provider's own idiomatic bus, so a substitution lands
         # somewhere a user of that hypervisor would expect rather than merely
@@ -344,9 +398,12 @@ class Translator:
             return requested
 
         usable = [f for f, s in self.capabilities.firmware.items() if s.usable]
-        readable = " | ".join(sorted(f.value for f in usable)) or "(none)"
-        if not self.policy.may_substitute or not usable:
-            self._refuse(where, requested.value, "unsupported firmware", readable)
+        if not usable:
+            raise ValidationError(
+                f"{where}: {self.capabilities.provider} supports no firmware type",
+                field=where,
+                value=requested.value,
+            )
 
         # An EFI variant should land on another EFI variant rather than BIOS,
         # which would change how the guest boots.
@@ -356,6 +413,9 @@ class Translator:
             if requested is not FirmwareType.BIOS and family
             else sorted(usable, key=lambda f: f.value)[0]
         )
+        if not self.policy.may_substitute:
+            self._refuse(where, requested.value, "unsupported firmware", used.value)
+            return used
         self.report.substitutions.append(
             Substitution(where, requested.value, used.value, "unsupported firmware")
         )

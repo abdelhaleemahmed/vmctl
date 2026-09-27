@@ -316,9 +316,10 @@ def test_the_policy_is_passed_to_the_target(source_vm):
     assert seen["policy"] is Policy.NEAREST
 
 
-def test_migration_defaults_to_convert(source_vm):
-    """Making the VM work on the target is the point; the report says what changed,
-    and nothing runs until --execute."""
+def test_migration_defaults_to_strict(source_vm):
+    """A script running `migrate --execute` never reads the dry-run report, so
+    applying substitutions has to be something the caller asked for. The refusal
+    lists them all at once, so opting in is one step."""
     seen = {}
 
     class Recording(FakeProvider):
@@ -327,7 +328,7 @@ def test_migration_defaults_to_convert(source_vm):
             return super().create_vm(vm, execute, policy)
 
     plan_migration(FakeProvider("virtualbox", source_vm), Recording("libvirt"), "src")
-    assert seen["policy"] is Policy.CONVERT
+    assert seen["policy"] is Policy.STRICT
 
 
 def test_the_source_configuration_is_not_modified(source_vm):

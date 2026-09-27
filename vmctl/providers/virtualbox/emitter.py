@@ -277,6 +277,10 @@ class VirtualBoxEmitter:
         if vm.usb_enabled:
             commands.append(["VBoxManage", "modifyvm", vm.name, "--usb", "on", "--usbehci", "on"])
 
+        # Everything a strict policy refused is reported together, so a user
+        # sees all of it in one pass rather than one problem per run.
+        translator.finish()
+
         for cmd in commands:
             plan.exec(cmd, self._describe(cmd))
         for line in translator.report.lines():

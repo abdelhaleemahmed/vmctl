@@ -87,7 +87,7 @@ def plan_migration(
     target,
     vm_name: str,
     new_name: Optional[str] = None,
-    policy: Policy = Policy.CONVERT,
+    policy: Policy = Policy.STRICT,
     with_disks: bool = False,
     image_dir: Optional[str] = None,
 ) -> Migration:
@@ -104,9 +104,12 @@ def plan_migration(
             usually what is wanted -- the two hypervisors have separate
             namespaces.
         policy: How to handle settings the target cannot express. Defaults to
-            ``convert``, because making the VM work on the target is the point;
-            the report says what was changed, and nothing runs until
-            ``--execute``.
+            ``strict``, which refuses and lists everything that would have to
+            change. "Dry-run prints a report" is weaker protection than it looks:
+            a script running ``migrate --execute`` never reads it, so applying
+            substitutions has to be something the caller asked for. The refusal
+            names them all at once, so opting in is one step rather than a
+            sequence of discoveries.
         with_disks: Also convert and attach the source's disk images. They must
             be readable from this machine.
         image_dir: Where converted images are written. Defaults to the target

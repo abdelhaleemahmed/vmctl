@@ -842,9 +842,11 @@ def batch_template(ctx, output, fmt):
 @click.option(
     "--policy",
     type=click.Choice([p.value for p in Policy]),
-    default=Policy.CONVERT.value,
+    default=Policy.STRICT.value,
     show_default=True,
-    help="How to handle settings the target hypervisor cannot express.",
+    help="How to handle settings the target hypervisor cannot express. The "
+    "default refuses and lists them; 'convert' is the usual choice for a "
+    "migration between different hypervisors.",
 )
 @click.option(
     "--execute",

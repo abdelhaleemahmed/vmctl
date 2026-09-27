@@ -44,13 +44,38 @@ def libvirt():
 # ---------------------------------------------------------------------------
 
 
-def test_strict_refuses_and_says_how_to_proceed(vbox):
-    """An error that does not say what to do instead is half an error."""
+def test_strict_refuses_at_the_end_and_says_how_to_proceed(vbox):
+    """An error that does not say what to do instead is half an error.
+
+    Nothing is raised while resolving: a refusal is recorded and resolution
+    continues, so every problem is found in one pass.
+    """
     t = Translator(vbox, Policy.STRICT)
     disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.VHDX)
+    assert t.format_for(disk, "disks[0].format") is DiskFormat.VDI  # does not raise
     with pytest.raises(ValidationError) as excinfo:
-        t.format_for(disk, "disks[0].format")
+        t.finish()
     assert "--policy nearest" in (excinfo.value.recovery_hint or "")
+    assert "vdi would be used instead" in str(excinfo.value)
+
+
+def test_every_refusal_is_reported_in_one_error(vbox):
+    """Refusing on the first problem makes a user fix one thing, run again, and
+    find the next. One error listing all of them is the same information at once.
+    """
+    t = Translator(vbox, Policy.STRICT)
+    for i, fmt in enumerate((DiskFormat.VHDX, DiskFormat.VHDX)):
+        t.format_for(DiskConfig(name=f"d{i}", size_mb=1024, format=fmt), f"disks[{i}].format")
+    with pytest.raises(ValidationError) as excinfo:
+        t.finish()
+    assert "2 settings are not supported" in str(excinfo.value)
+    assert len(excinfo.value.constraints) == 2
+
+
+def test_finish_is_quiet_when_nothing_was_refused(vbox):
+    t = Translator(vbox, Policy.NEAREST)
+    t.format_for(DiskConfig(name="d", size_mb=1024, format=DiskFormat.VHDX), "disks[0].format")
+    t.finish()  # must not raise: nearest substituted rather than refused
 
 
 def test_nearest_substitutes_and_records(vbox):
@@ -106,8 +131,11 @@ def test_a_supported_value_is_left_alone(vbox):
 def test_an_unsupported_bus_is_refused_under_strict(libvirt):
     t = Translator(libvirt, Policy.STRICT)
     disk = DiskConfig(name="d", size_mb=1024, controller=StorageControllerType.IDE)
+    # The bus it *would* use is returned, so resolution can carry on and collect
+    # every other problem before reporting.
+    assert t.bus_for(disk, "disks[0].controller") is StorageControllerType.VIRTIO_SCSI
     with pytest.raises(ValidationError, match="not supported"):
-        t.bus_for(disk, "disks[0].controller")
+        t.finish()
 
 
 def test_a_substituted_bus_lands_on_the_providers_idiomatic_one(libvirt):

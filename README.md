@@ -59,6 +59,15 @@ vmctl batch create cluster.yaml --execute
 
 ```
 $ vmctl migrate web-01 --from virtualbox --to libvirt
+Validation failed: 2 settings are not supported by libvirt
+  disks[0].controller: ide is not supported (a hdd device cannot go on that bus);
+    virtio-scsi would be used instead
+  disks[1].controller: ide is not supported (a dvd device cannot go on that bus);
+    sata would be used instead
+  hint: Pass --policy nearest to substitute these and be told what changed, or
+        --policy convert to convert disk images too
+
+$ vmctl migrate web-01 --from virtualbox --to libvirt --policy convert
 web-01 (virtualbox) -> web-01 (libvirt)
 Configuration only: the new VM gets blank disks. Pass --with-disks to bring the data.
 Warning: disks[0].controller: ide is not supported, used virtio-scsi instead
@@ -69,11 +78,13 @@ Dry-run mode.  Commands that would be executed:
     3: virsh define /tmp/web-01.xml
 ```
 
-Dry-run by default, and everything that does not carry over exactly is listed
-before anything happens. `--with-disks` converts and attaches the real images
-instead of creating blank ones — they have to be readable from the machine
-running vmctl, and if they are not, vmctl says which ones rather than quietly
-producing an empty VM.
+Changing your VM is something you ask for, so the default refuses — and lists
+**everything** that would have to change, not just the first thing it hit, so
+opting in is one step. Dry-run is still the default even then.
+
+`--with-disks` converts and attaches the real images instead of creating blank
+ones. They have to be readable from the machine running vmctl; if they are not,
+vmctl names them rather than quietly producing an empty VM.
 
 ### More Than One Hypervisor
 

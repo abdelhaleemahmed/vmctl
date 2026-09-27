@@ -366,6 +366,7 @@ class LibvirtEmitter:
                 ),
             )
         )
+        translator.finish()
         for line in translator.report.lines():
             plan.warn(line)
         self.report = translator.report

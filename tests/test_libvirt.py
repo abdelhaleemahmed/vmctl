@@ -236,7 +236,12 @@ def test_a_format_the_provider_cannot_create_is_refused(emitter, vm):
     vm.disks[0].format = DiskFormat.VHDX
     with pytest.raises(ValidationError) as excinfo:
         emitter.emit_create_vm(vm)
-    assert "can be attached but not created" in str(excinfo.value)
+
+    # The refusal comes from the plan being completed rather than from the first
+    # problem found, so everything is listed together.
+    reported = str(excinfo.value) + " ".join(excinfo.value.constraints or [])
+    assert "can be attached but not created" in reported
+    assert "would be used instead" in reported
     # ...and the error says how to get the other behaviour.
     assert "--policy nearest" in (excinfo.value.recovery_hint or "")
 

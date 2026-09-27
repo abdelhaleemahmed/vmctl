@@ -95,7 +95,9 @@ things prevented that:
 - **`vmctl migrate <vm> --to PROVIDER`** recreates a VM on a different
   hypervisor. Verified end to end: a VM on VirtualBox (EFI64, 2 vCPU, an IDE disk,
   a NAT adapter) was recreated on libvirt with all eight checked settings intact,
-  its IDE disk moved to virtio-scsi and both changes reported. Dry-run by default.
+  its IDE disk moved to virtio-scsi and both changes reported. Dry-run by default,
+  and it refuses unless you accept the changes with `--policy`, listing all of
+  them at once.
   `--with-disks` converts and attaches the real images; when they are not readable
   from this machine vmctl names them instead of quietly making an empty VM.
 - **`vmctl convert <source> <target>`** converts a disk image between formats,
@@ -104,8 +106,9 @@ things prevented that:
   are offered. Dry-run by default.
 - **`--policy strict|nearest|convert`** decides what happens when a
   configuration asks for something the hypervisor cannot do. `strict` (the
-  default) refuses and names what would have to change; `nearest` substitutes the
-  closest supported value; `convert` also converts disk images. Every
+  default) refuses and names **everything** that would have to change, in one
+  error rather than one per run; `nearest` substitutes the closest supported value;
+  `convert` also converts disk images. Every
   substitution, drop and conversion is reported before anything runs — the point
   being that a VM never comes out quietly different from the one asked for.
 - **Automatic device placement.** A configuration no longer has to say which

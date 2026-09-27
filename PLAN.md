@@ -985,9 +985,32 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 >   created, rather than the VM quietly coming out empty. Confirmed against the
 >   real cross-machine case.
 >
-> `migrate` defaults to `--policy convert` rather than the `strict` this plan
-> originally suggested: making the VM work on the target is the whole point, and
-> nothing is silent because the report always prints and dry-run is the default.
+> **On the policy default — reconsidered, and the plan was right.** `migrate`
+> briefly defaulted to `--policy convert`, reasoning that dry-run prints the
+> report so nothing is silent. That is weaker than it sounds: a script running
+> `migrate --execute` never reads the report, so substitutions would be applied
+> without the caller ever asking. It was also inconsistent with `import` and
+> `create`, which are strict.
+>
+> But `strict` as originally built had its own flaw — it raised on the **first**
+> unsupported value, so a user fixed one thing, ran again, and found the next.
+> That is what made `convert` tempting.
+>
+> Fixed properly rather than choosing between them: a refusal is now **collected**
+> and resolution continues with the value that *would* be used, so `finish()`
+> reports every problem in one error, each naming its substitute. `strict` is the
+> default everywhere, and opting out is a single informed step:
+>
+> ```
+> Validation failed: 2 settings are not supported by libvirt
+>   disks[0].controller: ide is not supported ...; virtio-scsi would be used instead
+>   disks[1].controller: ide is not supported ...; sata would be used instead
+>   hint: Pass --policy nearest ... or --policy convert ...
+> ```
+>
+> This also let the validator stop duplicating the translator's bus and format
+> checks: it now runs a translator itself, so `vmctl validate` answers the same
+> question with the same completeness.
 >
 > One model change was needed: `DiskConfig.source` now applies to any disk, not
 > just removable media, so a migration can **attach the converted copy** instead
