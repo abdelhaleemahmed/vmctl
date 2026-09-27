@@ -223,8 +223,10 @@ class DiskConfig:
             assigned.
         bootable: Mark this disk as a boot device.
         disk_path: Original image path on the source system (not exported).
-        source: Existing medium to attach for removable devices (e.g. an ISO
-            path for a DVD drive). Ignored for non-removable disks.
+        source: An existing image to attach instead of creating a new one -- an
+            ISO for a DVD drive, or a disk image that already exists. This is
+            what lets a migration attach the converted copy of a disk rather
+            than a blank one.
     """
 
     name: str
@@ -274,9 +276,9 @@ class DiskConfig:
         result["controller"] = self.controller.value
         # Don't include disk_path in export (it's system-specific)
         result.pop("disk_path", None)
-        # `source` is only meaningful for removable media; omit it otherwise so
-        # exports of ordinary disks keep their 1.1.x shape.
-        if not self.is_removable or self.source is None:
+        # Omit `source` when there is none, so exports of ordinary disks keep
+        # their 1.1.x shape.
+        if self.source is None:
             result.pop("source", None)
         return result
 

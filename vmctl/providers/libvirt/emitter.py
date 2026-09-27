@@ -233,8 +233,11 @@ class LibvirtEmitter:
 
             device_kind = KIND_TO_DEVICE.get(disk.type, "disk")
             source: Optional[str] = None
-            if disk.is_removable:
+            if disk.is_removable or disk.source:
+                # Removable media are inserted; an image that already exists is
+                # attached rather than created, which is what a migration needs.
                 source = disk.source
+                chosen = disk.format
             else:
                 chosen = (
                     translator.format_for(disk, f"disks[{index}].format")
@@ -300,7 +303,8 @@ class LibvirtEmitter:
         plan = Plan("libvirt")
         translator = Translator(self.capabilities, self.policy)
 
-        creatable = [d for d in vm.disks if not d.is_removable]
+        # A disk that already has an image is attached, not created.
+        creatable = [d for d in vm.disks if not d.is_removable and not d.source]
         if creatable:
             # A session connection's image store does not exist until something
             # makes it, and `qemu-img create` will not. Doing it as a visible

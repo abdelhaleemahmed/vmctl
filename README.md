@@ -55,6 +55,26 @@ vmctl batch create cluster.yaml --execute
 
 ## Features
 
+### Moving a VM Between Hypervisors
+
+```
+$ vmctl migrate web-01 --from virtualbox --to libvirt
+web-01 (virtualbox) -> web-01 (libvirt)
+Configuration only: the new VM gets blank disks. Pass --with-disks to bring the data.
+Warning: disks[0].controller: ide is not supported, used virtio-scsi instead
+Warning: memory.vram_mb: 16 was not applied (video memory is a device property here)
+Dry-run mode.  Commands that would be executed:
+    1: qemu-img create -f qcow2 /var/lib/libvirt/images/web-01_root.qcow2 51200M
+    2: write /tmp/web-01.xml (922 bytes)
+    3: virsh define /tmp/web-01.xml
+```
+
+Dry-run by default, and everything that does not carry over exactly is listed
+before anything happens. `--with-disks` converts and attaches the real images
+instead of creating blank ones — they have to be readable from the machine
+running vmctl, and if they are not, vmctl says which ones rather than quietly
+producing an empty VM.
+
 ### More Than One Hypervisor
 
 The same config file works against either provider. vmctl translates it and tells
@@ -242,6 +262,7 @@ VM — set it in the config file.
 | Command | Description |
 |---------|-------------|
 | `vmctl providers` | List hypervisors and whether they work here |
+| `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute]` | Recreate a VM on another hypervisor |
 | `vmctl convert <src> <dst> [--to FMT] [--execute]` | Convert a disk image between formats |
 | `vmctl list [--format table\|simple]` | List all VMs with status |
 | `vmctl status <vm>` | Show current VM state |

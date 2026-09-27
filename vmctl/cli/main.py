@@ -12,6 +12,7 @@ from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
 from vmctl.core.convert import convert as plan_convert
+from vmctl.core.migrate import plan_migration
 from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import DiskFormat
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
@@ -806,6 +807,100 @@ def batch_template(ctx, output, fmt):
         creator = BatchCreator(engine, on_warning=_warn)
         creator.generate_batch_template(output, fmt)
         click.echo(f"Generated batch template → {output}")
+    except VMToolError as e:
+        _fail(e)
+
+
+# ---------------------------------------------------------------------------
+# migrate
+# ---------------------------------------------------------------------------
+
+
+@cli.command("migrate")
+@click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.option(
+    "--to",
+    "target_name",
+    required=True,
+    metavar="PROVIDER",
+    help="Hypervisor to move the VM to. See 'vmctl providers'.",
+)
+@click.option(
+    "--from",
+    "source_name",
+    default=None,
+    metavar="PROVIDER",
+    help="Hypervisor to read from. Defaults to the selected provider.",
+)
+@click.option("--new-name", default=None, help="Name to use on the target.")
+@click.option(
+    "--with-disks",
+    is_flag=True,
+    help="Also convert and attach the disk images. They must be readable from "
+    "this machine; without this, blank disks are created.",
+)
+@click.option(
+    "--policy",
+    type=click.Choice([p.value for p in Policy]),
+    default=Policy.CONVERT.value,
+    show_default=True,
+    help="How to handle settings the target hypervisor cannot express.",
+)
+@click.option(
+    "--execute",
+    is_flag=True,
+    help="Actually perform the migration (dry-run by default).",
+)
+@click.pass_context
+def cmd_migrate(ctx, vm_name, target_name, source_name, new_name, with_disks, policy, execute):
+    """Recreate a VM on a different hypervisor.
+
+    Reads the VM from one provider, works out how to express it on another, and
+    creates it there.  Anything that cannot carry over exactly is reported before
+    anything runs.
+
+    By default only the configuration moves and the new VM gets blank disks, the
+    same as 'vmctl import'.  Pass --with-disks to convert and attach the real
+    images; they have to be readable from the machine running vmctl, which is not
+    the case when the source hypervisor lives on another host.
+
+    \b
+    Examples:
+      vmctl migrate web-01 --from virtualbox --to libvirt
+      vmctl migrate web-01 --from virtualbox --to libvirt --execute
+      vmctl migrate web-01 --to libvirt --with-disks --execute
+    """
+    try:
+        source = _engine(ctx) if source_name is None else VMCtlEngine(source_name)
+        target = VMCtlEngine(target_name)
+
+        migration = plan_migration(
+            source.backend,
+            target.backend,
+            vm_name,
+            new_name=new_name,
+            policy=Policy(policy),
+            with_disks=with_disks,
+        )
+
+        click.echo(
+            f"{vm_name} ({migration.source_provider}) "
+            f"-> {migration.vm.name} ({migration.target_provider})"
+        )
+        if not with_disks:
+            click.echo(
+                "Configuration only: the new VM gets blank disks. "
+                "Pass --with-disks to bring the data."
+            )
+
+        if execute:
+            _require_absent(target, migration.vm.name)
+            target.backend.run_plan(migration.plan)
+        _show_plan(
+            migration.plan,
+            execute,
+            f"Migrated {vm_name} to {migration.target_provider} " f"as {migration.vm.name}",
+        )
     except VMToolError as e:
         _fail(e)
 

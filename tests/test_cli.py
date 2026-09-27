@@ -489,3 +489,87 @@ def test_convert_refuses_a_target_the_provider_cannot_write(runner, vbox, tmp_pa
     )
     # vdi -> vdi with different paths is a copy, which is allowed.
     assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# migrate (P-06)
+# ---------------------------------------------------------------------------
+
+
+def test_migrate_requires_a_target(runner, vbox):
+    result = runner.invoke(cli, ["migrate", "vmctl-t-bios"])
+    assert result.exit_code != 0
+    assert "--to" in result.output
+
+
+def test_migrate_refuses_the_same_provider(runner, vbox):
+    result = runner.invoke(
+        cli, ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "virtualbox"]
+    )
+    assert result.exit_code == 1
+    assert "nothing to migrate" in result.output
+
+
+def test_migrate_says_the_data_is_not_coming(runner, vbox, monkeypatch):
+    """Silence here would be the dangerous kind: a VM that boots to nothing."""
+    monkeypatch.setattr(
+        "vmctl.providers.libvirt.backend.LibvirtBackend.run_plan",
+        lambda self, plan: None,
+    )
+    result = runner.invoke(
+        cli, ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "libvirt"]
+    )
+    assert result.exit_code == 0
+    assert "blank disks" in result.output
+    assert "--with-disks" in result.output
+
+
+def test_migrate_is_dry_run_by_default(runner, vbox, monkeypatch):
+    ran = []
+    monkeypatch.setattr(
+        "vmctl.providers.libvirt.backend.LibvirtBackend.run_plan",
+        lambda self, plan: ran.append(plan),
+    )
+    result = runner.invoke(
+        cli, ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "libvirt"]
+    )
+    assert result.exit_code == 0
+    assert "Dry-run" in result.output
+    assert ran == []
+
+
+def test_migrate_reports_what_did_not_carry_over(runner, vbox, monkeypatch):
+    monkeypatch.setattr(
+        "vmctl.providers.libvirt.backend.LibvirtBackend.run_plan",
+        lambda self, plan: None,
+    )
+    result = runner.invoke(
+        cli,
+        ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "libvirt"],
+    )
+    assert result.exit_code == 0
+    # The fixture VM is on SATA, which libvirt supports, but its vram is not
+    # expressible there.
+    assert "vram" in result.output
+
+
+def test_migrate_names_both_ends(runner, vbox, monkeypatch):
+    monkeypatch.setattr(
+        "vmctl.providers.libvirt.backend.LibvirtBackend.run_plan",
+        lambda self, plan: None,
+    )
+    result = runner.invoke(
+        cli,
+        [
+            "migrate",
+            "vmctl-t-bios",
+            "--from",
+            "virtualbox",
+            "--to",
+            "libvirt",
+            "--new-name",
+            "moved",
+        ],
+    )
+    assert "vmctl-t-bios (virtualbox)" in result.output
+    assert "moved (libvirt)" in result.output

@@ -192,6 +192,11 @@ class VirtualBoxEmitter:
                 # code ran createhd for one and then attached the resulting
                 # blank image as a dvddrive, which VirtualBox rejects (F-04).
                 medium = disk.source or "emptydrive"
+            elif disk.source:
+                # An image that already exists is attached, not created. This is
+                # how a migration attaches the converted copy of a disk instead
+                # of a blank one.
+                medium = disk.source
             else:
                 chosen_format = translator.format_for(disk, f"disks[{index}].format")
                 fmt = self.capabilities.format_spec(chosen_format)

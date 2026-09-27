@@ -955,8 +955,46 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > is a substitution. A conversion is now only recorded when `disk_path` or
 > `source` names an existing image.
 >
+> **Seventh step done: `P-06 migrate`.** The payoff, and the strongest evidence
+> the abstraction is real -- migration turned out to be **orchestration, not new
+> machinery**. Reading is the source's parser, expressing is the target's emitter,
+> `A-04` says what did not carry over, `M-05` converts the disks, `A-06` places
+> the devices. `core/migrate.py` is 200 lines of joining those together.
+>
+> Verified for real: a VM built on the Windows host's **VirtualBox** (EFI64, 2
+> vCPU, 256 MB, an IDE disk, a NAT adapter) was migrated to **libvirt on this
+> machine** and **8/8 checked settings carried over**, with the report naming the
+> two things that changed:
+>
+> ```
+> disks[0].controller: ide is not supported, used virtio-scsi instead
+> memory.vram_mb: 16 was not applied (video memory is a device property here)
+> ```
+>
+> Two details only a real migration surfaces:
+>
+> * **Native hints must not cross.** A libvirt domain's UUID is kept in
+>   `metadata` so `edit` can redefine it; carrying that into another hypervisor
+>   would claim an identity that means nothing there. Hints are now recognised by
+>   a `<provider>_` prefix and stripped when the provider changes -- a user's own
+>   metadata is untouched.
+> * **Disk contents are a different question from disk configuration.** The images
+>   live on the source hypervisor's host, which is frequently not the machine
+>   running vmctl. So the configuration moves by default and the data only with
+>   `--with-disks`; an image that cannot be read is **named**, and blank disks are
+>   created, rather than the VM quietly coming out empty. Confirmed against the
+>   real cross-machine case.
+>
+> `migrate` defaults to `--policy convert` rather than the `strict` this plan
+> originally suggested: making the VM work on the target is the whole point, and
+> nothing is silent because the report always prints and dry-run is the default.
+>
+> One model change was needed: `DiskConfig.source` now applies to any disk, not
+> just removable media, so a migration can **attach the converted copy** instead
+> of a blank disk. Both emitters honour it.
+>
 > Remaining: `M-01`, `M-02`, `M-06` (the three-axis storage model), `A-05`,
-> `A-07`…`A-10`. **`P-06 migrate` has no blockers left.**
+> `A-07`…`A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1821,7 +1859,7 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [ ] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
-         [ ] P-05 plain QEMU                 [ ] P-06 vmctl migrate --from/--to
+         [ ] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
 Phase 7  [ ] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema
          [ ] E-16 --out native artifacts       [ ] E-17 capabilities command
          [ ] E-03 clone-disks  [ ] E-05 capability probing
