@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from vmctl.core.plan import StepKind
+from vmctl.core.storage import directory
 from vmctl.core.vmconfig import (
     BootConfig,
     CPUConfig,
@@ -37,7 +38,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def emitter():
     return LibvirtEmitter(
         "demo",
-        image_dir="/images",
+        location=directory("/images"),
         definition_dir="/defs",
         emulator="/usr/libexec/qemu-kvm",
     )
@@ -252,7 +253,7 @@ def test_nearest_substitutes_a_format_and_reports_it(vm):
     from vmctl.providers.libvirt.emitter import LibvirtEmitter
 
     vm.disks[0].format = DiskFormat.VHDX
-    emitter = LibvirtEmitter("demo", image_dir="/images", policy=Policy.NEAREST)
+    emitter = LibvirtEmitter("demo", location=directory("/images"), policy=Policy.NEAREST)
     plan = emitter.emit_create_vm(vm)
     assert any("vhdx" in w and "qcow2" in w for w in plan.warnings)
     created = [s for s in plan if s.argv and s.argv[0] == "qemu-img"][0]

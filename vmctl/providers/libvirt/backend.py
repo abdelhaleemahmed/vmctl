@@ -27,6 +27,7 @@ from ...core.exceptions import (
     VMStateError,
 )
 from ...core.plan import Plan, StepKind
+from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
 from ..base import BaseProvider
@@ -114,6 +115,15 @@ class LibvirtBackend(BaseProvider):
             return os.path.join(base, "libvirt", "images")
         return "/var/lib/libvirt/images"
 
+    def storage_location(self) -> StorageLocation:
+        """Return the image directory for this connection.
+
+        A session connection cannot write to the system image store, so the
+        location follows the connection rather than being fixed. libvirt keeps
+        images flat, unlike VirtualBox's per-VM folders.
+        """
+        return directory(self.image_dir, nest_per_vm=False)
+
     @property
     def domain_type(self) -> str:
         """``kvm`` when hardware acceleration is present, otherwise ``qemu``.
@@ -127,7 +137,7 @@ class LibvirtBackend(BaseProvider):
     def _emitter(self, vm_name: str, policy: Policy = Policy.STRICT) -> LibvirtEmitter:
         return LibvirtEmitter(
             vm_name,
-            image_dir=self.image_dir,
+            location=self.storage_location(),
             domain_type=self.domain_type,
             emulator=self._emulator(),
             capabilities=self._capabilities,

@@ -14,6 +14,7 @@ from vmctl.core.capabilities import BusSpec, Capabilities, FormatSpec, Support
 from vmctl.core.exceptions import ValidationError
 from vmctl.core.migrate import plan_migration, strip_native_hints
 from vmctl.core.plan import Plan, Step, StepKind
+from vmctl.core.storage import directory
 from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import (
     BootConfig,
@@ -84,6 +85,9 @@ class FakeProvider:
         vm = copy.deepcopy(self._vm)
         vm.name = vm_name
         return vm
+
+    def storage_location(self):
+        return directory(self.image_dir)
 
     def converter(self):
         return FakeConverter() if self._has_converter else None

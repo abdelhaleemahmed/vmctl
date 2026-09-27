@@ -358,3 +358,22 @@ def test_an_unusable_name_is_refused_by_the_emitter_not_only_the_validator(
     vm_minimal.disks[0].format = caps.native_format
     with pytest.raises(ValidationError):
         backend.create_vm(vm_minimal, execute=False)
+
+
+def test_the_provider_says_where_it_keeps_images(backend):
+    """A-09: every provider answers this the same way, so nothing has to guess
+    which attribute holds it.
+
+    Uses the stubbed backend: asking a provider for real means asking the
+    hypervisor, which this suite does not do.
+    """
+    from vmctl.core.storage import LocationKind, StorageLocation
+
+    location = backend.storage_location()
+    assert isinstance(location, StorageLocation)
+    assert location.value, "no storage location declared"
+    assert isinstance(location.kind, LocationKind)
+    if location.kind is LocationKind.DIRECTORY:
+        path = location.image_path("vm", "vm_disk.img")
+        assert path.endswith("vm_disk.img")
+        assert location.directory_for("vm") in path

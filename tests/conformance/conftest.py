@@ -11,6 +11,7 @@ import pytest
 
 import vmctl.providers  # noqa: F401  (registers the built-in providers)
 from vmctl.core import registry
+from vmctl.core.storage import directory
 
 
 def pytest_generate_tests(metafunc):
@@ -19,20 +20,21 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("provider_name", registry.names())
 
 
-#: Where a provider keeps images. Providers name this differently -- VirtualBox
-#: has a machine folder, libvirt an image directory -- which is the gap A-09
-#: closes. Until then the suite stubs whichever the provider has, because looking
-#: it up means asking the hypervisor and this suite must not need one.
-STORAGE_ATTRIBUTES = ("machine_folder", "image_dir")
-
-
 @pytest.fixture
 def backend(provider_name, monkeypatch):
-    """An instance of the provider under test, with storage lookup stubbed."""
+    """An instance of the provider under test, with storage lookup stubbed.
+
+    Asking a provider where it keeps images means asking the hypervisor, and this
+    suite must not need one. Before A-09 that meant stubbing two differently-named
+    attributes and hoping a third provider used one of them; now there is a single
+    contract method to stub.
+    """
     instance = registry.create(provider_name)
-    for attribute in STORAGE_ATTRIBUTES:
-        if hasattr(type(instance), attribute) or hasattr(instance, attribute):
-            monkeypatch.setattr(type(instance), attribute, "/conformance/images", raising=False)
+    monkeypatch.setattr(
+        type(instance),
+        "storage_location",
+        lambda self: directory("/conformance/images"),
+    )
     return instance
 
 

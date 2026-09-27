@@ -27,6 +27,7 @@ from ...core.capabilities import Capabilities
 from ...core.exceptions import ProviderError
 from ...core.naming import check_name
 from ...core.plan import Plan, Step, StepKind
+from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy, Translator
 from ...core.vmconfig import DiskType, VMConfig
 from .capabilities import LibvirtCapabilities
@@ -61,7 +62,7 @@ class LibvirtEmitter:
     def __init__(
         self,
         vm_name: str,
-        image_dir: Optional[str] = None,
+        location: Optional[StorageLocation] = None,
         definition_dir: Optional[str] = None,
         domain_type: str = "qemu",
         machine: str = "q35",
@@ -74,11 +75,10 @@ class LibvirtEmitter:
 
         Args:
             vm_name: Domain name.
-            image_dir: Where new disk images go. The provider passes the
-                directory that matches the connection it is using, since a
-                session connection cannot write to the system image store.
-            definition_dir: Where the XML document is written before it is
-                defined.
+            location: Where new images go. The backend supplies one matching the
+                connection in use, since a session connection cannot write to the
+                system image store (A-09).
+            definition_dir: Where the XML document is written before defining it.
             domain_type: ``kvm`` when hardware acceleration is available,
                 ``qemu`` for emulation. The backend decides.
             machine: Machine type. q35 has no IDE controller at all, which is why
@@ -91,7 +91,7 @@ class LibvirtEmitter:
         self.vm_name = vm_name
         self.capabilities = capabilities or LibvirtCapabilities.get()
         self.policy = policy
-        self.image_dir = image_dir or "/var/lib/libvirt/images"
+        self.location = location or directory("/var/lib/libvirt/images")
         self.definition_dir = definition_dir or "/tmp"
         self.domain_type = domain_type
         self.machine = machine
@@ -99,9 +99,6 @@ class LibvirtEmitter:
         self.emulator = emulator
 
     # -- helpers -------------------------------------------------------------
-
-    def _image_path(self, vm: VMConfig, disk, extension: str) -> str:
-        return f"{self.image_dir.rstrip('/')}/{vm.name}_{disk.name}.{extension}"
 
     def _libvirt_bus_for(self, model_bus, disk) -> str:
         """Return the libvirt ``<target bus=...>`` value for a model bus.
@@ -246,7 +243,9 @@ class LibvirtEmitter:
                     else disk.format
                 )
                 spec = self.capabilities.format_spec(chosen)
-                source = self._image_path(vm, disk, spec.extension)
+                source = self.location.image_path(
+                    vm.name, f"{vm.name}_{disk.name}.{spec.extension}"
+                )
 
             disk_el = ET.SubElement(devices, "disk", type="file", device=device_kind)
             if not disk.is_removable:
@@ -318,15 +317,18 @@ class LibvirtEmitter:
             plan.add(
                 Step(
                     kind=StepKind.EXEC,
-                    description=f"ensure the image directory {self.image_dir} exists",
-                    argv=["mkdir", "-p", self.image_dir],
+                    description=(
+                        f"ensure the image directory "
+                        f"{self.location.directory_for(vm.name)} exists"
+                    ),
+                    argv=["mkdir", "-p", self.location.directory_for(vm.name)],
                 )
             )
 
         for index, disk in enumerate(creatable):
             chosen = translator.format_for(disk, f"disks[{index}].format")
             spec = self.capabilities.format_spec(chosen)
-            path = self._image_path(vm, disk, spec.extension)
+            path = self.location.image_path(vm.name, f"{vm.name}_{disk.name}.{spec.extension}")
             argv = [
                 "qemu-img",
                 "create",

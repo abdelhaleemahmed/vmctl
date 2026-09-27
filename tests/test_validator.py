@@ -333,6 +333,11 @@ def test_base_provider_refuses_to_edit_rather_than_deleting(vm_minimal):
         def get_vm_status(self, vm_name):
             return "stopped"
 
+        def storage_location(self):
+            from vmctl.core.storage import directory
+
+            return directory("/nowhere")
+
     with pytest.raises(NotImplementedError):
         Incomplete().edit_vm("vm1", vm_minimal)
     assert destroyed == []

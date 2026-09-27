@@ -8,6 +8,7 @@ import time
 from typing import Callable, List, Optional, cast
 from ...core.capabilities import Capabilities
 from ...core.plan import Plan, StepKind
+from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
 from ...core.exceptions import (
@@ -184,6 +185,17 @@ class VirtualBoxBackend(BaseProvider):
         vm: VMConfig = self.parser.parse_vm(vm_name)
         return vm
 
+    def storage_location(self) -> StorageLocation:
+        """Return VirtualBox's machine folder.
+
+        VirtualBox gives each VM its own subdirectory inside it, so the location
+        says so rather than every caller remembering to.
+        """
+        return directory(
+            self.machine_folder or VirtualBoxEmitter.FALLBACK_MACHINE_FOLDER,
+            nest_per_vm=True,
+        )
+
     def create_vm(self, vm: VMConfig, execute: bool = True, policy: Policy = Policy.STRICT) -> Plan:
         """Create a new VM from VMConfig.
 
@@ -200,7 +212,7 @@ class VirtualBoxBackend(BaseProvider):
             self.check_supported()
         emitter = VirtualBoxEmitter(
             vm.name,
-            machine_folder=self.machine_folder,
+            location=self.storage_location(),
             capabilities=self._capabilities,
             policy=policy,
         )
@@ -257,7 +269,7 @@ class VirtualBoxBackend(BaseProvider):
         current = self.read_vm(vm_name)
         emitter = VirtualBoxEmitter(
             vm_name,
-            machine_folder=self.machine_folder,
+            location=self.storage_location(),
             capabilities=self._capabilities,
         )
         plan = emitter.emit_modify_vm(current, new_config)

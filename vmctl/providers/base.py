@@ -17,6 +17,7 @@ except ImportError:  # pragma: no cover
 from ..core.capabilities import Capabilities
 from ..core.convert import MediumConverter
 from ..core.plan import Plan
+from ..core.storage import StorageLocation
 from ..core.translate import Policy
 from ..core.vmconfig import VMConfig
 
@@ -45,6 +46,16 @@ class BaseProvider(ABC):
     #: Executable this provider needs on PATH. Used by the default
     #: :meth:`is_available`; override that method for anything more involved.
     REQUIRED_BINARY: Optional[str] = None
+
+    @abstractmethod
+    def storage_location(self) -> StorageLocation:
+        """Return where this provider creates new disk images.
+
+        Providers spell this differently -- a machine folder, an image directory,
+        a pool, a datastore -- so the neutral answer lives in
+        :class:`~vmctl.core.storage.StorageLocation` and everything that needs a
+        path asks for it here rather than guessing an attribute name (A-09).
+        """
 
     def converter(self) -> Optional[MediumConverter]:
         """Return this provider's image converter, if it has one.

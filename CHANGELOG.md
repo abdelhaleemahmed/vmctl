@@ -96,6 +96,9 @@ things prevented that:
 
 ### Added
 
+- Providers now state **where they keep disk images** through one contract method
+  instead of each naming it differently, including whether each VM gets its own
+  subdirectory and which path separator the target host uses.
 - **A conformance suite every provider must pass** (`tests/conformance/`). One
   parameterised set of rules covering the provider contract, the capability
   declaration's internal consistency, deterministic emission, and that a VM name

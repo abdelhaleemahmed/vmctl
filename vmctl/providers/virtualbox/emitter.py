@@ -21,6 +21,7 @@ from ...core.exceptions import ProviderError
 from ...core.mapping import changed_flags, emit_flags
 from ...core.naming import check_name, safe_filename
 from ...core.plan import Plan
+from ...core.storage import StorageLocation, directory
 from ...core.slots import place
 from ...core.translate import Policy, Translator
 from ...core.capabilities import Capabilities
@@ -31,49 +32,34 @@ from .tables import FIELDS, MODIFIABLE
 class VirtualBoxEmitter:
     """Emit VBoxManage commands to create/configure VMs"""
 
-    #: Used only when no machine folder is supplied. VirtualBox's own default,
-    #: which is correct for an untouched installation but wrong whenever the
-    #: user has configured a different default machine folder (F-13).
+    #: Used only when no location is supplied. VirtualBox's own default, which
+    #: is right for an untouched installation and wrong whenever the user has
+    #: configured a different machine folder (F-13).
     FALLBACK_MACHINE_FOLDER = os.path.join(os.path.expanduser("~"), "VirtualBox VMs")
 
     def __init__(
         self,
         vm_name: str,
-        machine_folder: Optional[str] = None,
-        path_sep: Optional[str] = None,
+        location: Optional[StorageLocation] = None,
         capabilities: Optional[Capabilities] = None,
         policy: Policy = Policy.STRICT,
     ):
         """Initialise the emitter for a specific VM.
 
         Args:
-            vm_name: Name of the VM that will be referenced in every
-                ``VBoxManage`` command this emitter generates.
-            machine_folder: VirtualBox's default machine folder on the target
-                host, as reported by ``VBoxManage list systemproperties``. The
-                emitter must not query it itself -- that would make it depend on
-                the host it runs on, when the target may be a different machine
-                entirely. Defaults to ``~/VirtualBox VMs`` (F-13).
-            path_sep: Separator to build medium paths with. Defaults to the
-                local one; pass ``"\\"`` when emitting for a Windows target
-                from a POSIX host.
-            capabilities: Provider limits to emit within. Defaults to
-                VirtualBox's own declaration.
-            policy: What to do about values VirtualBox does not support. The
-                default refuses; ``nearest`` substitutes and reports.
+            vm_name: Name of the VM every command will reference.
+            location: Where new media go, and how paths are spelled there. The
+                backend supplies the one that matches the target host -- the
+                emitter must not look it up, because the target may not be the
+                machine vmctl is running on (F-13, A-09).
+            capabilities: Provider limits to emit within.
+            policy: What to do about values VirtualBox does not support.
         """
         self.vm_name = vm_name
-        # Bus rules, port limits and format support come from the provider's
-        # capability declaration rather than a second copy kept here (A-02).
         self.capabilities = capabilities or VirtualBoxCapabilities.get()
         self.policy = policy
-        self.machine_folder = machine_folder or self.FALLBACK_MACHINE_FOLDER
-        self.path_sep = path_sep or os.sep
+        self.location = location or directory(self.FALLBACK_MACHINE_FOLDER, nest_per_vm=True)
         self.commands: List[List[str]] = []
-
-    def _medium_path(self, *parts: str) -> str:
-        """Join a medium path using the *target* host's separator."""
-        return self.path_sep.join([self.machine_folder.rstrip("/\\"), *parts])
 
     def emit_create_vm(self, vm: VMConfig) -> Plan:
         """Generate the plan that creates a VM from a VMConfig.
@@ -203,7 +189,7 @@ class VirtualBoxEmitter:
             else:
                 chosen_format = translator.format_for(disk, f"disks[{index}].format")
                 fmt = self.capabilities.format_spec(chosen_format)
-                medium = self._medium_path(
+                medium = self.location.image_path(
                     vm.name, f"{vm.name}_{safe_filename(disk.name)}.{fmt.extension}"
                 )
 

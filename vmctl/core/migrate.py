@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from .convert import ConversionRequest, plan_conversions
-from .exceptions import ProviderError, ValidationError
+from .exceptions import ValidationError
 from .plan import Plan
 from .translate import Policy
 from .vmconfig import VMConfig
@@ -113,7 +113,8 @@ def plan_migration(
         with_disks: Also convert and attach the source's disk images. They must
             be readable from this machine.
         image_dir: Where converted images are written. Defaults to the target
-            provider's own image location.
+            provider's own storage location, which it now states directly rather
+            than the caller guessing which attribute holds it (A-09).
 
     Returns:
         Migration: the resolved configuration and plan.
@@ -139,7 +140,9 @@ def plan_migration(
     unreachable: List[str] = []
 
     if with_disks:
-        destination = image_dir or _target_image_dir(target)
+        location = target.storage_location()
+        if image_dir:
+            location = location.with_value(image_dir)
         for disk in vm.disks:
             if disk.is_removable:
                 # An ISO is host-specific; carrying the path over would point at
@@ -157,7 +160,7 @@ def plan_migration(
                 disk.format if spec.support.creatable else target.capabilities.native_format
             )
             extension = target.capabilities.format_spec(target_format).extension
-            copy_to = os.path.join(destination, f"{vm.name}_{disk.name}.{extension}")
+            copy_to = location.image_path(vm.name, f"{vm.name}_{disk.name}.{extension}")
             conversions.append(
                 ConversionRequest(
                     source=origin,
@@ -192,23 +195,4 @@ def plan_migration(
         target_provider=target.name,
         disks_included=bool(conversions),
         unreachable=unreachable,
-    )
-
-
-def _target_image_dir(target) -> str:
-    """Return where the target provider keeps its images.
-
-    Providers name this differently -- VirtualBox has a machine folder, libvirt an
-    image directory -- which is what ``A-09`` unifies. Until then, ask for
-    whichever the provider has.
-
-    Raises:
-        ProviderError: If the provider does not say where images go.
-    """
-    for attribute in ("image_dir", "machine_folder"):
-        value = getattr(target, attribute, None)
-        if value:
-            return str(value)
-    raise ProviderError(
-        f"cannot tell where {target.name} keeps disk images; pass an explicit " f"destination"
     )

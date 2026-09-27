@@ -1049,8 +1049,32 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > `name_max_length` are now declared, and the emitter's private slug helper moved
 > into the same module so there is one rule.
 >
-> Remaining: `M-01`, `M-02`, `M-06` (the three-axis storage model), `A-05`,
-> `A-09`, `A-10`.
+> **Ninth step done: `A-09` (storage locations).** It had become visibly overdue:
+> the conformance suite was stubbing two differently-named attributes and hoping a
+> third provider used one of them, and `migrate` carried a helper that tried both
+> in turn. Both were symptoms of a missing concept rather than of anything wrong
+> with the callers.
+>
+> `core/storage.py` answers one question -- where does a new image go, and how is
+> its path spelled -- with one shape of answer. `StorageLocation` carries the
+> directory (or the pool's name), the separator to build with, and whether each VM
+> gets its own subdirectory. `BaseProvider.storage_location()` is abstract, so a
+> provider cannot forget to say.
+>
+> The differences it makes explicit were previously implicit in each emitter:
+> VirtualBox nests each VM in its own folder, libvirt keeps images flat; libvirt's
+> directory follows the connection, because a session connection cannot write to
+> the system image store; and the separator belongs to the *target*, not to the
+> machine running vmctl, which is what lets a plan built on Linux name Windows
+> paths. `POOL` is declared and refuses `image_path` with a reason, since a
+> libvirt pool or a Proxmox storage id is resolved by the hypervisor rather than by
+> path -- the honest answer until a provider needs it.
+>
+> Both emitters lost their private path builders, and `migrate` lost its guessing
+> helper. Re-verified afterwards: the real VirtualBox-to-libvirt migration still
+> carries 8/8 settings.
+>
+> Remaining: `M-01`, `M-02`, `M-06` (the three-axis storage model), `A-05`, `A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1912,7 +1936,7 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-04 translation engine + policy + lossiness report
          [ ] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
          [x] A-07 provider conformance suite   [~] A-08 escaping / injection safety
-         [ ] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
+         [x] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [ ] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
