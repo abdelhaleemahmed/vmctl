@@ -177,7 +177,11 @@ class LibvirtBackend(BaseProvider):
         }
         try:
             result = subprocess.run(
-                ["qemu-img", "info", "--output=json", path],
+                # -U reads an image another process has open. Without it,
+                # inspecting a *running* VM's disk fails with "Failed to get
+                # shared write lock", the size came back 0, and the model then
+                # invented a 20 GB default in its place (F-32).
+                ["qemu-img", "info", "-U", "--output=json", path],
                 capture_output=True,
                 text=True,
                 check=False,

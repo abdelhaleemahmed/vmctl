@@ -25,6 +25,7 @@ from typing import Dict, Optional
 
 from ...core.capabilities import Capabilities
 from ...core.exceptions import ProviderError
+from ...core.mapping import asks_for_something
 from ...core.naming import check_name
 from ...core.plan import Plan, Step, StepKind
 from ...core.platform import CPU_HOST_MODEL, CPU_HOST_PASSTHROUGH, CPU_MODEL_KEYWORDS
@@ -331,9 +332,10 @@ class LibvirtEmitter:
 
         if translator is not None:
             for path, reason in UNTRANSLATABLE:
-                value = _get(vm, path)
-                if _is_set(value):
-                    translator.drop(path, value, reason)
+                # A field at its default asks for nothing, so reporting it would
+                # put a line in every report and teach people to skip them.
+                if asks_for_something(vm, path):
+                    translator.drop(path, _get(vm, path), reason)
 
     def _arch(self, vm: VMConfig, translator: Optional[Translator]) -> str:
         """Return the architecture to emit, reporting one this build cannot run.

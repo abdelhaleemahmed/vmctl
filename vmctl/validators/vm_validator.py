@@ -405,7 +405,7 @@ class VMValidator:
                     f"adapter; the VM will have no network until one is set"
                 )
 
-        if vm.cpu.count > 1 and not vm.boot.ioapic:
+        if vm.cpu.count > 1 and not vm.boot.ioapic and self.capabilities.ioapic_optional:
             # x86 SMP needs an I/O APIC to route interrupts to more than one CPU.
             # The message used to name VirtualBox, which then turned up while
             # creating a libvirt domain -- a provider's name in shared code (F-30).

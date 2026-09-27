@@ -96,6 +96,19 @@ things prevented that:
 
 ### Added
 
+- **A third hypervisor: plain QEMU** (`vmctl -p qemu`). No daemon and no registry --
+  each VM is a directory holding its disks and a runnable command line, which is
+  also what vmctl reads back when you export it. Create, list, read, edit, start,
+  stop and delete all work, and a VM can be migrated to it from either of the other
+  two.
+- Fixed: on libvirt, vmctl offered disk formats that this QEMU build cannot write.
+  The domain used to define successfully and then fail to start with "Driver 'vmdk'
+  can only be used for read-only devices"; now it is refused up front, with the
+  policy flag that converts instead.
+- Fixed: reading a VM while it was running reported its disks as 20 GB, because
+  `qemu-img` cannot open an image the running VM has open.
+- Translation reports no longer list settings that are at their default value, so
+  what is left in them is what actually did not carry over.
 - **A VM can describe the machine underneath the guest**: `arch`, `machine`
   (chipset), and a CPU with `sockets`/`cores`/`threads` and a `model` (`host`,
   `host-model`, or a named CPU). libvirt needs all of it; VirtualBox has none of it

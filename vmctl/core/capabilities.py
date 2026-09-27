@@ -193,6 +193,10 @@ class Capabilities:
     cpu_topology: bool = False
     #: Whether a CPU model can be chosen (``host``, ``host-model``, a named one).
     cpu_model_choice: bool = False
+    #: Whether the I/O APIC can be turned *off*. VirtualBox and libvirt both let a
+    #: VM run without one; QEMU's machines always have it and offer no setting, so
+    #: warning about it there describes a knob that does not exist.
+    ioapic_optional: bool = True
 
     #: Every guest OS label this provider accepts, beyond the neutral ids in
     #: :mod:`vmctl.core.oscatalog`. For VirtualBox that is its own ids and the

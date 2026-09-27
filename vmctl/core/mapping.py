@@ -70,6 +70,48 @@ def get_path(obj: Any, dotted: str) -> Any:
     return obj
 
 
+def asks_for_something(obj: Any, dotted: str) -> bool:
+    """Whether a field holds anything other than the model's default.
+
+    Used before reporting a setting as dropped. A field at its default asks for
+    nothing, so saying it "was not applied" is noise -- and noise in a translation
+    report is what makes a real loss easy to miss. ``execution_cap: 100`` is the
+    clear case: it means "no cap", so there is nothing for a provider to fail to do.
+
+    Args:
+        obj: Root object, usually a :class:`~vmctl.core.vmconfig.VMConfig`.
+        dotted: Path such as ``"cpu.execution_cap"``.
+
+    Returns:
+        True when the value differs from the declared default, or when there is no
+        default to compare against.
+    """
+    from dataclasses import MISSING, fields, is_dataclass
+
+    owner: Any = obj
+    parts = dotted.split(".")
+    for part in parts[:-1]:
+        owner = getattr(owner, part, None)
+        if owner is None:
+            return False
+    name = parts[-1]
+    value = getattr(owner, name, None)
+    if value is None or value is False:
+        return False
+    if isinstance(value, str) and value in ("", "disabled", "none"):
+        return False
+
+    if is_dataclass(owner):
+        for field_ in fields(owner):
+            if field_.name != name:
+                continue
+            if field_.default is not MISSING:
+                return bool(value != field_.default)
+            if field_.default_factory is not MISSING:  # type: ignore[misc]
+                return bool(value != field_.default_factory())  # type: ignore[misc]
+    return True
+
+
 def set_path(obj: Any, dotted: str, value: Any) -> None:
     """Write a dotted attribute path.
 

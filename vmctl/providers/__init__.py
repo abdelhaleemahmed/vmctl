@@ -33,3 +33,16 @@ registry.register(
     _libvirt,
     "libvirt / QEMU-KVM via virsh",
 )
+
+
+def _qemu() -> type:
+    from .qemu.backend import QemuBackend
+
+    return QemuBackend
+
+
+registry.register(
+    "qemu",
+    _qemu,
+    "Plain QEMU: one process per VM, no daemon",
+)

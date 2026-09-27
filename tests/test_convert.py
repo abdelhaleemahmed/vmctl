@@ -131,7 +131,11 @@ def test_qemu_img_reads_other_hypervisors_formats(qemu):
 
 
 def test_qemu_img_will_not_write_a_format_it_cannot(qemu):
-    assert not qemu.can_convert(DiskFormat.VDI, DiskFormat.VHDX)
+    """Measured on this build: `qemu-img create -f qed` answers "Unknown file format
+    'qed'", while vhdx is writable even though a VM cannot boot from one here."""
+    assert not qemu.can_convert(DiskFormat.VDI, DiskFormat.QED)
+    assert not qemu.can_convert(DiskFormat.VDI, DiskFormat.PARALLELS)
+    assert qemu.can_convert(DiskFormat.VDI, DiskFormat.VHDX)
 
 
 # ---------------------------------------------------------------------------

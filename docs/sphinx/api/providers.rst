@@ -75,3 +75,35 @@ libvirt Capabilities
    :members:
    :undoc-members:
    :show-inheritance:
+
+QEMU Backend
+------------
+
+.. automodule:: vmctl.providers.qemu.backend
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+QEMU Parser
+-----------
+
+.. automodule:: vmctl.providers.qemu.parser
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+QEMU Emitter
+------------
+
+.. automodule:: vmctl.providers.qemu.emitter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+QEMU Capabilities
+-----------------
+
+.. automodule:: vmctl.providers.qemu.capabilities
+   :members:
+   :undoc-members:
+   :show-inheritance:

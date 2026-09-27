@@ -407,3 +407,18 @@ def test_old_code_can_still_pass_a_chipset_string():
 
     assert NetworkConfig(adapter_type="82540EM").model is NicModel.E1000
     assert NetworkConfig(adapter_type="virtio").adapter_type is NicModel.VIRTIO
+
+
+def test_a_1_1_x_config_creates_a_qemu_vm(tmp_path):
+    """The point of the whole phase, stated as a test: a file written for a
+    VirtualBox-only vmctl describes a VM a third hypervisor can create. Nothing in
+    it mentions QEMU, and nothing in it had to change."""
+    from vmctl.core.translate import Policy
+    from vmctl.providers.qemu.emitter import QemuEmitter
+
+    vm = YAMLSerializer().load(CONFIGS / "v1_1_9_multidisk.yaml")
+    plan = QemuEmitter(vm.name, policy=Policy.NEAREST).emit_create_vm(vm)
+    argv = [step.argv for step in plan if step.argv and step.argv[0] == "qemu-img"]
+    assert argv, "the disks should be created"
+    written = [step for step in plan if step.content][0]
+    assert "exec " in written.content and "-device" in written.content

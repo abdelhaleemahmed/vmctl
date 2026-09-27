@@ -368,6 +368,36 @@ declared *second* was reported as `disks[0]`. The device loop reused its
 that line named the wrong device. A report that points at the wrong device is
 worse than no report, since acting on it edits the wrong thing.
 
+### F-31 — libvirt claimed disk formats its QEMU cannot write · M *(fixed)*
+`vmctl/providers/libvirt/capabilities.py`
+
+Found while probing formats for the QEMU provider. The declaration listed VMDK,
+VDI, VHD and QED as read-write, which is true of QEMU in general and not of this
+build: ``-drive format=help`` reports vdi, vhdx, vmdk and vpc **read-only**, and
+qed and parallels are absent from the binary entirely.
+
+The failure it hid is the worst shape there is. ``qemu-img`` creates a VMDK
+happily, libvirt *defines* a domain with one happily, and then starting it fails:
+``Driver 'vmdk' can only be used for read-only devices``. So vmctl reported success
+and left behind a VM that could not run. Verified by defining and starting one per
+format.
+
+Fixed by re-measuring: qcow2 and raw are creatable, the other four attach
+read-only, qed and parallels are unsupported. A VirtualBox-to-libvirt migration is
+now *refused* under the default policy -- with the reason and the flag to use --
+where before it silently produced an unbootable VM.
+
+### F-32 — Reading a running VM invented a 20 GB disk · S *(fixed)*
+`vmctl/providers/libvirt/backend.py`, `vmctl/providers/qemu/backend.py`
+
+Found by reading back a QEMU VM while it was running. ``qemu-img info`` cannot open
+an image another process has open -- "Failed to get shared write lock" -- so the
+probe returned 0, and ``VMConfig.__post_init__`` filled in its default 20 GB. The
+fix is the flag that exists for exactly this: ``qemu-img info -U``.
+
+Worth noting where the bug came from: it only appears when the VM is *running*,
+which no hermetic test can reach and no dry run touches.
+
 ### F-30 — A libvirt VM was warned about VirtualBox's requirements · S *(fixed)*
 `vmctl/validators/vm_validator.py`
 
@@ -1938,9 +1968,46 @@ operation, which in turn forces the connection/credential design
 (`CONNECT` step, no secrets in plan output or `--out` artifacts). Worth doing
 mainly to prove the API path exists before someone needs it.
 
-#### P-05 — Plain QEMU · S
+#### P-05 — Plain QEMU · S *(done)*
 Argv generation, largely reusing libvirt's tables. Cheap once P-01 exists;
 useful for throwaway VMs and CI.
+
+> **Done, and it earned its place.** This is the provider that asks whether the
+> abstraction is about *hypervisors* or only about managers of them, because QEMU
+> has no daemon, no registry and nowhere to put a definition: a VM is a process,
+> and its configuration is the argument list that started it.
+>
+> So the native artifact is a **shell script** -- the argv, one option per line,
+> with a shebang -- and `read_vm` parses it back with `shlex`. That is the same
+> parser/emitter duality the other two providers have, with a command line as the
+> native format instead of a key/value dump or an XML document, which is what
+> `A-01`'s `Plan` was introduced to make expressible. A VM is a directory
+> containing that script and its disks; listing VMs is listing directories, and
+> `delete` is removing one, which makes `F-28`'s problem impossible here rather
+> than solved. "Is it running" is answered by the pidfile the script writes, and
+> nothing else -- a stale pidfile means stopped, which is the state after a host
+> reboot.
+>
+> Everything was measured, and the measuring is what paid. `-device help` shows
+> this build has **no NVMe, no LSI SCSI and no MegaRAID**, so three buses vmctl can
+> name are absent. `scripts/probe-qemu-matrix.py` starts QEMU once per (kind, bus)
+> pair and records the result; the recording also keeps the `pc` matrix, which
+> differs from q35 in exactly one cell -- `isa-fdc`, the floppy controller. Two
+> findings came out of it: `F-31`, libvirt claiming formats its own QEMU cannot
+> write, and `F-32`, a running VM's disk size read as zero.
+>
+> The comparison the matrix makes possible is the interesting part. QEMU accepts an
+> optical drive on virtio-blk and libvirt refuses it; QEMU's `ide-hd` binds to
+> q35's built-in AHCI while libvirt reports IDE unsupported there. Same QEMU, two
+> providers, two honest answers -- which is why an attach matrix belongs to a
+> provider rather than to a hypervisor family, and why sharing one would have been
+> wrong even though it would have looked like less repetition.
+>
+> Verified against QEMU 10.1.0: create, list, read (while running), edit, start,
+> stop, delete; a VirtualBox capture migrated to QEMU with all three disks created
+> at their real sizes and the VM actually started; and a libvirt domain migrated to
+> QEMU, which is where the versioned machine type (`pc-q35-rhel9.8.0`) showed that
+> declaring only the aliases substituted a pinned machine type for a floating one.
 
 #### P-06 — `vmctl migrate --from A --to B <vm>` · L  ← the payoff
 The feature that only a genuinely neutral model can offer: read a VM from one
@@ -2072,9 +2139,19 @@ the model (E-03, E-05) want Phase 5 first.
 - **v1.5.0 — second hypervisor** *(P-01 libvirt/QEMU-KVM)* The release that
   proves the abstraction. If P-01 needs core changes, they are abstraction bugs:
   fix them in `core/`, never with a special case in the provider.
-- **v1.6.0 / v1.7.0 — more providers** *(P-02 VMware, P-03 Hyper-V; P-04/P-05
-  as demand appears)* Each should be additive only — a new provider that forces
-  a core change means A-07's conformance suite was too weak.
+- **v1.6.0 / v1.7.0 — more providers** *(P-02 VMware, P-03 Hyper-V; P-04 as
+  demand appears; P-05 done)* Each should be additive only — a new provider that
+  forces a core change means A-07's conformance suite was too weak. `P-05` met that
+  bar: adding plain QEMU changed no core file except to add a capability field
+  (`ioapic_optional`) that only existed because a warning had been written for one
+  provider's hardware.
+
+  **`P-02` and `P-03` are blocked on hardware, not on design.** Neither VMware nor
+  Hyper-V is available here — the Windows host has leftover ISOs from an uninstalled
+  Workstation and no `Get-VM` — and every table in this plan is measured against a
+  running product. Writing them from documentation would produce exactly the
+  artefact `F-31` was: a declaration that reads plausibly and is wrong about the
+  build in front of you.
 - **v1.8.0 — Tier A features** *(E-01 diff, E-04 export --all, E-06 schema,
   E-16 --out, E-17 capabilities, then E-03 clone-disks, E-05 probing)*
 - **v2.0.0 — declarative + cross-hypervisor** *(E-02 `apply`, P-06 `migrate`)*
@@ -2199,6 +2276,8 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-28 libvirt delete left every disk image behind
          [x] F-29 guest OS descriptions could not be re-imported
          [x] F-30 a libvirt VM warned about VirtualBox's requirements
+         [x] F-31 libvirt claimed formats its QEMU cannot write
+         [x] F-32 reading a running VM invented a 20 GB disk
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2224,7 +2303,7 @@ Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-09 storage location abstraction [x] A-10 arch/machine/topology/NicModel
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
-         [ ] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
+         [x] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
 Phase 7  [ ] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema
          [ ] E-16 --out native artifacts       [ ] E-17 capabilities command
          [ ] E-03 clone-disks  [ ] E-05 capability probing

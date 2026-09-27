@@ -755,3 +755,17 @@ def test_a_cpu_model_choice_is_not_read_as_nested_virtualisation(parser, emitter
     once = parser.parse_text("demo", emitter.build_domain_xml(vm))
     assert once.cpu.model == "host-model"
     assert once.cpu.nested_virt is False
+
+
+def test_only_the_formats_this_build_can_write_are_creatable():
+    """F-31 -- the declaration claimed VMDK, VDI, VHD and QED read-write from
+    memory of QEMU in general. Measured: `-drive format=help` reports qcow2 and raw
+    read-write and the rest read-only, and qed is not in the build at all. The
+    error it hid was the worst kind -- libvirt defines such a domain and then fails
+    to start it."""
+    caps = LibvirtCapabilities.get()
+    creatable = {f.value for f, spec in caps.formats.items() if spec.support.creatable}
+    assert creatable == {"qcow2", "raw"}
+    assert not caps.format_spec(DiskFormat.QED).support.usable
+    # Still attachable, which is what makes converting one possible.
+    assert caps.format_spec(DiskFormat.VMDK).support.usable

@@ -517,7 +517,17 @@ def test_migrate_says_the_data_is_not_coming(runner, vbox, monkeypatch):
         lambda self, plan: None,
     )
     result = runner.invoke(
-        cli, ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "libvirt"]
+        cli,
+        [
+            "migrate",
+            "vmctl-t-bios",
+            "--from",
+            "virtualbox",
+            "--to",
+            "libvirt",
+            "--policy",
+            "nearest",
+        ],
     )
     assert result.exit_code == 0
     assert "blank disks" in result.output
@@ -531,7 +541,17 @@ def test_migrate_is_dry_run_by_default(runner, vbox, monkeypatch):
         lambda self, plan: ran.append(plan),
     )
     result = runner.invoke(
-        cli, ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "libvirt"]
+        cli,
+        [
+            "migrate",
+            "vmctl-t-bios",
+            "--from",
+            "virtualbox",
+            "--to",
+            "libvirt",
+            "--policy",
+            "nearest",
+        ],
     )
     assert result.exit_code == 0
     assert "Dry-run" in result.output
@@ -545,12 +565,23 @@ def test_migrate_reports_what_did_not_carry_over(runner, vbox, monkeypatch):
     )
     result = runner.invoke(
         cli,
-        ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "libvirt"],
+        [
+            "migrate",
+            "vmctl-t-bios",
+            "--from",
+            "virtualbox",
+            "--to",
+            "libvirt",
+            "--policy",
+            "nearest",
+        ],
     )
     assert result.exit_code == 0
-    # The fixture VM is on SATA, which libvirt supports, but its vram is not
-    # expressible there.
-    assert "vram" in result.output
+    # The fixture VM's VDI disk is one libvirt cannot write, so `nearest` makes it
+    # qcow2 and has to say so. A setting still at the model's default is *not*
+    # reported: a line in every report is how people learn to skip reports.
+    assert "vdi" in result.output and "qcow2" in result.output
+    assert "vram" not in result.output
 
 
 def test_migrate_names_both_ends(runner, vbox, monkeypatch):
@@ -569,7 +600,21 @@ def test_migrate_names_both_ends(runner, vbox, monkeypatch):
             "libvirt",
             "--new-name",
             "moved",
+            "--policy",
+            "nearest",
         ],
     )
     assert "vmctl-t-bios (virtualbox)" in result.output
     assert "moved (libvirt)" in result.output
+
+
+def test_migrating_a_vdi_to_libvirt_is_refused_by_default(runner, vbox):
+    """F-31 -- libvirt *defines* a domain with a VDI disk and then fails to start
+    it: "Driver 'vdi' can only be used for read-only devices". Being told before
+    anything runs is the whole point of a capability declaration."""
+    result = runner.invoke(
+        cli, ["migrate", "vmctl-t-bios", "--from", "virtualbox", "--to", "libvirt"]
+    )
+    assert result.exit_code == 1
+    assert "vdi is not supported" in result.output
+    assert "--policy nearest" in result.output

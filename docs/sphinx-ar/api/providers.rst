@@ -38,3 +38,23 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.providers.qemu.backend
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.qemu.parser
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.qemu.emitter
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.qemu.capabilities
+   :members:
+   :member-order: bysource
+   :show-inheritance:

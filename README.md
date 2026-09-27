@@ -22,6 +22,7 @@ Requires a supported hypervisor:
 |---|---|---|
 | `virtualbox` | VirtualBox **7.0+** and `VBoxManage` on PATH | the default |
 | `libvirt` | libvirt **8.0+** and `virsh` on PATH | QEMU/KVM; works without KVM (slower) |
+| `qemu` | `qemu-system-x86_64` (or `qemu-kvm`) and `qemu-img` | plain QEMU, no daemon: each VM is a directory with a runnable command line in it |
 
 ```bash
 vmctl providers                 # what is usable on this machine

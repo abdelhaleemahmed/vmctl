@@ -80,18 +80,26 @@ ATTACH = {
     (DeviceKind.FLOPPY, _BUS.VIRTIO_BLK): False,
 }
 
-#: QEMU's native format is qcow2; raw is universal. The rest it can read through
-#: its block layer, and `qemu-img create` can make most of them, but vmctl only
-#: claims what it needs: a guest image it creates, and anything it may be handed.
+#: What this QEMU build's *block layer* will actually attach, which is not the same
+#: as what ``qemu-img`` can create (F-31). ``-drive format=help`` reports qcow2 and
+#: raw read-write, and vdi, vhdx, vmdk and vpc read-only; qed and parallels are
+#: absent from the build entirely.
+#:
+#: This was declared from memory of QEMU in general before it was measured, and the
+#: error it hid is the worst kind: libvirt *defines* a domain with a VMDK disk
+#: happily and then fails to start it with "Driver 'vmdk' can only be used for
+#: read-only devices" -- so vmctl reported success and left a VM that could not run.
 FORMATS = {
     DiskFormat.QCOW2: FormatSpec(Support.NATIVE, ("qcow2",), "qcow2", ("thin", "thick")),
     DiskFormat.RAW: FormatSpec(Support.READ_WRITE, ("raw", "img"), "raw", ("thin", "thick")),
-    DiskFormat.VMDK: FormatSpec(Support.READ_WRITE, ("vmdk",), "vmdk", ("thin",)),
-    DiskFormat.VDI: FormatSpec(Support.READ_WRITE, ("vdi",), "vdi", ("thin",)),
-    DiskFormat.VHD: FormatSpec(Support.READ_WRITE, ("vhd", "vpc"), "vpc", ("thin",)),
+    # Attachable, but only read-only, so vmctl cannot give a VM one as its disk.
+    DiskFormat.VMDK: FormatSpec(Support.READ_ONLY, ("vmdk",), "vmdk", ()),
+    DiskFormat.VDI: FormatSpec(Support.READ_ONLY, ("vdi",), "vdi", ()),
+    DiskFormat.VHD: FormatSpec(Support.READ_ONLY, ("vhd", "vpc"), "vpc", ()),
     DiskFormat.VHDX: FormatSpec(Support.READ_ONLY, ("vhdx",), "vhdx", ()),
-    DiskFormat.QED: FormatSpec(Support.READ_WRITE, ("qed",), "qed", ("thin",)),
-    DiskFormat.PARALLELS: FormatSpec(Support.READ_ONLY, ("hdd",), "parallels", ()),
+    # Not in this build at all: "Unknown driver 'qed'".
+    DiskFormat.QED: FormatSpec(Support.UNSUPPORTED, ("qed",), "qed", ()),
+    DiskFormat.PARALLELS: FormatSpec(Support.UNSUPPORTED, ("hdd",), "parallels", ()),
 }
 
 REMOVABLE_EXTENSIONS = ("iso", "img", "ima", "dsk", "flp", "vfd", "cdr")
@@ -146,7 +154,30 @@ class LibvirtCapabilities:
             # aliases this QEMU offers, and libvirt expands them to the versioned
             # ones it resolved (A-10).
             arches=(Arch.X86_64, Arch.I686),
-            machine_types=("q35", "pc"),
+            # Measured with `-machine help` (QEMU) and `virsh capabilities` (libvirt),
+            # which list the same set: the two aliases plus every versioned type this
+            # build carries. Both spellings matter -- libvirt *expands* an alias when it
+            # echoes a domain back, so a config read from libvirt carries
+            # "pc-q35-rhel9.8.0", and declaring only the alias made a round trip
+            # substitute it for one that floats with the next upgrade.
+            machine_types=(
+                "q35",
+                "pc",
+                "pc-i440fx-rhel7.6.0",
+                "pc-q35-rhel7.6.0",
+                "pc-q35-rhel8.0.0",
+                "pc-q35-rhel8.1.0",
+                "pc-q35-rhel8.2.0",
+                "pc-q35-rhel8.3.0",
+                "pc-q35-rhel8.4.0",
+                "pc-q35-rhel8.5.0",
+                "pc-q35-rhel8.6.0",
+                "pc-q35-rhel9.0.0",
+                "pc-q35-rhel9.2.0",
+                "pc-q35-rhel9.4.0",
+                "pc-q35-rhel9.6.0",
+                "pc-q35-rhel9.8.0",
+            ),
             default_machine="q35",
             nic_models=dict(NIC_MODEL_TO_LIBVIRT),
             cpu_topology=True,
@@ -157,8 +188,10 @@ class LibvirtCapabilities:
             supported_network_types=("nat", "bridged", "hostonly", "internal"),
             evidence=(
                 "probed on libvirt 11.10.0 / QEMU 10.1.0, machine q35; see "
-                "tests/fixtures/libvirt_attach_matrix.json. libvirt's matrix "
-                "depends on the QEMU build and machine type -- E-05 probing is "
-                "required for exactness."
+                "tests/fixtures/libvirt_attach_matrix.json. The formats were "
+                "re-measured against `-drive format=help` and by starting a domain "
+                "per format: this build attaches only qcow2 and raw read-write "
+                "(F-31). libvirt's matrix depends on the QEMU build and machine "
+                "type -- E-05 probing is required for exactness."
             ),
         )
