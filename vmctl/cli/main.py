@@ -6,10 +6,12 @@ import sys
 from pathlib import Path
 import click
 
-from typing import List
+from typing import List, Optional
 
 from vmctl import __version__
 from vmctl.core.engine import VMCtlEngine
+from vmctl.core.vmconfig import DiskFormat
+from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 from vmctl.core.batch import BatchCreator
 from vmctl.core.exceptions import (
     BatchError,
@@ -48,6 +50,30 @@ def _complete_vm_names(ctx, param, incomplete):
 # ---------------------------------------------------------------------------
 # Error reporting
 # ---------------------------------------------------------------------------
+
+
+# Formats the provider can actually create, measured rather than assumed -- see
+# providers/virtualbox/capabilities.py. A-03 will make this follow --provider;
+# until then VirtualBox is the only provider, so the list is resolved once.
+DISK_FORMATS = sorted(f.value for f in VirtualBoxCapabilities.get().creatable_formats())
+
+
+def _apply_disk_format(vm, disk_format: Optional[str]) -> None:
+    """Override the image format of every disk that gets created.
+
+    Removable devices are left alone: a DVD or floppy drive holds an existing
+    medium, so it has no format of its own to choose.
+
+    Args:
+        vm: Configuration to modify in place.
+        disk_format: Format name, or None to leave the config as it is.
+    """
+    if not disk_format:
+        return
+    chosen = DiskFormat(disk_format)
+    for disk in vm.disks:
+        if not disk.is_removable:
+            disk.format = chosen
 
 
 def _warn(message: str) -> None:
@@ -372,11 +398,17 @@ def cmd_export(vm_name, output, fmt):
 @click.argument("config_file", type=click.Path(exists=True, path_type=Path))
 @click.option("--new-name", default=None, help="Override the VM name from the file.")
 @click.option(
+    "--disk-format",
+    type=click.Choice(DISK_FORMATS),
+    default=None,
+    help="Create the VM's disks in this image format instead of the one in the file.",
+)
+@click.option(
     "--execute",
     is_flag=True,
     help="Actually create the VM (dry-run by default).",
 )
-def cmd_import(config_file, new_name, execute):
+def cmd_import(config_file, new_name, disk_format, execute):
     """Create a VM from a YAML or JSON configuration file.
 
     Without --execute the command prints the VBoxManage commands that
@@ -389,10 +421,12 @@ def cmd_import(config_file, new_name, execute):
     Examples:
       vmctl import ubuntu-server.yaml --new-name test-server
       vmctl import ubuntu-server.yaml --new-name test-server --execute
+      vmctl import ubuntu-server.yaml --new-name test-server --disk-format vmdk
     """
     try:
         engine = VMCtlEngine()
         vm = engine.import_vm(config_file, new_name)
+        _apply_disk_format(vm, disk_format)
         if execute:
             _require_absent(engine, vm.name)
         plan = engine.create_vm(vm, execute=execute, on_warning=_warn)
@@ -412,11 +446,17 @@ def cmd_import(config_file, new_name, execute):
 @click.option("--memory", type=int, default=None, help="Override memory in MB.")
 @click.option("--cpus", type=int, default=None, help="Override CPU count.")
 @click.option(
+    "--disk-format",
+    type=click.Choice(DISK_FORMATS),
+    default=None,
+    help="Create the new VM's disks in this image format.",
+)
+@click.option(
     "--execute",
     is_flag=True,
     help="Actually create the VM (dry-run by default).",
 )
-def cmd_create(source_vm, new_name, memory, cpus, execute):
+def cmd_create(source_vm, new_name, memory, cpus, disk_format, execute):
     """Clone a VM configuration from an existing VirtualBox VM.
 
     Reads the source VM's configuration live from VirtualBox, applies
@@ -428,6 +468,7 @@ def cmd_create(source_vm, new_name, memory, cpus, execute):
       vmctl create ubuntu-server --new-name ubuntu-clone
       vmctl create ubuntu-server --new-name ubuntu-clone --execute
       vmctl create ubuntu-server --new-name small-clone --cpus 2 --memory 2048 --execute
+      vmctl create ubuntu-server --new-name vmware-clone --disk-format vmdk
     """
     try:
         engine = VMCtlEngine()
@@ -437,6 +478,7 @@ def cmd_create(source_vm, new_name, memory, cpus, execute):
             vm.memory.mb = memory
         if cpus:
             vm.cpu.count = cpus
+        _apply_disk_format(vm, disk_format)
         if execute:
             _require_absent(engine, vm.name)
         plan = engine.create_vm(vm, execute=execute, on_warning=_warn)

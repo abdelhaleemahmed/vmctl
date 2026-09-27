@@ -5,7 +5,8 @@ VirtualBox backend implementation
 import re
 import subprocess
 import time
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Callable, List, Optional, cast
+from ...core.capabilities import Capabilities
 from ...core.plan import Plan, StepKind
 from ...core.vmconfig import VMConfig
 from ...core.exceptions import (
@@ -35,7 +36,7 @@ class VirtualBoxBackend(BaseProvider):
                 operation (deferred until actual use).
         """
         self.parser: VirtualBoxParser = VirtualBoxParser()
-        self._capabilities: Dict[str, Any] = VirtualBoxCapabilities.get_capabilities()
+        self._capabilities: Capabilities = VirtualBoxCapabilities.get()
         self._machine_folder: Optional[str] = None
         self._version: Optional[str] = None
 
@@ -116,7 +117,7 @@ class VirtualBoxBackend(BaseProvider):
                 beats failing later on an option that release does not have
                 (H-07).
         """
-        floor = self._capabilities.get("min_version")
+        floor = self._capabilities.min_version
         if not floor:
             return
         found = self.version()
@@ -142,7 +143,7 @@ class VirtualBoxBackend(BaseProvider):
         return "virtualbox"
 
     @property
-    def capabilities(self) -> Dict[str, Any]:
+    def capabilities(self) -> Capabilities:
         """Return provider capabilities."""
         return self._capabilities
 
@@ -187,7 +188,11 @@ class VirtualBoxBackend(BaseProvider):
         """
         if execute:
             self.check_supported()
-        emitter = VirtualBoxEmitter(vm.name, machine_folder=self.machine_folder)
+        emitter = VirtualBoxEmitter(
+            vm.name,
+            machine_folder=self.machine_folder,
+            capabilities=self._capabilities,
+        )
         plan = emitter.emit_create_vm(vm)
 
         if execute:
@@ -239,7 +244,11 @@ class VirtualBoxBackend(BaseProvider):
             )
 
         current = self.read_vm(vm_name)
-        emitter = VirtualBoxEmitter(vm_name, machine_folder=self.machine_folder)
+        emitter = VirtualBoxEmitter(
+            vm_name,
+            machine_folder=self.machine_folder,
+            capabilities=self._capabilities,
+        )
         plan = emitter.emit_modify_vm(current, new_config)
 
         if on_warning:

@@ -378,3 +378,66 @@ def test_dry_run_stdout_carries_only_commands(runner, vbox, tmp_path):
     assert "Warning:" not in runner_mixed.stdout
     assert "Warning:" in runner_mixed.stderr
     assert "VBoxManage createvm" in runner_mixed.stdout
+
+
+# ---------------------------------------------------------------------------
+# --disk-format (M-04)
+# ---------------------------------------------------------------------------
+
+
+def test_disk_format_offers_only_creatable_formats(runner):
+    """VirtualBox can attach a VHDX but not create one, so it is not offered."""
+    result = runner.invoke(cli, ["import", "--help"])
+    assert "vdi" in result.output and "vmdk" in result.output
+    assert "qcow2" in result.output
+    assert "vhdx" not in result.output
+
+
+def test_disk_format_is_refused_when_unsupported(runner, tmp_path):
+    path = tmp_path / "vm.yaml"
+    path.write_text("name: v\ndisks:\n  - name: d\n    size_mb: 1024\n")
+    result = runner.invoke(cli, ["import", str(path), "--disk-format", "vhdx"])
+    assert result.exit_code != 0
+    assert "vhdx" in result.output
+
+
+@pytest.mark.parametrize(
+    "fmt,native,ext",
+    [
+        ("vmdk", "VMDK", "vmdk"),
+        ("vhd", "VHD", "vhd"),
+        ("qcow2", "QCOW", "qcow2"),
+        ("qed", "QED", "qed"),
+    ],
+)
+def test_disk_format_changes_the_created_medium(runner, vbox, tmp_path, fmt, native, ext):
+    path = tmp_path / "vm.yaml"
+    path.write_text("name: v\ndisks:\n  - name: system\n    size_mb: 1024\n")
+    result = runner.invoke(cli, ["import", str(path), "--disk-format", fmt])
+    assert result.exit_code == 0
+    assert f"--format {native}" in result.output
+    assert f"system.{ext}" in result.output
+
+
+def test_raw_is_adjusted_to_fixed_allocation_with_a_warning(runner, vbox, tmp_path):
+    """Measured: VirtualBox cannot create a dynamic RAW medium."""
+    path = tmp_path / "vm.yaml"
+    path.write_text("name: v\ndisks:\n  - name: system\n    size_mb: 1024\n    variant: thin\n")
+    result = runner.invoke(cli, ["import", str(path), "--disk-format", "raw"])
+    assert result.exit_code == 0
+    assert "--variant Fixed" in result.output
+    assert "can only be created thick" in result.output
+
+
+def test_disk_format_leaves_removable_devices_alone(runner, vbox, tmp_path):
+    """A DVD drive holds an existing medium, so it has no format to choose."""
+    path = tmp_path / "vm.yaml"
+    path.write_text(
+        "name: v\ndisks:\n  - name: system\n    size_mb: 1024\n"
+        "  - name: cd\n    type: dvd\n    controller: ide\n"
+    )
+    result = runner.invoke(cli, ["import", str(path), "--disk-format", "vmdk"])
+    assert result.exit_code == 0
+    creates = [ln for ln in result.output.splitlines() if "createmedium" in ln]
+    assert len(creates) == 1  # only the real disk
+    assert "emptydrive" in result.output

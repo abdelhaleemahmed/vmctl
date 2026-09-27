@@ -1,0 +1,66 @@
+{
+  "Parallels|Fixed": {
+    "error": "Medium format 'Parallels' does not support fixed storage creation",
+    "ok": false
+  },
+  "Parallels|Standard": {
+    "error": "",
+    "ok": true
+  },
+  "QCOW|Fixed": {
+    "error": "Medium format 'QCOW' does not support fixed storage creation",
+    "ok": false
+  },
+  "QCOW|Standard": {
+    "error": "",
+    "ok": true
+  },
+  "QED|Fixed": {
+    "error": "Medium format 'QED' does not support fixed storage creation",
+    "ok": false
+  },
+  "QED|Standard": {
+    "error": "",
+    "ok": true
+  },
+  "RAW|Fixed": {
+    "error": "",
+    "ok": true
+  },
+  "RAW|Standard": {
+    "error": "Medium format 'RAW' does not support dynamic storage creation",
+    "ok": false
+  },
+  "VDI|Fixed": {
+    "error": "",
+    "ok": true
+  },
+  "VDI|Standard": {
+    "error": "",
+    "ok": true
+  },
+  "VHDX|Fixed": {
+    "error": "Medium format 'VHDX' does not support fixed storage creation",
+    "ok": false
+  },
+  "VHDX|Standard": {
+    "error": "Medium format 'VHDX' does not support dynamic storage creation",
+    "ok": false
+  },
+  "VHD|Fixed": {
+    "error": "",
+    "ok": true
+  },
+  "VHD|Standard": {
+    "error": "",
+    "ok": true
+  },
+  "VMDK|Fixed": {
+    "error": "",
+    "ok": true
+  },
+  "VMDK|Standard": {
+    "error": "",
+    "ok": true
+  }
+}

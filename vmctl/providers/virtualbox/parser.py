@@ -21,21 +21,44 @@ from ...core.vmconfig import (
     StorageControllerType,
 )
 from ...core.exceptions import DependencyError, ProviderError
+from ...core.capabilities import Capabilities
 from ...core.mapping import read_into
 from ..base import MediumProbe
+from .capabilities import VirtualBoxCapabilities
 from .tables import CONTROLLER_CHIPSETS, FIELDS
 
 
 class VirtualBoxParser:
     """Parse VirtualBox VM configuration"""
 
-    def __init__(self):
+    def __init__(self, capabilities: Optional[Capabilities] = None):
         """Initialise the parser.
 
-        Sets ``vboxmanage_cmd`` to ``"VBoxManage"``, which must be available
-        on the system ``PATH``.
+        Args:
+            capabilities: The provider's capability declaration, used to map
+                reported medium formats and file extensions back to the model.
+                Deriving those from the same declaration the emitter writes with
+                is what stops vmctl creating a format it cannot then read: a
+                qcow2 disk came back as VDI, because the parser kept its own
+                shorter list of formats (F-24).
         """
         self.vboxmanage_cmd = "VBoxManage"
+        self.capabilities = capabilities or VirtualBoxCapabilities.get()
+        # Extensions that mark an attachment as a real medium.
+        self.medium_extensions = tuple("." + e for e in self.capabilities.medium_extensions())
+        # Reported "Storage format:" value -> model format.
+        self.medium_formats = {
+            spec.native_name.upper(): fmt for fmt, spec in self.capabilities.formats.items()
+        }
+        # File extension -> model format. ISO and the floppy extensions are
+        # removable media, whose format is not meaningful for recreation.
+        # Every extension a format owns, not just the canonical one: the RAW
+        # backend answers for both `img` and `raw`.
+        self.extension_formats = {
+            ext.lower(): fmt
+            for fmt, spec in self.capabilities.formats.items()
+            for ext in spec.extensions
+        }
 
     def get_vm_info(self, vm_name: str) -> str:
         """Get raw VM info from VirtualBox"""
@@ -57,22 +80,6 @@ class VirtualBoxParser:
             )
 
     # -- pure decoding -------------------------------------------------------
-
-    EXTENSION_FORMATS = {
-        "vdi": DiskFormat.VDI,
-        "vmdk": DiskFormat.VMDK,
-        "vhd": DiskFormat.VHD,
-        "raw": DiskFormat.RAW,
-        "img": DiskFormat.RAW,
-    }
-
-    MEDIUM_FORMATS = {
-        "VDI": DiskFormat.VDI,
-        "VMDK": DiskFormat.VMDK,
-        "VHD": DiskFormat.VHD,
-        "RAW": DiskFormat.RAW,
-        "IMG": DiskFormat.RAW,
-    }
 
     TRUTHY = {"on", "true", "yes", "1", "enabled"}
     FALSY = {"off", "false", "no", "0", "disabled"}
@@ -111,7 +118,7 @@ class VirtualBoxParser:
             DiskFormat: The format implied by the extension, or VDI.
         """
         ext = disk_path.lower().rsplit(".", 1)[-1] if "." in disk_path else ""
-        return self.EXTENSION_FORMATS.get(ext, DiskFormat.VDI)
+        return self.extension_formats.get(ext, self.capabilities.native_format)
 
     def parse_medium_info(self, raw_info: str, default_format: DiskFormat) -> Dict[str, Any]:
         """Decode ``VBoxManage showmediuminfo`` output.
@@ -144,8 +151,8 @@ class VirtualBoxParser:
             # Storage format: VMDK or VDI
             elif lower.startswith("storage format:"):
                 fmt_str = line.split(":", 1)[1].strip().upper()
-                if fmt_str in self.MEDIUM_FORMATS:
-                    disk_info["format"] = self.MEDIUM_FORMATS[fmt_str]
+                if fmt_str in self.medium_formats:
+                    disk_info["format"] = self.medium_formats[fmt_str]
             # VirtualBox 7.x prints "Format variant: fixed default"; older
             # releases printed "Variant: ...". Accept both (F-20).
             elif lower.startswith("format variant:") or lower.startswith("variant:"):
@@ -358,19 +365,21 @@ class VirtualBoxParser:
         # VirtualBox outputs many metadata keys per disk (ImageUUID, nonrotational, discard, etc.)
         # We only want actual disk paths, so filter by checking the value looks like a path
         disk_pattern = re.compile(r"^(.+)-(\d+)-(\d+)$")
-        disk_extensions = (".vdi", ".vmdk", ".vhd", ".img", ".raw", ".iso")
         disk_attachments = {}
 
         for key, value in config.items():
             match = disk_pattern.match(key)
             if match:
-                # Only process if value looks like a disk path (has disk extension)
-                # This filters out metadata entries like ImageUUID, nonrotational, discard, etc.
-                if value and value.lower().endswith(disk_extensions):
+                # Keep real media, and also empty removable drives: discarding
+                # "emptydrive" meant a VM whose installer DVD had been ejected
+                # lost the drive itself on the next round trip (F-22).
+                if value and (
+                    value.lower().endswith(self.medium_extensions) or value.lower() == "emptydrive"
+                ):
                     controller_name, port, device = match.groups()
-                    # Skip floppy controller - not a real disk to recreate
-                    if controller_name.lower() == "floppy":
-                        continue
+                    # Floppy attachments used to be skipped here as "not a real
+                    # disk to recreate". A floppy drive is a device kind vmctl
+                    # supports now, so dropping it would lose it on export.
                     disk_attachments[f"{controller_name}-{port}-{device}"] = value
 
         # Build controller name to type mapping
@@ -384,15 +393,21 @@ class VirtualBoxParser:
             # Find controller type by name
             ctrl_type = controller_name_to_type.get(ctrl_name, StorageControllerType.SATA)
 
-            # Skip empty/none attachments
+            # "none" means the slot exists but holds nothing at all.
             if not disk_path or disk_path == "none":
                 continue
+
+            empty = disk_path.lower() == "emptydrive"
 
             # Decide what kind of device this is before probing. A floppy
             # controller carries floppy drives; an .iso is an optical medium.
             if ctrl_type == StorageControllerType.FLOPPY:
                 disk_type = DiskType.FLOPPY
             elif disk_path.lower().endswith(".iso"):
+                disk_type = DiskType.DVD
+            elif empty:
+                # A hard disk attachment is never empty, so an empty drive on a
+                # disk bus is an optical one.
                 disk_type = DiskType.DVD
             else:
                 disk_type = DiskType.HDD
@@ -413,8 +428,8 @@ class VirtualBoxParser:
                     port=int(port),
                     device=int(device),
                     bootable=False,
-                    disk_path=disk_path,
-                    source=disk_path,
+                    disk_path=None if empty else disk_path,
+                    source=None if empty else disk_path,
                 )
             else:
                 disk_info = lookup(disk_path)

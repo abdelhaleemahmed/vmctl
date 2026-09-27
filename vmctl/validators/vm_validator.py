@@ -14,15 +14,11 @@ meant a caller's object changed under them and no warning was ever produced
 (F-08).
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
+from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
-from ..core.vmconfig import (
-    DiskType,
-    FirmwareType,
-    StorageControllerType,
-    VMConfig,
-)
+from ..core.vmconfig import DiskType, FirmwareType, VMConfig
 
 
 class VMValidator:
@@ -34,13 +30,14 @@ class VMValidator:
     # about it would be warning about our own artefact. M-02 should either give
     # it a meaning or drop it.
 
-    def __init__(self, provider_capabilities: Dict[str, Any]):
-        """Initialise the validator with provider-specific capability limits.
+    def __init__(self, provider_capabilities: Capabilities):
+        """Initialise the validator with a provider's capability declaration.
 
         Args:
-            provider_capabilities: Dictionary of provider limits (e.g. max CPUs,
-                max memory, max VRAM). Typically obtained from
-                :meth:`VirtualBoxCapabilities.get_capabilities`.
+            provider_capabilities: The provider's limits, bus rules, attach
+                matrix and format support, e.g. from
+                :meth:`VirtualBoxCapabilities.get`. Every limit checked below is
+                read from here rather than restated as a literal (A-02).
         """
         self.capabilities = provider_capabilities
 
@@ -115,96 +112,127 @@ class VMValidator:
         """Check the configuration against the provider's declared limits."""
         caps = self.capabilities
 
-        max_cpus = caps.get("max_cpus", 128)
-        if vm.cpu.count > max_cpus:
+        if vm.cpu.count > caps.max_cpus:
             raise ValidationError(
-                f"CPU count {vm.cpu.count} exceeds the provider limit {max_cpus}",
+                f"CPU count {vm.cpu.count} exceeds the provider limit {caps.max_cpus}",
                 field="cpu.count",
                 value=vm.cpu.count,
-                expected=f"<= {max_cpus}",
+                expected=f"<= {caps.max_cpus}",
             )
 
-        max_memory = caps.get("max_memory_mb", 1_048_576)
-        if vm.memory.mb > max_memory:
+        if vm.memory.mb > caps.max_memory_mb:
             raise ValidationError(
-                f"Memory {vm.memory.mb}MB exceeds the provider limit {max_memory}MB",
+                f"Memory {vm.memory.mb}MB exceeds the provider limit " f"{caps.max_memory_mb}MB",
                 field="memory.mb",
                 value=vm.memory.mb,
-                expected=f"<= {max_memory}",
+                expected=f"<= {caps.max_memory_mb}",
             )
 
-        max_vram = caps.get("max_vram_mb", 256)
-        if vm.memory.vram_mb > max_vram:
+        if vm.memory.vram_mb > caps.max_vram_mb:
             raise ValidationError(
-                f"VRAM {vm.memory.vram_mb}MB exceeds the provider limit {max_vram}MB",
+                f"VRAM {vm.memory.vram_mb}MB exceeds the provider limit " f"{caps.max_vram_mb}MB",
                 field="memory.vram_mb",
                 value=vm.memory.vram_mb,
-                expected=f"<= {max_vram}",
+                expected=f"<= {caps.max_vram_mb}",
             )
 
-        if vm.firmware.type != FirmwareType.BIOS and not caps.get("supports_efi", True):
+        firmware_support = caps.firmware.get(vm.firmware.type)
+        if firmware_support is not None and not firmware_support.usable:
             raise ValidationError(
-                "EFI firmware is not supported by this provider",
+                f"{vm.firmware.type.value} firmware is not supported by this " f"provider",
                 field="firmware.type",
                 value=vm.firmware.type.value,
             )
 
-        if vm.firmware.tpm and not caps.get("supports_tpm", True):
+        if vm.firmware.tpm and not caps.supports_tpm:
             raise ValidationError("TPM is not supported by this provider", field="firmware.tpm")
 
-        # Network adapters: read the limit from capabilities rather than
-        # hardcoding 8, and name the provider's number in the message.
-        max_nics = caps.get("max_network_adapters", 8)
-        if len(vm.networks) > max_nics:
+        if len(vm.networks) > caps.max_network_adapters:
             raise ValidationError(
                 f"{len(vm.networks)} network adapters configured, but the "
-                f"provider supports at most {max_nics}",
+                f"provider supports at most {caps.max_network_adapters}",
                 field="networks",
                 value=len(vm.networks),
-                expected=f"<= {max_nics}",
+                expected=f"<= {caps.max_network_adapters}",
             )
 
-        supported_nets = caps.get("supported_network_types")
-        if supported_nets:
+        if caps.supported_network_types:
             for i, net in enumerate(vm.networks):
-                if net.network_type.value not in supported_nets:
+                if net.network_type.value not in caps.supported_network_types:
                     raise ValidationError(
                         f"Network type {net.network_type.value!r} is not "
                         f"supported by this provider",
                         field=f"networks[{i}].network_type",
                         value=net.network_type.value,
-                        expected=" | ".join(supported_nets),
+                        expected=" | ".join(caps.supported_network_types),
                     )
 
-        max_disks = caps.get("max_disks")
-        if max_disks and len(vm.disks) > max_disks:
+        if len(vm.disks) > caps.max_disks:
             raise ValidationError(
                 f"{len(vm.disks)} disks configured, but the provider supports "
-                f"at most {max_disks}",
+                f"at most {caps.max_disks}",
                 field="disks",
                 value=len(vm.disks),
-                expected=f"<= {max_disks}",
+                expected=f"<= {caps.max_disks}",
             )
 
-        supported_ctls = caps.get("supported_storage_controllers")
-        port_limits = caps.get("max_ports_per_controller", {})
         for i, sc in enumerate(vm.storage_controllers):
-            bus = sc.controller_type.value
-            if supported_ctls and bus not in supported_ctls:
+            spec = caps.bus(sc.controller_type)
+            if spec is None:
                 raise ValidationError(
-                    f"Storage controller type {bus!r} is not supported by this " f"provider",
+                    f"Storage controller type {sc.controller_type.value!r} is "
+                    f"not supported by this provider",
                     field=f"storage_controllers[{i}].controller_type",
-                    value=bus,
-                    expected=" | ".join(supported_ctls),
+                    value=sc.controller_type.value,
+                    expected=" | ".join(sorted(b.value for b in caps.buses)),
                 )
-            max_ports = port_limits.get(bus)
-            if max_ports and sc.port_count and sc.port_count > max_ports:
+            if sc.port_count is None:
+                continue
+            fixed = spec.fixed_port_count
+            if fixed is not None and sc.port_count != fixed:
                 raise ValidationError(
-                    f"Controller {sc.name!r}: port count {sc.port_count} "
-                    f"exceeds the limit {max_ports} for {bus}",
+                    f"Controller {sc.name!r}: a {sc.controller_type.value} "
+                    f"controller must have exactly {fixed} port(s), not "
+                    f"{sc.port_count}",
                     field=f"storage_controllers[{i}].port_count",
                     value=sc.port_count,
-                    expected=f"<= {max_ports}",
+                    expected=str(fixed),
+                )
+            if not fixed and not spec.min_ports <= sc.port_count <= spec.max_ports:
+                raise ValidationError(
+                    f"Controller {sc.name!r}: port count {sc.port_count} is "
+                    f"outside the {sc.controller_type.value} range "
+                    f"{spec.min_ports}-{spec.max_ports}",
+                    field=f"storage_controllers[{i}].port_count",
+                    value=sc.port_count,
+                    expected=f"{spec.min_ports}-{spec.max_ports}",
+                )
+
+        # Which device kinds each bus carries, and which formats the provider can
+        # create, are measured facts about the hypervisor -- see the provider's
+        # capability module (M-03).
+        for i, disk in enumerate(vm.disks):
+            if not caps.can_attach(disk.type, disk.controller):
+                usable = caps.buses_for(disk.type)
+                raise ValidationError(
+                    f"disks[{i}] ({disk.name}) is a {disk.type.value} device on "
+                    f"the {disk.controller.value} bus, which this provider does "
+                    f"not support",
+                    field=f"disks[{i}].controller",
+                    value=disk.controller.value,
+                    expected=" | ".join(sorted(b.value for b in usable)) or "(none)",
+                )
+            if disk.is_removable:
+                continue
+            fmt = caps.format_spec(disk.format)
+            if not fmt.support.creatable:
+                raise ValidationError(
+                    f"disks[{i}] ({disk.name}) uses format "
+                    f"{disk.format.value!r}, which this provider cannot create "
+                    f"({fmt.support.value})",
+                    field=f"disks[{i}].format",
+                    value=disk.format.value,
+                    expected=" | ".join(sorted(f.value for f in caps.creatable_formats())),
                 )
 
     def _validate_storage_topology(self, vm: VMConfig) -> None:
@@ -261,7 +289,8 @@ class VMValidator:
                     value=disk.port,
                     expected=f"0-{sc.port_count - 1}",
                 )
-            units = 2 if sc.controller_type == StorageControllerType.IDE else 1
+            spec = self.capabilities.bus(sc.controller_type)
+            units = spec.units_per_port if spec else 1
             if disk.device >= units:
                 raise ValidationError(
                     f"disks[{i}] ({disk.name}) uses device {disk.device} on a "

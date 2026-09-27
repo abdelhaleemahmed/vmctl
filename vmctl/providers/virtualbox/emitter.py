@@ -9,7 +9,6 @@ from collections import OrderedDict
 from typing import List, Dict, Optional
 from ...core.vmconfig import (
     VMConfig,
-    DiskFormat,
     DiskType,
     DiskVariant,
     FirmwareType,
@@ -22,6 +21,8 @@ from ...core.vmconfig import (
 from ...core.exceptions import ProviderError
 from ...core.mapping import changed_flags, emit_flags
 from ...core.plan import Plan
+from ...core.capabilities import Capabilities
+from .capabilities import VirtualBoxCapabilities
 from .tables import FIELDS, MODIFIABLE
 
 
@@ -34,7 +35,11 @@ class VirtualBoxEmitter:
     FALLBACK_MACHINE_FOLDER = os.path.join(os.path.expanduser("~"), "VirtualBox VMs")
 
     def __init__(
-        self, vm_name: str, machine_folder: Optional[str] = None, path_sep: Optional[str] = None
+        self,
+        vm_name: str,
+        machine_folder: Optional[str] = None,
+        path_sep: Optional[str] = None,
+        capabilities: Optional[Capabilities] = None,
     ):
         """Initialise the emitter for a specific VM.
 
@@ -49,8 +54,13 @@ class VirtualBoxEmitter:
             path_sep: Separator to build medium paths with. Defaults to the
                 local one; pass ``"\\"`` when emitting for a Windows target
                 from a POSIX host.
+            capabilities: Provider limits to emit within. Defaults to
+                VirtualBox's own declaration.
         """
         self.vm_name = vm_name
+        # Bus rules, port limits and format support come from the provider's
+        # capability declaration rather than a second copy kept here (A-02).
+        self.capabilities = capabilities or VirtualBoxCapabilities.get()
         self.machine_folder = machine_folder or self.FALLBACK_MACHINE_FOLDER
         self.path_sep = path_sep or os.sep
         self.commands: List[List[str]] = []
@@ -171,15 +181,29 @@ class VirtualBoxEmitter:
                 # blank image as a dvddrive, which VirtualBox rejects (F-04).
                 medium = disk.source or "emptydrive"
             else:
-                vbox_format, ext = self.FORMAT_SPECS.get(disk.format, ("VDI", "vdi"))
-                medium = self._medium_path(vm.name, f"{vm.name}_{self._slug(disk.name)}.{ext}")
+                fmt = self.capabilities.format_spec(disk.format)
+                if not fmt.support.creatable:
+                    raise ProviderError(
+                        f"disk {disk.name!r} asks for format "
+                        f"{disk.format.value!r}, which this provider cannot "
+                        f"create ({fmt.support.value})"
+                    )
+                medium = self._medium_path(
+                    vm.name, f"{vm.name}_{self._slug(disk.name)}.{fmt.extension}"
+                )
 
-                vbox_variant = "Standard"  # Thin/dynamic by default
-                if disk.variant == DiskVariant.THICK:
-                    vbox_variant = "Fixed"
-                # RAW format doesn't support dynamic storage - must use Fixed
-                if disk.format == DiskFormat.RAW:
-                    vbox_variant = "Fixed"
+                # A format may only be creatable in one allocation: VirtualBox
+                # can make a dynamic QCOW2 but not a fixed one, and a fixed RAW
+                # but not a dynamic one. Use what the config asked for when it is
+                # possible, and the only possibility otherwise.
+                wanted = "thick" if disk.variant == DiskVariant.THICK else "thin"
+                if wanted not in fmt.allocations:
+                    wanted = fmt.allocations[0]
+                    plan.warn(
+                        f"{disk.format.value} media can only be created "
+                        f"{wanted}; {disk.name} was adjusted"
+                    )
+                vbox_variant = "Fixed" if wanted == "thick" else "Standard"
 
                 commands.append(
                     [
@@ -191,7 +215,7 @@ class VirtualBoxEmitter:
                         "--size",
                         str(disk.size_mb),
                         "--format",
-                        vbox_format,
+                        fmt.native_name,
                         "--variant",
                         vbox_variant,
                     ]
@@ -279,36 +303,12 @@ class VirtualBoxEmitter:
 
     # -- storage topology ----------------------------------------------------
 
-    #: Canonical bus/chipset pair and default port count per controller type.
-    #: Verified against VirtualBox 7.1.18 by creating each controller on a live
-    #: host: ``virtio-scsi`` is a valid ``--add`` value even though
-    #: ``storagectl --help`` omits it, and a USB controller demands exactly 8
-    #: ports (``Invalid port count: 1 (must be in range [8, 8])``).
-    CONTROLLER_SPECS = {
-        StorageControllerType.IDE: ("ide", "PIIX4", 2, "IDE Controller"),
-        StorageControllerType.SATA: ("sata", "IntelAhci", 30, "SATA Controller"),
-        StorageControllerType.SCSI: ("scsi", "LSILogic", 16, "SCSI Controller"),
-        StorageControllerType.SAS: ("sas", "LSILogicSAS", 16, "SAS Controller"),
-        StorageControllerType.NVME: ("pcie", "NVMe", 8, "NVMe Controller"),
-        StorageControllerType.FLOPPY: ("floppy", "I82078", 1, "Floppy"),
-        StorageControllerType.USB: ("usb", "USB", 8, "USB Controller"),
-        StorageControllerType.VIRTIO_SCSI: ("virtio-scsi", "VirtIO", 16, "VirtIO SCSI Controller"),
-    }
-
     #: Attachment ``--type`` per device kind.
     ATTACH_TYPES = {
         DiskType.HDD: "hdd",
         DiskType.SSD: "hdd",
         DiskType.DVD: "dvddrive",
         DiskType.FLOPPY: "fdd",
-    }
-
-    #: Image format -> (VBoxManage --format, file extension).
-    FORMAT_SPECS = {
-        DiskFormat.VDI: ("VDI", "vdi"),
-        DiskFormat.VMDK: ("VMDK", "vmdk"),
-        DiskFormat.VHD: ("VHD", "vhd"),
-        DiskFormat.RAW: ("RAW", "img"),
     }
 
     @staticmethod
@@ -351,16 +351,20 @@ class VirtualBoxEmitter:
         for disk in vm.disks:
             if self._match_controller(disk, resolved, by_bus) is not None:
                 continue
-            bus_spec = self.CONTROLLER_SPECS.get(
-                disk.controller, self.CONTROLLER_SPECS[StorageControllerType.SATA]
-            )
-            name = bus_spec[3]
+            spec = self.capabilities.bus(disk.controller)
+            if spec is None:
+                raise ProviderError(
+                    f"disk {disk.name!r} asks for the "
+                    f"{disk.controller.value!r} bus, which this provider does "
+                    f"not support"
+                )
+            name = spec.controller_name
             if name not in resolved:
                 synthesized = StorageControllerConfig(
                     name=name,
                     controller_type=disk.controller,
-                    port_count=bus_spec[2],
-                    bootable=True,
+                    port_count=spec.default_ports,
+                    bootable=spec.bootable,
                 )
                 resolved[name] = synthesized
                 by_bus.setdefault(disk.controller, synthesized)
@@ -377,15 +381,17 @@ class VirtualBoxEmitter:
 
     def _create_storage_controller(self, controller: StorageControllerConfig) -> List[str]:
         """Generate the command that creates one storage controller."""
-        bus_type, chipset, default_ports, _ = self.CONTROLLER_SPECS.get(
-            controller.controller_type,
-            self.CONTROLLER_SPECS[StorageControllerType.SATA],
-        )
-        port_count = controller.port_count or default_ports
-        if controller.controller_type == StorageControllerType.USB:
-            port_count = 8  # VirtualBox accepts nothing else
-        elif controller.controller_type == StorageControllerType.FLOPPY:
-            port_count = 1
+        spec = self.capabilities.bus(controller.controller_type)
+        if spec is None:
+            raise ProviderError(
+                f"controller {controller.name!r} uses the "
+                f"{controller.controller_type.value!r} bus, which this provider "
+                f"does not support"
+            )
+        # Several buses accept exactly one port count -- IDE 2, SCSI 16, USB 8,
+        # floppy 1 -- so the requested value is clamped to what will be accepted
+        # rather than passed through to fail.
+        port_count = spec.clamp_ports(controller.port_count)
 
         return [
             "VBoxManage",
@@ -394,9 +400,9 @@ class VirtualBoxEmitter:
             "--name",
             controller.name,
             "--add",
-            bus_type,
+            spec.add,
             "--controller",
-            chipset,
+            spec.model,
             "--portcount",
             str(port_count),
             "--bootable",

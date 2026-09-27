@@ -311,7 +311,31 @@ drift in either direction. `A-11`'s field table closes it by construction — on
 declaration serves both directions, and a property test asserts the round trip
 for **every** field in the table, so the next field cannot repeat it.
 
-### F-22 — An empty removable drive is not represented at all · S
+### F-24 — vmctl could create formats it could not read back · M *(fixed)*
+`vmctl/providers/virtualbox/parser.py`
+
+Found by creating a VM in each `--disk-format` on a real host and reading it
+back. A qcow2-backed VM came back reporting a 20 GB **VDI**.
+
+The cause was a third private copy of the format knowledge. The emitter knew how
+to write qcow2, the capability declaration knew VirtualBox supports it, but the
+parser's attachment filter carried its own hardcoded extension tuple
+(`.vdi .vmdk .vhd .img .raw .iso`). A `.qcow2` attachment therefore matched
+nothing, the VM looked **diskless**, and `VMConfig.__post_init__` invented a
+default 20 GB VDI in its place — a fabricated disk presented as fact, which is
+worse than an error.
+
+Fixed by deriving all three of the parser's format tables from the one capability
+declaration: the reported-format map, the extension map, and the filter that
+decides whether an attachment is a device at all. Verified on VirtualBox 7.1.18:
+vdi, vmdk, vhd, qcow2, qed and raw all create *and* read back correctly.
+
+The same investigation found that floppy attachments were discarded outright by a
+`if controller_name.lower() == "floppy": continue` guard, described as "not a real
+disk to recreate". Together with `F-22` that meant a floppy drive was dropped
+twice over.
+
+### F-22 — An empty removable drive is not represented at all · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py` (disk attachment filter)
 
 Found by recreating a config on the real host and reading it back. The parser
@@ -806,7 +830,19 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > 7/7 fields survived a round trip that previously lost three. The only golden
 > that moved was `--hpet off` becoming `--hpet on`, which is the bug being fixed.
 >
-> Remaining: `M-01`…`M-06` (the three-axis storage model), `A-02`…`A-10`.
+> **Second step done:** `M-03` (probed support matrix), `A-02` (typed
+> capabilities), `M-04` (`--disk-format`), plus `F-22` and `F-24`.
+>
+> The matrix was **probed, not recalled**, as the plan demands: every
+> controller was created and every device kind attached on a real host, and
+> the recordings are committed as `tests/fixtures/attach_matrix.json` and
+> `format_matrix.json` with tests asserting the declaration matches them. The
+> first probe attempt produced results I did not believe (a floppy drive
+> "attaching" to SATA) because `emptydrive` is accepted almost anywhere; it
+> had to be redone with a real medium of each kind.
+>
+> Remaining: `M-01`, `M-02`, `M-05`, `M-06` (the three-axis storage model and
+> medium conversion), `A-03`…`A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1640,8 +1676,9 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-19 hostonlyadapter{n} not hostonlyif{n}; verify natnet{n}
          [x] F-20 'Format variant:' prefix -> variant always thin
          [x] F-21 audio="default" misread as audio enabled
-         [ ] F-22 empty removable drive dropped entirely (narrow fix or M-02)
+         [x] F-22 empty removable drive dropped entirely (narrow fix or M-02)
          [x] F-23 hpet/cpuexecutioncap/pagefusion were never read (fixed by A-11)
+         [x] F-24 formats vmctl could create but not read back (fixed by M-03/A-02)
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -1654,12 +1691,12 @@ Phase 4  [x] H-01 .gitignore              [x] H-02 drop _build from git
          [x] H-07 VBox version floor      [x] H-08 prune exceptions
 Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [ ] M-02 StorageDevice + StorageController (id vs native_name)
-         [ ] M-03 support matrix incl. (kind x bus) attach table  + PROBE it
-         [ ] M-04 --disk-format option, provider-filtered choices
+         [x] M-03 support matrix incl. (kind x bus) attach table  + PROBE it
+         [x] M-04 --disk-format option, provider-filtered choices
          [ ] M-05 shared medium conversion      [ ] M-06 config back-compat mapping
          [x] A-01 Plan/Step replaces List[List[str]]   <-- land alone
          [x] A-11 field-table mapping engine + codecs + decoders (with A-01)
-         [ ] A-02 typed Capabilities, matrix-driven validator
+         [x] A-02 typed Capabilities, matrix-driven validator
          [ ] A-03 provider registry + --provider + entry points
          [ ] A-04 translation engine + policy + lossiness report
          [ ] A-05 neutral guest-OS catalog     [ ] A-06 deterministic slot allocation

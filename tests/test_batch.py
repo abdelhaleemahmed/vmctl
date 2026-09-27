@@ -23,7 +23,7 @@ class FakeEngine:
         from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
         from vmctl.validators.vm_validator import VMValidator
 
-        self._validator = VMValidator(VirtualBoxCapabilities.get_capabilities())
+        self._validator = VMValidator(VirtualBoxCapabilities.get())
 
     def list_vms(self):
         return self.existing

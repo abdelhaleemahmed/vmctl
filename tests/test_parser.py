@@ -117,12 +117,23 @@ def test_iso_is_identified_as_optical_media():
     assert optical[0].size_mb == 0
 
 
-def test_emptydrive_and_none_attachments_are_skipped():
+def test_empty_and_absent_attachments_are_told_apart():
+    """ "emptydrive" is a drive with no medium; "none" is no drive at all.
+
+    The fixture VM has a disk, an ISO and an empty floppy drive. The floppy used
+    to be discarded twice over -- once as an "emptydrive" value and once because
+    floppy controllers were skipped outright -- so a round trip lost it (F-22).
+    """
     vm = parse_label("iso_attached")
     paths = [d.disk_path for d in vm.disks]
     assert "none" not in paths
     assert "emptydrive" not in paths
-    assert len(vm.disks) == 2  # one vdi + one iso
+
+    kinds = sorted(d.type.value for d in vm.disks)
+    assert kinds == ["dvd", "floppy", "hdd"]
+
+    floppy = [d for d in vm.disks if d.type == DiskType.FLOPPY][0]
+    assert floppy.source is None and floppy.disk_path is None
 
 
 def test_all_network_modes_read_their_adapter_name_from_the_right_key():
@@ -355,3 +366,104 @@ def test_empty_controller_slots_are_not_disks():
     vm = parse_label("multidisk")
     assert len(vm.disks) == 3
     assert all(d.disk_path and d.disk_path != "none" for d in vm.disks)
+
+
+# ---------------------------------------------------------------------------
+# Formats and removable devices (M-03/M-04 findings)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "ext,expected",
+    [
+        ("vdi", DiskFormat.VDI),
+        ("vmdk", DiskFormat.VMDK),
+        ("vhd", DiskFormat.VHD),
+        ("vhdx", DiskFormat.VHDX),
+        ("qcow2", DiskFormat.QCOW2),
+        ("qed", DiskFormat.QED),
+        ("img", DiskFormat.RAW),
+        ("raw", DiskFormat.RAW),
+    ],
+)
+def test_a_disk_in_any_supported_format_is_recognised(parser, ext, expected):
+    """F-24 - the attachment filter kept its own shorter list of extensions.
+
+    A qcow2 disk was not recognised as a disk at all, so the VM looked diskless
+    and VMConfig invented a default 20 GB VDI in its place. Both the filter and
+    the format map now come from the provider's capability declaration.
+    """
+    raw = (
+        'storagecontrollername0="SATA"\n'
+        'storagecontrollertype0="IntelAhci"\n'
+        f'"SATA-0-0"="C:\\\\vms\\\\d.{ext}"\n'
+    )
+    vm = parser.parse_text(
+        "x",
+        raw,
+        probe=lambda p: {
+            "size_mb": 64,
+            "format": parser.default_format_for(p),
+            "variant": DiskVariant.THIN,
+        },
+    )
+    assert len(vm.disks) == 1, "the disk was filtered out and a default invented"
+    assert vm.disks[0].format == expected
+    assert vm.disks[0].size_mb == 64
+
+
+@pytest.mark.parametrize(
+    "native,expected",
+    [
+        ("VDI", DiskFormat.VDI),
+        ("VMDK", DiskFormat.VMDK),
+        ("VHD", DiskFormat.VHD),
+        ("VHDX", DiskFormat.VHDX),
+        ("QCOW", DiskFormat.QCOW2),
+        ("QED", DiskFormat.QED),
+        ("Parallels", DiskFormat.PARALLELS),
+        ("RAW", DiskFormat.RAW),
+    ],
+)
+def test_every_reported_medium_format_is_understood(parser, native, expected):
+    info = parser.parse_medium_info(
+        f"Capacity: 16 MBytes\nStorage format: {native}\n", DiskFormat.VDI
+    )
+    assert info["format"] == expected
+
+
+def test_an_empty_optical_drive_is_kept(parser):
+    """F-22 - discarding "emptydrive" lost the drive, not just the medium."""
+    raw = (
+        'storagecontrollername0="IDE"\n'
+        'storagecontrollertype0="PIIX4"\n'
+        '"IDE-1-0"="emptydrive"\n'
+    )
+    vm = parser.parse_text("x", raw)
+    optical = [d for d in vm.disks if d.type == DiskType.DVD]
+    assert len(optical) == 1
+    assert optical[0].source is None
+    assert optical[0].disk_path is None
+    assert optical[0].port == 1
+
+
+def test_an_empty_floppy_drive_is_kept_as_a_floppy(parser):
+    raw = (
+        'storagecontrollername0="Floppy"\n'
+        'storagecontrollertype0="I82078"\n'
+        '"Floppy-0-0"="emptydrive"\n'
+    )
+    vm = parser.parse_text("x", raw)
+    assert [d.type for d in vm.disks] == [DiskType.FLOPPY]
+
+
+def test_a_slot_holding_nothing_is_still_skipped(parser):
+    """ "none" means the slot is empty of a drive, unlike "emptydrive"."""
+    raw = (
+        'storagecontrollername0="SATA"\n'
+        'storagecontrollertype0="IntelAhci"\n'
+        '"SATA-0-0"="none"\n'
+    )
+    vm = parser.parse_text("x", raw)
+    # VMConfig supplies a default disk when a VM genuinely has none.
+    assert all(d.disk_path is None for d in vm.disks)

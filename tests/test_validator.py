@@ -22,7 +22,7 @@ from conftest import VM_LABELS, parse_label
 
 @pytest.fixture
 def validator():
-    return VMValidator(VirtualBoxCapabilities.get_capabilities())
+    return VMValidator(VirtualBoxCapabilities.get())
 
 
 # ---------------------------------------------------------------------------
@@ -181,9 +181,10 @@ def test_too_many_network_adapters_uses_the_provider_limit(validator, vm_minimal
     assert "at most 8" in str(excinfo.value)
 
 
-def test_unsupported_controller_bus_is_rejected(validator, vm_minimal):
-    caps = VirtualBoxCapabilities.get_capabilities()
-    caps["supported_storage_controllers"] = ["sata"]
+def test_unsupported_controller_bus_is_rejected(vm_minimal):
+    """A bus the provider does not declare must be refused, not attempted."""
+    caps = VirtualBoxCapabilities.get()
+    caps.buses.pop(StorageControllerType.NVME)
     vm_minimal.storage_controllers = [
         StorageControllerConfig(name="NVMe Controller", controller_type=StorageControllerType.NVME)
     ]

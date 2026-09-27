@@ -64,14 +64,23 @@ class DiskVariant(Enum):
 class DiskFormat(Enum):
     """Disk image file format.
 
-    VDI is the native VirtualBox format and is recommended for most use cases.
-    VMDK and VHD are useful when the image needs to be shared with VMware or
-    Hyper-V respectively. RAW produces a flat binary image with no metadata.
+    VDI is the native VirtualBox format. VMDK, VHD and VHDX matter when an image
+    is shared with VMware or Hyper-V, and QCOW2 when it is shared with QEMU/KVM.
+    RAW is a flat binary image with no metadata.
+
+    Which of these a provider can attach, and which it can *create*, is declared
+    per provider in its capabilities -- they are not the same set. VirtualBox
+    7.1.18, for instance, can attach a VHDX but cannot create one, and can create
+    a dynamic QCOW2 but not a fixed one.
     """
 
     VDI = "vdi"  # VirtualBox native format
     VMDK = "vmdk"  # VMware format (also supported by VirtualBox)
     VHD = "vhd"  # Microsoft Virtual Hard Disk
+    VHDX = "vhdx"  # Hyper-V; VirtualBox can read one but not create one
+    QCOW2 = "qcow2"  # QEMU/KVM native
+    QED = "qed"  # QEMU enhanced disk
+    PARALLELS = "parallels"  # Parallels Desktop
     RAW = "raw"  # Raw disk image
 
 

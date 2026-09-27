@@ -1,0 +1,75 @@
+{
+  "attach": {
+    "cdrom|floppy": false,
+    "cdrom|ide": true,
+    "cdrom|nvme": false,
+    "cdrom|sas": true,
+    "cdrom|sata": true,
+    "cdrom|scsi": true,
+    "cdrom|usb": true,
+    "cdrom|virtio-scsi": true,
+    "disk|floppy": false,
+    "disk|ide": true,
+    "disk|nvme": true,
+    "disk|sas": true,
+    "disk|sata": true,
+    "disk|scsi": true,
+    "disk|usb": true,
+    "disk|virtio-scsi": true,
+    "floppy|floppy": true,
+    "floppy|ide": false,
+    "floppy|nvme": false,
+    "floppy|sas": false,
+    "floppy|sata": false,
+    "floppy|scsi": false,
+    "floppy|usb": false,
+    "floppy|virtio-scsi": false
+  },
+  "notes": {
+    "cdrom|floppy": "The medium 'C:\\vagrant-storage-labs\\vms\\probe.iso' can't be used as the requested device type (floppy, detecte",
+    "cdrom|nvme": "The given attachment is not supported by the storage controller 'p-nvme'",
+    "disk|floppy": "The medium 'C:\\vagrant-storage-labs\\vms\\vmctl-probe2\\probe.vdi' can't be used as the requested device type (fl",
+    "floppy|ide": "The given attachment is not supported by the storage controller 'p-ide'",
+    "floppy|nvme": "The given attachment is not supported by the storage controller 'p-nvme'",
+    "floppy|sas": "The given attachment is not supported by the storage controller 'p-sas'",
+    "floppy|sata": "The given attachment is not supported by the storage controller 'p-sata'",
+    "floppy|scsi": "The given attachment is not supported by the storage controller 'p-scsi'",
+    "floppy|usb": "The given attachment is not supported by the storage controller 'p-usb'",
+    "floppy|virtio-scsi": "The given attachment is not supported by the storage controller 'p-virtio-scsi'"
+  },
+  "port_ranges": {
+    "floppy": [
+      1,
+      1
+    ],
+    "ide": [
+      2,
+      2
+    ],
+    "nvme": [
+      1,
+      255
+    ],
+    "sas": [
+      1,
+      255
+    ],
+    "sata": [
+      1,
+      30
+    ],
+    "scsi": [
+      16,
+      16
+    ],
+    "usb": [
+      8,
+      8
+    ],
+    "virtio-scsi": [
+      1,
+      256
+    ]
+  },
+  "virtualbox_version": "7.1.18r173720"
+}

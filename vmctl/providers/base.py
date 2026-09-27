@@ -13,6 +13,7 @@ try:  # pragma: no cover - typing_extensions fallback for older interpreters
 except ImportError:  # pragma: no cover
     from typing_extensions import Protocol, runtime_checkable  # type: ignore
 
+from ..core.capabilities import Capabilities
 from ..core.plan import Plan
 from ..core.vmconfig import VMConfig
 
@@ -46,8 +47,12 @@ class BaseProvider(ABC):
 
     @property
     @abstractmethod
-    def capabilities(self) -> Dict[str, Any]:
-        """Return provider capabilities and limits."""
+    def capabilities(self) -> Capabilities:
+        """Return this provider's capability declaration.
+
+        Every limit vmctl enforces is read from here, so a provider states its
+        rules once instead of having them restated as literals in the validator.
+        """
         pass
 
     @abstractmethod
