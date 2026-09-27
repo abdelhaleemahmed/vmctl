@@ -139,7 +139,7 @@ def test_raw_format_is_forced_to_fixed_allocation():
     vm.disks[0].format = DiskFormat.RAW
     vm.disks[0].variant = DiskVariant.THIN
     create = [c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm)
-              if c[1] == "createhd"][0]
+              if c[1] == "createmedium"][0]
     assert create[create.index("--variant") + 1] == "Fixed"
     assert create[create.index("--filename") + 1].endswith(".img")
 
@@ -154,7 +154,9 @@ def test_promiscuous_and_mac_are_emitted():
 
 def test_none_boot_slots_are_not_emitted(vm_minimal):
     cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal)
-    boot_flags = [c[3] for c in cmds if len(c) == 5 and c[3].startswith("--boot")]
+    import re as _re
+    boot_flags = [tok for c in cmds for tok in c
+                  if _re.fullmatch(r"--boot\d", tok)]
     assert boot_flags == ["--boot1", "--boot2"]  # 'none' in slot 3 is skipped
 
 
@@ -162,8 +164,6 @@ def test_none_boot_slots_are_not_emitted(vm_minimal):
 # Known-broken behaviour, pinned
 # ---------------------------------------------------------------------------
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-01: no storagectl is emitted when storage_controllers is empty")
 def test_minimal_config_creates_its_controller_before_attaching():
     """F-01 — the README's own example config cannot be imported."""
     cmds = VirtualBoxEmitter("minimal-vm").emit_create_vm(build_minimal())
@@ -172,16 +172,8 @@ def test_minimal_config_creates_its_controller_before_attaching():
     assert verbs.index("storagectl") < verbs.index("storageattach")
 
 
-def test_minimal_config_currently_attaches_to_a_nonexistent_controller():
-    """The wrong behaviour, pinned: attach references a controller never created."""
-    cmds = VirtualBoxEmitter("minimal-vm").emit_create_vm(build_minimal())
-    assert "storagectl" not in [c[1] for c in cmds]
-    attach = [c for c in cmds if c[1] == "storageattach"][0]
-    assert attach[attach.index("--storagectl") + 1] == "SATA"
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-04: a DVD still goes through createhd, and the created image is attached as dvddrive")
 def test_optical_drive_does_not_create_a_hard_disk():
     """F-04 — any VM with an ISO attached cannot be recreated.
 
@@ -193,7 +185,7 @@ def test_optical_drive_does_not_create_a_hard_disk():
     vm = parse_label("iso_attached")
     cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm)
 
-    created = [c[c.index("--filename") + 1] for c in cmds if c[1] == "createhd"]
+    created = [c[c.index("--filename") + 1] for c in cmds if c[1] == "createmedium"]
     assert len(created) == 1, f"a medium was created for the optical drive: {created}"
 
     dvd_attach = [c for c in cmds
@@ -203,19 +195,8 @@ def test_optical_drive_does_not_create_a_hard_disk():
     assert medium not in created
 
 
-def test_optical_drive_currently_gets_a_blank_image_created_for_it():
-    """The wrong behaviour, pinned: two media created for one disk + one ISO."""
-    vm = parse_label("iso_attached")
-    cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm)
-    created = [c[c.index("--filename") + 1] for c in cmds if c[1] == "createhd"]
-    assert len(created) == 2
-    dvd_attach = [c for c in cmds
-                  if c[1] == "storageattach" and "dvddrive" in c][0]
-    assert dvd_attach[dvd_attach.index("--medium") + 1] in created
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-05: ten parsed fields are never emitted")
 @pytest.mark.parametrize("flag", [
     "--pae", "--nested-hw-virt", "--cpuhotplug", "--cpuexecutioncap",
     "--pagefusion", "--hpet", "--clipboard-mode", "--draganddrop",
@@ -229,8 +210,6 @@ def test_every_configured_field_reaches_a_command(flag):
     assert flag in flat
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="L-02: description is wrapped in literal quotes")
 def test_description_is_not_double_quoted():
     vm = build_minimal()
     vm.description = "a lab vm"
@@ -249,8 +228,6 @@ def test_emitted_command_order_is_deterministic():
     assert emit(vm) == emit(parse_label("iso_attached"))
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-01/F-15: controller_name=='SATA' is discarded and re-resolved by type, landing on a mis-typed floppy controller")
 def test_disk_is_attached_to_the_controller_it_was_parsed_from():
     """F-01 + F-15 — the disk's real controller name is thrown away.
 
@@ -266,16 +243,8 @@ def test_disk_is_attached_to_the_controller_it_was_parsed_from():
     assert attach[attach.index("--storagectl") + 1] == "SATA"
 
 
-def test_disk_is_currently_attached_to_the_floppy_controller():
-    """The wrong behaviour, pinned: a system disk lands on the floppy bus."""
-    vm = parse_label("floppy_first")
-    attach = [c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm)
-              if c[1] == "storageattach"][0]
-    assert attach[attach.index("--storagectl") + 1] == "Floppy"
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-15: the floppy controller is created as a SATA controller")
 def test_floppy_controller_is_not_created_as_sata():
     vm = parse_label("floppy_first")
     ctl = [c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm)

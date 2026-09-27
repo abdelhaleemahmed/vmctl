@@ -1,5 +1,15 @@
-UUID:           aaaaaaaa-0000-0000-0000-000000000005
-Location:       /home/tester/VirtualBox VMs/multi-disk/multi-disk-data.vmdk
+UUID:           ea210435-1937-4350-b359-83318c400bd8
+Parent UUID:    base
+State:          created
+Type:           normal (base)
+Location:       C:\vagrant-storage-labs\vms\vmctl-t-multi\data.vmdk
 Storage format: VMDK
-Variant:        dynamic default
-Capacity:       204800 MBytes
+Format variant: dynamic default
+Capacity:       96 MBytes
+Size on disk:   0 MBytes
+Encryption:     disabled
+Property:       BootSector=
+                Partitions=
+                RawDrive=
+                Relative=
+In use by VMs:  vmctl-t-multi (UUID: 23d58495-9bd4-42a2-a4f7-68224bbe1703)

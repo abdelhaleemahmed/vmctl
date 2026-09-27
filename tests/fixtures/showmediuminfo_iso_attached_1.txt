@@ -1,6 +1,12 @@
-UUID:           bbbbbbbb-0000-0000-0000-000000000001
+UUID:           5ea98f80-b564-4a08-9a70-7b2a003bbaa7
+Parent UUID:    base
 State:          created
-Type:           readonly
-Location:       /home/tester/iso/debian-12.5.0-amd64-netinst.iso
-Storage format: RAW
-Capacity:       632 MBytes
+Type:           normal (base)
+Location:       C:\vagrant-storage-labs\vms\vmctl-t-iso\sys.vdi
+Storage format: VDI
+Format variant: dynamic default
+Capacity:       64 MBytes
+Size on disk:   2 MBytes
+Encryption:     disabled
+Property:       AllocationBlockSize=1048576
+In use by VMs:  vmctl-t-iso (UUID: 717a9d38-8f33-418a-84e6-a0caa4e85247)

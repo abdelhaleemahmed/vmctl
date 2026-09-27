@@ -20,7 +20,8 @@ class VirtualBoxBackend(BaseProvider):
         """Initialise the VirtualBox backend.
 
         Creates a :class:`VirtualBoxParser` instance for reading VM
-        configurations and loads the static provider capabilities dict.
+        configurations and loads the static provider capabilities dict. The
+        default machine folder is queried lazily on first use.
 
         Raises:
             ProviderError: If ``VBoxManage`` is not found during the first
@@ -28,6 +29,40 @@ class VirtualBoxBackend(BaseProvider):
         """
         self.parser = VirtualBoxParser()
         self._capabilities = VirtualBoxCapabilities.get_capabilities()
+        self._machine_folder = None
+
+    @property
+    def machine_folder(self) -> Optional[str]:
+        """VirtualBox's configured default machine folder, or None.
+
+        Queried once from ``VBoxManage list systemproperties`` and cached.
+        Hardcoding ``~/VirtualBox VMs`` put new media outside the VM's own
+        directory on any installation with a customised folder (F-13).
+        """
+        if self._machine_folder is None:
+            self._machine_folder = self._query_machine_folder()
+        return self._machine_folder or None
+
+    def _query_machine_folder(self) -> str:
+        """Read the default machine folder from VirtualBox.
+
+        Returns:
+            str: The configured folder, or ``""`` when it cannot be determined
+            (the emitter then falls back to VirtualBox's documented default).
+        """
+        try:
+            result = subprocess.run(
+                ["VBoxManage", "list", "systemproperties"],
+                capture_output=True, text=True, check=False
+            )
+            if result.returncode != 0:
+                return ""
+            for line in result.stdout.splitlines():
+                if line.lower().startswith("default machine folder:"):
+                    return line.split(":", 1)[1].strip()
+        except (FileNotFoundError, OSError):
+            pass
+        return ""
 
     @property
     def name(self) -> str:
@@ -68,7 +103,7 @@ class VirtualBoxBackend(BaseProvider):
 
     def create_vm(self, vm: VMConfig, execute: bool = True) -> List[List[str]]:
         """Create a new VM from VMConfig."""
-        emitter = VirtualBoxEmitter(vm.name)
+        emitter = VirtualBoxEmitter(vm.name, machine_folder=self.machine_folder)
         commands = emitter.emit_create_vm(vm)
 
         if execute:

@@ -1,7 +1,0 @@
-The showvminfo_*/showmediuminfo_*/list_vms/version fixtures in this directory are
-hand-authored models of VirtualBox output, not real captures. See README.md.
-
-Delete this file once every label has been re-captured from a real VirtualBox
-host with ../../scripts/capture-fixtures.sh.
-
-Does NOT apply to configs/v1_1_9_* -- those are genuine v1.1.9 exports.

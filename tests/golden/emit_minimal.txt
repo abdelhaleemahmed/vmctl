@@ -1,7 +1,8 @@
 VBoxManage createvm --name minimal-vm --ostype Ubuntu_64 --register
-VBoxManage modifyvm minimal-vm --memory 2048 --vram 16 --cpus 2 --firmware bios --acpi on --ioapic off --rtcuseutc on
-VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/minimal-vm/minimal-vm_system.vdi --size 20480 --format VDI --variant Standard
-VBoxManage storageattach minimal-vm --storagectl SATA --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/minimal-vm/minimal-vm_system.vdi
+VBoxManage modifyvm minimal-vm --memory 2048 --vram 16 --cpus 2 --firmware bios --acpi on --ioapic off --rtcuseutc on --pae off --nested-hw-virt off --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
+VBoxManage storagectl minimal-vm --name SATA Controller --add sata --controller IntelAhci --portcount 30 --bootable on
+VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/minimal-vm/minimal-vm_system.vdi --size 20480 --format VDI --variant Standard
+VBoxManage storageattach minimal-vm --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/minimal-vm/minimal-vm_system.vdi
 VBoxManage modifyvm minimal-vm --nic1 nat --nictype1 82540EM --cableconnected1 on
 VBoxManage modifyvm minimal-vm --boot1 disk
 VBoxManage modifyvm minimal-vm --boot2 dvd

@@ -1,15 +1,15 @@
 VBoxManage createvm --name full-vm --ostype Ubuntu_64 --register
-VBoxManage modifyvm full-vm --memory 16384 --vram 128 --cpus 8 --firmware efi64 --acpi on --ioapic on --rtcuseutc on
-VBoxManage modifyvm full-vm --secureboot on
+VBoxManage modifyvm full-vm --memory 16384 --vram 128 --cpus 8 --firmware efi64 --acpi on --ioapic on --rtcuseutc on --pae on --nested-hw-virt on --cpuhotplug on --pagefusion on --hpet on --cpuexecutioncap 90 --clipboard-mode disabled --draganddrop disabled
+VBoxManage modifyvm full-vm --tpm-type 2.0
+VBoxManage modifynvram full-vm enrollmssignatures
 VBoxManage storagectl full-vm --name SATA Controller --add sata --controller IntelAhci --portcount 2 --bootable on
-VBoxManage storagectl full-vm --name SAS Controller --add sas --controller LsiLogicSas --portcount 16 --bootable off
+VBoxManage storagectl full-vm --name SAS Controller --add sas --controller LSILogicSAS --portcount 16 --bootable off
 VBoxManage storagectl full-vm --name IDE Controller --add ide --controller PIIX4 --portcount 2 --bootable off
-VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/full-vm/full-vm_system.vdi --size 51200 --format VDI --variant Standard
+VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/full-vm/full-vm_system.vdi --size 51200 --format VDI --variant Standard
 VBoxManage storageattach full-vm --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/full-vm/full-vm_system.vdi
-VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/full-vm/full-vm_data.vmdk --size 102400 --format VMDK --variant Fixed
-VBoxManage storageattach full-vm --storagectl SAS Controller --port 1 --device 0 --type dvddrive --medium /home/vagrant/VirtualBox VMs/full-vm/full-vm_data.vmdk
-VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/full-vm/full-vm_cd.vdi --size 700 --format VDI --variant Standard
-VBoxManage storageattach full-vm --storagectl IDE Controller --port 1 --device 0 --type dvddrive --medium /home/vagrant/VirtualBox VMs/full-vm/full-vm_cd.vdi
+VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/full-vm/full-vm_data.vmdk --size 102400 --format VMDK --variant Fixed
+VBoxManage storageattach full-vm --storagectl SAS Controller --port 1 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/full-vm/full-vm_data.vmdk
+VBoxManage storageattach full-vm --storagectl IDE Controller --port 1 --device 0 --type dvddrive --medium emptydrive
 VBoxManage modifyvm full-vm --nic1 nat --nictype1 82540EM --cableconnected1 on
 VBoxManage modifyvm full-vm --nic2 bridged --nictype2 82540EM --cableconnected2 on --bridgeadapter2 eth0 --macaddress2 080027AA0001 --promiscuous2 allow-all
 VBoxManage modifyvm full-vm --nic3 intnet --nictype3 82540EM --cableconnected3 on --intnet3 lab-net
@@ -18,4 +18,4 @@ VBoxManage modifyvm full-vm --boot2 dvd
 VBoxManage modifyvm full-vm --boot3 network
 VBoxManage modifyvm full-vm --audio-driver pulse --audio-enabled on --audiocontroller hda
 VBoxManage modifyvm full-vm --usb on --usbehci on
-VBoxManage modifyvm full-vm --description "every field set"
+VBoxManage modifyvm full-vm --description every field set

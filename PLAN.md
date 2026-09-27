@@ -118,6 +118,16 @@ machine with no VirtualBox installed, in under 5 seconds.
 
 ## Phase 1 — Round-trip correctness (the blocking bugs)
 
+> **Status: complete and verified on real hardware.** F-01…F-05, F-13, F-15…F-21
+> are fixed. Verified end to end against VirtualBox 7.1.18 on the Windows host:
+> four captured VMs were exported to YAML, re-imported under new names, created
+> on the real hypervisor, read back and compared field by field — **17/17, 17/17,
+> 19/19 and 19/19 fields matched**. The README's own hand-written config, which
+> previously failed at `storageattach` with *"Could not find a controller named
+> 'SATA'"*, now applies cleanly. Suite: 155 passed, 13 xfailed (every remaining
+> xfail is a Phase 2+ finding). Still open from this phase: **F-22** (an empty
+> removable drive is dropped), deferred to `M-02`.
+
 Order matters: F-01 and F-02 are what make a restored VM unbootable.
 
 ### F-01 — Synthesize storage controllers when none are declared · M
@@ -244,6 +254,177 @@ created outside the VM's own directory.
   scope while in this file.
 
 ---
+
+### F-17 — `--secureboot` is not a VBoxManage option; secure boot is unreadable · M
+`vmctl/providers/virtualbox/emitter.py:95`, `parser.py:165`
+
+Verified against the real host (VirtualBox 7.1.18):
+
+```
+$ VBoxManage modifyvm vmctl-t-efi --secureboot on
+VBoxManage.exe: error: Unknown option: --secureboot
+```
+
+Two independent defects:
+
+- **The emitter produces an invalid command.** `firmware.secure_boot: true` makes
+  `create_vm` emit `modifyvm --secureboot on`, which VirtualBox rejects. Since
+  `_run_command` uses `check=True`, the whole create **aborts partway**, leaving
+  a registered VM with no disks. Any Windows 11-shaped config hits this.
+- **The parser can never read it back.** `showvminfo --machinereadable` emits no
+  `secureboot` key at all (grep count: 0, with EFI64 firmware active), so
+  `config.get('secureboot', 'off')` is always `'off'`. The field is
+  write-only-from-file and silently lost on export.
+
+On VirtualBox 7.x secure boot lives in NVRAM, not in `modifyvm`: it is enrolled
+with `VBoxManage modifynvram <vm> enrollmssignatures`. TPM *is* a `modifyvm`
+option (`--tpm-type= none | 1.2 | 2.0 | host | swtpm`, plus `--tpm-location`),
+which confirms `F-05`'s planned `--tpm-type` mapping.
+
+Fix: emit `modifynvram enrollmssignatures` when secure boot is requested and the
+firmware is EFI; warn and skip when the firmware is BIOS; read the state back
+from `VBoxManage showvminfo` NVRAM output or drop the field from the model
+rather than pretend it round-trips. Gate on the `H-07` version floor — the
+option set differs across 6.1 / 7.0 / 7.1.
+
+### F-22 — An empty removable drive is not represented at all · S
+`vmctl/providers/virtualbox/parser.py` (disk attachment filter)
+
+Found by recreating a config on the real host and reading it back. The parser
+keeps an attachment only when its value looks like a path to a disk image, so
+`"IDE Controller-0-0"="emptydrive"` is discarded. Consequences:
+
+- export a VM that has an empty optical or floppy drive, re-import it, and **the
+  drive is gone** — not just its medium;
+- so a VM whose installer DVD has been ejected loses its DVD drive on the
+  next round trip, and will not boot from one without manual work.
+
+The model conflates "device" with "medium": `DiskConfig` cannot express *a drive
+with nothing in it*. That is exactly what `M-01`/`M-02` separate (`DeviceKind`
+plus an optional `source`), so the real fix belongs there. A narrower Phase 1
+fix is possible — keep attachments whose value is `emptydrive` and record them
+as a removable device with `source=None` — and is worth doing if empty drives
+matter before Phase 5.
+
+### F-21 — `audio="default"` is a driver name, not an enable flag · S
+`vmctl/providers/virtualbox/parser.py`
+
+VirtualBox 7.1.18 reports, for a VM created with no audio at all:
+
+```
+audio="default"
+audio_out="off"
+audio_in="off"
+```
+
+`audio_enabled = config.get('audio', 'none') != 'none'` is therefore **True for
+every modern VM**, so every export claims audio is enabled and every recreated
+VM gets an audio controller switched on. Read `audio_out` / `audio_in` instead.
+
+Confirmed for the same reason that `clipboard` and `draganddrop` *are* reported
+(`clipboard="disabled"`, `draganddrop="disabled"`) and were simply never read.
+
+**Option spellings, verified live on 7.1.18** (relevant to `H-07`, not a bug on
+this version): `--audiocontroller` / `--audio-controller`, and `--draganddrop` /
+`--drag-and-drop`, are both accepted — the 6.x forms survive as aliases. The
+canonical 7.x names are the hyphenated ones. `--cpuhotplug`, `--pagefusion`,
+`--nested-hw-virt`, `--cpuexecutioncap` and `--clipboard-mode` all accepted.
+`--secureboot` does **not** exist (see `F-17`). Declaring the version floor and
+picking spellings accordingly remains `H-07`'s job.
+
+### F-18 — `showmediuminfo` needs a device type; ISOs silently fall back · S
+`vmctl/providers/virtualbox/parser.py` (`get_disk_info`)
+
+Verified on VirtualBox 7.1.18:
+
+```
+$ VBoxManage showmediuminfo "C:\...\vmctl-test.iso"
+error: The medium '...vmctl-test.iso' can't be used as the requested device
+       type (HDD, detected DVD)
+$ VBoxManage showmediuminfo dvd "C:\...\vmctl-test.iso"      # works
+```
+
+`get_disk_info` never passes a device type, so the command **fails for every
+optical medium** and the `except CalledProcessError` branch returns defaults:
+20480 MB and a format guessed from the extension (`.iso` is not in the map, so
+VDI). That bogus 20 GB VDI is then what `F-04` hands to `createhd`. Fixing
+`F-18` is a prerequisite for `F-04` being correct rather than merely different.
+
+Pass `disk` or `dvd` based on the attachment's device type. Note the real ISO
+reports `Capacity: 0 MBytes`, so size must not be used to size a created medium.
+
+### F-19 — Host-only adapter name read from a key VirtualBox does not emit · S
+`vmctl/providers/virtualbox/parser.py:399`
+
+The parser reads `hostonlyif{n}`. VirtualBox 7.1.18 emits `hostonlyadapter{n}`:
+
+```
+bridgeadapter1="Intel(R) Dual Band Wireless-AC 7265"
+hostonlyadapter2="VirtualBox Host-Only Ethernet Adapter #4"
+intnet3="lab-backend"
+natnet4="nat"
+```
+
+So **every host-only adapter loses its interface name** on export, and the
+recreated VM gets a host-only NIC attached to nothing. The emitter already
+writes `--hostonlyadapter{n}`, so this is a read/write asymmetry of the same
+family as `F-05`: the two directions were written separately and drifted.
+
+**Also verify `natnetwork`:** a plain NAT adapter emits `natnet4="nat"`, which
+suggests a NAT-network adapter emits its name in `natnet{n}` too — while the
+parser reads `natnetwork{n}`. Not confirmed here (the host has no NAT network
+defined); confirm before trusting that path. `A-11`'s field table is the
+structural fix: one declaration per field, used in both directions, so read and
+write cannot disagree.
+
+### F-20 — Disk allocation variant is never detected; every disk looks thin · S
+`vmctl/providers/virtualbox/parser.py:108`
+
+The parser matches `line.startswith('Variant:')`. VirtualBox 7.1.18 emits
+**`Format variant:`**:
+
+```
+Storage format: VHD
+Format variant: fixed default
+Capacity:       128 MBytes
+```
+
+The branch never fires, so `variant` is always `THIN`. Confirmed end to end: a
+medium created with `--variant Fixed` parses as `thin` and would be recreated as
+a dynamically-allocated disk. Silent, and it changes the recreated VM's disk
+performance and space behaviour.
+
+Accept both prefixes (older VirtualBox used `Variant:`), matched
+case-insensitively, and add the `Format variant:` form to the fixtures.
+
+### F-16 — Machine-readable values are escaped and never unescaped · S
+`vmctl/providers/virtualbox/parser.py:132`
+
+`showvminfo --machinereadable` escapes backslashes and quotes inside quoted
+values. Verified on the real Windows host (VirtualBox 7.1.18):
+
+```
+"IDE Controller-0-0"="C:\\vagrant-storage-labs\\vms\\ch-driver-lab\\Rocky-9...vmdk"
+```
+
+vmctl takes the value verbatim, so every Windows disk path is parsed with
+doubled separators (`C:\\vagrant-storage-labs\\...`). Consequences:
+
+- `get_disk_info` is invoked with a malformed path, so size/format/variant
+  quietly fall back to defaults (20480 MB, VDI) when Windows rejects it;
+- anything that later *uses* `disk_path` — `F-04`'s ISO re-attachment, `E-03`
+  `--clone-disks`, `P-06` `migrate` — inherits the broken path;
+- the quoted-key regex `^"([^"]+)"="([^"]*)"$` cannot represent a value
+  containing an escaped `\"`, so a VM or path with a quote in its name is
+  dropped silently rather than reported.
+
+Invisible on Linux hosts, which is why it survived: there are no backslashes to
+double. It matters here because the primary host is Windows.
+
+Fix: unescape `\\` and `\"` when decoding a quoted value, and make the key/value
+regex tolerate escaped quotes. This is a decoder concern, so in Phase 5 it
+belongs to `core/decoders.py` and is then fixed once for every provider that
+uses a key/value format (VirtualBox *and* VMware `.vmx`).
 
 ### F-14 — Controller order was non-deterministic · S *(fixed in Phase 0)*
 `vmctl/providers/virtualbox/parser.py:186`
@@ -1332,14 +1513,21 @@ Two tests enforce this, in every release:
 ## Flat task checklist
 
 ```
-Phase 0  [x] T-01 test scaffolding        [ ] T-02 capture fixtures (needs VBox host)
+Phase 0  [x] T-01 test scaffolding        [x] T-02 capture fixtures (real, VirtualBox 7.1.18)
          [x] T-03 golden parser/emitter/roundtrip/CLI tests
          [x] T-04 inject MediumProbe so the parser runs without VirtualBox
          [x] F-14 controller order made deterministic (test-enabling fix)
-Phase 1  [ ] F-01 synthesize controllers  [ ] F-02 firmware case + EFI64/32
-         [ ] F-03 hyphenated keys regex   [ ] F-04 optical drives (minimal)
-         [ ] F-05 ten unemitted fields    [ ] F-13 machine folder from VBox
-         [ ] F-15 unmapped controller types must not default to SATA
+Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
+         [x] F-03 hyphenated keys regex   [x] F-04 optical drives (minimal)
+         [x] F-05 ten unemitted fields    [x] F-13 machine folder from VBox
+         [x] F-15 unmapped controller types must not default to SATA
+         [x] F-16 unescape \\ and \" when decoding machinereadable values
+         [x] F-17 secure boot: invalid emit + unreadable parse
+         [x] F-18 showmediuminfo device type (dvd) for optical media
+         [x] F-19 hostonlyadapter{n} not hostonlyif{n}; verify natnet{n}
+         [x] F-20 'Format variant:' prefix -> variant always thin
+         [x] F-21 audio="default" misread as audio enabled
+         [ ] F-22 empty removable drive dropped entirely (narrow fix or M-02)
 Phase 2  [ ] F-06 friendly config errors  [ ] F-07 from_dict must not mutate
          [ ] F-08 real warnings; pure validator; port-collision check
 Phase 3  [ ] F-09 completion env var      [ ] F-10 make `edit` edit

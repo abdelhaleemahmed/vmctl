@@ -1,12 +1,11 @@
 VBoxManage createvm --name iso-attached --ostype Debian_64 --register
-VBoxManage modifyvm iso-attached --memory 4096 --vram 16 --cpus 2 --firmware bios --acpi on --ioapic off --rtcuseutc on
-VBoxManage storagectl iso-attached --name IDE --add ide --controller PIIX4 --portcount 2 --bootable off
-VBoxManage storagectl iso-attached --name SATA --add sata --controller IntelAhci --portcount 1 --bootable off
-VBoxManage storagectl iso-attached --name Floppy --add sata --controller IntelAhci --portcount 1 --bootable off
-VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/iso-attached/iso-attached_disk_SATA_0_0.vdi --size 30720 --format VDI --variant Standard
-VBoxManage storageattach iso-attached --storagectl SATA --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/iso-attached/iso-attached_disk_SATA_0_0.vdi
-VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/iso-attached/iso-attached_disk_IDE_1_0.img --size 632 --format RAW --variant Fixed
-VBoxManage storageattach iso-attached --storagectl IDE --port 1 --device 0 --type dvddrive --medium /home/vagrant/VirtualBox VMs/iso-attached/iso-attached_disk_IDE_1_0.img
-VBoxManage modifyvm iso-attached --nic1 nat --nictype1 82540EM --cableconnected1 on --macaddress1 080027AABBCC
+VBoxManage modifyvm iso-attached --memory 128 --vram 16 --cpus 1 --firmware bios --acpi on --ioapic on --rtcuseutc on --pae off --nested-hw-virt off --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
+VBoxManage storagectl iso-attached --name IDE Controller --add ide --controller PIIX4 --portcount 2 --bootable off
+VBoxManage storagectl iso-attached --name Floppy --add floppy --controller I82078 --portcount 1 --bootable off
+VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/iso-attached/iso-attached_disk_IDE Controller_0_0.vdi --size 64 --format VDI --variant Standard
+VBoxManage storageattach iso-attached --storagectl IDE Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/iso-attached/iso-attached_disk_IDE Controller_0_0.vdi
+VBoxManage storageattach iso-attached --storagectl IDE Controller --port 1 --device 0 --type dvddrive --medium C:\vagrant-storage-labs\vms\vmctl-test.iso
+VBoxManage modifyvm iso-attached --nic1 nat --nictype1 82540EM --cableconnected1 on --macaddress1 08002724A711
 VBoxManage modifyvm iso-attached --boot1 dvd
 VBoxManage modifyvm iso-attached --boot2 disk
+VBoxManage modifyvm iso-attached --boot3 disk

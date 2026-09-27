@@ -1,7 +1,11 @@
-UUID:           aaaaaaaa-0000-0000-0000-000000000003
+UUID:           9e3a6191-91e3-4152-a3c6-102bbfa0029e
+Parent UUID:    base
 State:          created
-Type:           normal (base)
-Location:       /home/tester/VirtualBox VMs/iso-attached/iso-attached.vdi
-Storage format: VDI
-Variant:        dynamic default
-Capacity:       30720 MBytes
+Type:           readonly
+Location:       C:\vagrant-storage-labs\vms\vmctl-test.iso
+Storage format: RAW
+Format variant: fixed default
+Capacity:       0 MBytes
+Size on disk:   0 MBytes
+Encryption:     disabled
+In use by VMs:  vmctl-t-iso (UUID: 717a9d38-8f33-418a-84e6-a0caa4e85247)

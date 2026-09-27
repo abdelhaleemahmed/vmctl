@@ -77,7 +77,10 @@ def make_fixture_probe(label: str, strict: bool = True) -> Callable[[str], Dict[
     parser = VirtualBoxParser()
     table: Dict[str, str] = {}
     for sidecar in sorted(FIXTURES.glob(f"showmediuminfo_{label}_*.path")):
-        medium_path = sidecar.read_text().strip()
+        # The sidecar holds the path exactly as the machine-readable fixture
+        # spells it, i.e. still escaped. Normalise it with the parser's own
+        # unescaper so the table is keyed the way the parser will look it up.
+        medium_path = parser._unescape(sidecar.read_text().strip())
         table[medium_path] = sidecar.with_suffix(".txt").read_text()
 
     def probe(path: str) -> Dict[str, Any]:

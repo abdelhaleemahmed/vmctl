@@ -79,8 +79,6 @@ def test_from_dict_does_not_mutate_its_input():
     assert data == before
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-05: fields survive the file but never reach a command")
 @pytest.mark.parametrize("label", ["efi_secureboot"])
 def test_full_roundtrip_reaches_the_hypervisor(label):
     """F-05/F-02 — an EFI VM with nested virt must re-emit those settings."""

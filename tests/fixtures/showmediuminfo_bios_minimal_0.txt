@@ -1,10 +1,12 @@
-UUID:           aaaaaaaa-0000-0000-0000-000000000001
+UUID:           fe34275e-8f08-484a-a775-d3a3ac782426
 Parent UUID:    base
 State:          created
 Type:           normal (base)
-Location:       /home/tester/VirtualBox VMs/bios-minimal/bios-minimal.vdi
+Location:       C:\vagrant-storage-labs\vms\vmctl-t-bios\sys.vdi
 Storage format: VDI
 Format variant: dynamic default
-Capacity:       20480 MBytes
-Size on disk:   2113 MBytes
+Capacity:       64 MBytes
+Size on disk:   2 MBytes
 Encryption:     disabled
+Property:       AllocationBlockSize=1048576
+In use by VMs:  vmctl-t-bios (UUID: f0b08f20-d92c-45ee-bed8-340db0d8a2cb)

@@ -1,11 +1,12 @@
 VBoxManage createvm --name multinic --ostype Linux_64 --register
-VBoxManage modifyvm multinic --memory 2048 --vram 16 --cpus 2 --firmware bios --acpi on --ioapic off --rtcuseutc off
+VBoxManage modifyvm multinic --memory 128 --vram 16 --cpus 1 --firmware bios --acpi on --ioapic on --rtcuseutc off --pae on --nested-hw-virt off --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
 VBoxManage storagectl multinic --name SATA --add sata --controller IntelAhci --portcount 1 --bootable off
-VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/multinic/multinic_disk_SATA_0_0.vdi --size 20480 --format VDI --variant Standard
+VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/multinic/multinic_disk_SATA_0_0.vdi --size 64 --format VDI --variant Standard
 VBoxManage storageattach multinic --storagectl SATA --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multinic/multinic_disk_SATA_0_0.vdi
-VBoxManage modifyvm multinic --nic1 bridged --nictype1 82540EM --cableconnected1 on --bridgeadapter1 enp0s31f6 --macaddress1 080027AA0001
-VBoxManage modifyvm multinic --nic2 hostonly --nictype2 82540EM --cableconnected2 on --hostonlyadapter2 vboxnet0 --macaddress2 080027AA0002
-VBoxManage modifyvm multinic --nic3 intnet --nictype3 virtio --cableconnected3 on --intnet3 lab-backend --macaddress3 080027AA0003
-VBoxManage modifyvm multinic --nic4 natnetwork --nictype4 82545EM --cableconnected4 on --nat-network4 LabNatNetwork --macaddress4 080027AA0004
-VBoxManage modifyvm multinic --boot1 disk
-VBoxManage modifyvm multinic --audio-driver pulse --audio-enabled on --audiocontroller hda
+VBoxManage modifyvm multinic --nic1 bridged --nictype1 82540EM --cableconnected1 on --bridgeadapter1 Intel(R) Dual Band Wireless-AC 7265 --macaddress1 080027F484CA
+VBoxManage modifyvm multinic --nic2 hostonly --nictype2 82540EM --cableconnected2 on --hostonlyadapter2 VirtualBox Host-Only Ethernet Adapter #4 --macaddress2 080027C46F5E
+VBoxManage modifyvm multinic --nic3 intnet --nictype3 virtio --cableconnected3 on --intnet3 lab-backend --macaddress3 080027A35183
+VBoxManage modifyvm multinic --nic4 nat --nictype4 82545EM --cableconnected4 on --macaddress4 080027DA5299
+VBoxManage modifyvm multinic --boot1 floppy
+VBoxManage modifyvm multinic --boot2 dvd
+VBoxManage modifyvm multinic --boot3 disk

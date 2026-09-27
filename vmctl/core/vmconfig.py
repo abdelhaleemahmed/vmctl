@@ -23,12 +23,15 @@ class DiskType(Enum):
     """Virtual disk media type.
 
     HDD and SSD have identical performance in VirtualBox; the distinction
-    is metadata-only. DVD represents an optical drive backed by an ISO image.
+    is metadata-only. DVD represents an optical drive backed by an ISO image,
+    and FLOPPY a floppy drive. DVD and FLOPPY are *removable* devices: no medium
+    is created for them, and ``size_mb`` is not meaningful.
     """
 
     HDD = "hdd"
     SSD = "ssd"
     DVD = "dvd"
+    FLOPPY = "floppy"
 
 
 class DiskVariant(Enum):
@@ -81,12 +84,22 @@ class StorageControllerType(Enum):
     SATA (IntelAHCI) supports up to 30 ports and is the default.
     SCSI (LsiLogic) and SAS (LsiLogicSas) support up to 254/255 ports
     and are useful for high port-count configurations.
+    NVME (PCIe) is available on VirtualBox 6.0 and later.
+    FLOPPY (I82078) carries floppy drives only.
+    USB requires exactly 8 ports on VirtualBox.
+    VIRTIO_SCSI (VirtIO) is available on VirtualBox 7.x; note that its
+    ``--add`` value is ``virtio-scsi``, which ``VBoxManage storagectl --help``
+    does not list.
     """
 
     IDE = "ide"
     SATA = "sata"
     SCSI = "scsi"
     SAS = "sas"
+    NVME = "nvme"
+    FLOPPY = "floppy"
+    USB = "usb"
+    VIRTIO_SCSI = "virtio-scsi"
 
 
 @dataclass
@@ -184,6 +197,8 @@ class DiskConfig:
         device: Device number on the port (0 or 1).
         bootable: Mark this disk as a boot device.
         disk_path: Original image path on the source system (not exported).
+        source: Existing medium to attach for removable devices (e.g. an ISO
+            path for a DVD drive). Ignored for non-removable disks.
     """
 
     name: str
@@ -197,6 +212,16 @@ class DiskConfig:
     device: int = 0
     bootable: bool = False
     disk_path: Optional[str] = None  # Original disk path (for reference)
+    source: Optional[str] = None  # Existing medium to attach (ISO for DVD, etc.)
+
+    @property
+    def is_removable(self) -> bool:
+        """True for devices whose medium is inserted, not created.
+
+        A DVD or floppy drive is attached either empty or pointing at an
+        existing image; vmctl must never create a medium for one.
+        """
+        return self.type in (DiskType.DVD, DiskType.FLOPPY)
 
     def to_dict(self) -> dict:
         """Return disk configuration as a plain dictionary.
@@ -214,6 +239,10 @@ class DiskConfig:
         result['controller'] = self.controller.value
         # Don't include disk_path in export (it's system-specific)
         result.pop('disk_path', None)
+        # `source` is only meaningful for removable media; omit it otherwise so
+        # exports of ordinary disks keep their 1.1.x shape.
+        if not self.is_removable or self.source is None:
+            result.pop('source', None)
         return result
 
 

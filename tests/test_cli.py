@@ -72,8 +72,9 @@ def test_help_lists_every_command(runner):
 def test_list_simple(runner, vbox):
     result = runner.invoke(cli, ["list", "--format", "simple"])
     assert result.exit_code == 0
-    assert "bios-minimal" in result.output
-    assert "multi-disk" in result.output
+    # Names come from the captured `VBoxManage list vms` fixture.
+    assert "vmctl-t-bios" in result.output
+    assert "vmctl-t-multi" in result.output
 
 
 def test_list_table_has_a_header(runner, vbox):
@@ -93,7 +94,7 @@ def test_read_outputs_json(runner, vbox):
     result = runner.invoke(cli, ["read", "bios-minimal", "--format", "json"])
     assert result.exit_code == 0
     import json
-    assert json.loads(result.output)["cpu"]["count"] == 2
+    assert json.loads(result.output)["cpu"]["count"] == 1
 
 
 def test_export_writes_a_file(runner, vbox, tmp_path):

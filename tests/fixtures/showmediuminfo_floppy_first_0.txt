@@ -1,5 +1,12 @@
-UUID:           aaaaaaaa-0000-0000-0000-000000000008
-Location:       /home/tester/VirtualBox VMs/floppy-first/floppy-first.vdi
+UUID:           2191c80c-6fa8-4783-b576-15225ffdd635
+Parent UUID:    base
+State:          created
+Type:           normal (base)
+Location:       C:\vagrant-storage-labs\vms\vmctl-t-flop\sys.vdi
 Storage format: VDI
-Variant:        dynamic default
-Capacity:       10240 MBytes
+Format variant: dynamic default
+Capacity:       64 MBytes
+Size on disk:   2 MBytes
+Encryption:     disabled
+Property:       AllocationBlockSize=1048576
+In use by VMs:  vmctl-t-flop (UUID: 58eb171f-9ae6-410b-a6e9-86059772ab51)

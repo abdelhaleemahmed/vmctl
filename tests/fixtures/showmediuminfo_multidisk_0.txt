@@ -1,5 +1,11 @@
-UUID:           aaaaaaaa-0000-0000-0000-000000000004
-Location:       /home/tester/VirtualBox VMs/multi-disk/multi-disk-system.vdi
-Storage format: VDI
-Variant:        dynamic default
-Capacity:       51200 MBytes
+UUID:           5812ad2b-6b1e-417e-b0f6-acfbdb292909
+Parent UUID:    base
+State:          created
+Type:           normal (base)
+Location:       C:\vagrant-storage-labs\vms\vmctl-t-multi\arch.vhd
+Storage format: VHD
+Format variant: fixed default
+Capacity:       128 MBytes
+Size on disk:   128 MBytes
+Encryption:     disabled
+In use by VMs:  vmctl-t-multi (UUID: 23d58495-9bd4-42a2-a4f7-68224bbe1703)

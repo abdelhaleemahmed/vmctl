@@ -1,9 +1,12 @@
-UUID:           aaaaaaaa-0000-0000-0000-000000000002
+UUID:           b2d13cd7-7f68-4b09-b48c-dc55a02f40eb
+Parent UUID:    base
 State:          created
 Type:           normal (base)
-Location:       /home/tester/VirtualBox VMs/efi-secure/efi-secure.vdi
+Location:       C:\vagrant-storage-labs\vms\vmctl-t-efi\sys.vdi
 Storage format: VDI
 Format variant: fixed default
-Variant:        fixed default
-Capacity:       102400 MBytes
-Size on disk:   102400 MBytes
+Capacity:       64 MBytes
+Size on disk:   66 MBytes
+Encryption:     disabled
+Property:       AllocationBlockSize=1048576
+In use by VMs:  vmctl-t-efi (UUID: 3a0e9e7f-6d1a-469e-a77f-0c8e83e6ede4)
