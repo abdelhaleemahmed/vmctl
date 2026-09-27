@@ -5,6 +5,7 @@ All hypervisor providers (VirtualBox, libvirt, QEMU, etc.) must implement
 this abstract base class to ensure consistent API across providers.
 """
 
+import shutil
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional
 
@@ -38,6 +39,29 @@ class MediumProbe(Protocol):
 
 class BaseProvider(ABC):
     """Abstract base class for hypervisor providers."""
+
+    #: Executable this provider needs on PATH. Used by the default
+    #: :meth:`is_available`; override that method for anything more involved.
+    REQUIRED_BINARY: Optional[str] = None
+
+    def version(self) -> str:
+        """Return the hypervisor's version, e.g. ``"7.1.18"``.
+
+        Returns:
+            The version string, or ``""`` when the provider cannot determine it.
+        """
+        return ""
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Whether this provider can be used on this machine.
+
+        Used to choose a provider, so it must never raise: anything unexpected
+        counts as unavailable.
+        """
+        if cls.REQUIRED_BINARY is None:
+            return True
+        return shutil.which(cls.REQUIRED_BINARY) is not None
 
     @property
     @abstractmethod

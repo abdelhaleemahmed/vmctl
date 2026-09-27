@@ -9,6 +9,7 @@ import click
 from typing import List, Optional
 
 from vmctl import __version__
+from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
 from vmctl.core.vmconfig import DiskFormat
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
@@ -74,6 +75,21 @@ def _apply_disk_format(vm, disk_format: Optional[str]) -> None:
     for disk in vm.disks:
         if not disk.is_removable:
             disk.format = chosen
+
+
+def _engine(ctx=None) -> VMCtlEngine:
+    """Build an engine for the provider the user selected.
+
+    Args:
+        ctx: Click context carrying ``--provider``, when there is one.
+
+    Returns:
+        VMCtlEngine: bound to the chosen provider.
+    """
+    name = None
+    if ctx is not None and ctx.obj:
+        name = ctx.obj.get("provider")
+    return VMCtlEngine(name)
 
 
 def _warn(message: str) -> None:
@@ -159,7 +175,16 @@ def _fail(exc: Exception) -> None:
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(__version__, "-V", "--version")
-def cli():
+@click.option(
+    "-p",
+    "--provider",
+    default=None,
+    metavar="NAME",
+    help="Hypervisor to talk to. Defaults to $VMCTL_PROVIDER, then whichever "
+    "is installed. See 'vmctl providers'.",
+)
+@click.pass_context
+def cli(ctx, provider):
     """vmctl — Virtual Machine Management Tool.
 
     Manage VirtualBox VMs with config-as-code support.  Export any VM to YAML
@@ -174,6 +199,8 @@ def cli():
       vmctl import my-vm.yaml --new-name test-vm --execute
       vmctl batch create cluster.yaml --execute
     """
+    ctx.ensure_object(dict)
+    ctx.obj["provider"] = provider
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +217,8 @@ def cli():
     show_default=True,
     help="Output format.",
 )
-def cmd_list(fmt):
+@click.pass_context
+def cmd_list(ctx, fmt):
     """List all VMs registered in VirtualBox.
 
     TABLE format (default) shows each VM name alongside its current status.
@@ -202,7 +230,7 @@ def cmd_list(fmt):
       vmctl list --format simple
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         vms = engine.list_vms()
         if not vms:
             click.echo("No VMs found.")
@@ -230,7 +258,8 @@ def cmd_list(fmt):
 
 @cli.command("status")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
-def cmd_status(vm_name):
+@click.pass_context
+def cmd_status(ctx, vm_name):
     """Show the current state of a VM.
 
     Possible states: running, stopped, paused, saved, aborted,
@@ -241,7 +270,7 @@ def cmd_status(vm_name):
       vmctl status ubuntu-server
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         status = engine.get_vm_status(vm_name)
         click.echo(status)
     except VMToolError as e:
@@ -255,7 +284,8 @@ def cmd_status(vm_name):
 
 @cli.command("start")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
-def cmd_start(vm_name):
+@click.pass_context
+def cmd_start(ctx, vm_name):
     """Start a VM in headless mode.
 
     The VM has no GUI window.  Use VirtualBox GUI or SSH to interact
@@ -266,7 +296,7 @@ def cmd_start(vm_name):
       vmctl start ubuntu-server
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         engine.start_vm(vm_name)
         click.echo(f"Started VM '{vm_name}'")
     except VMToolError as e:
@@ -293,7 +323,8 @@ def cmd_start(vm_name):
     metavar="SECONDS",
     help="Wait up to SECONDS for the VM to actually stop.",
 )
-def cmd_stop(vm_name, force, wait):
+@click.pass_context
+def cmd_stop(ctx, vm_name, force, wait):
     """Stop a running VM.
 
     Without --force, sends an ACPI shutdown signal so the guest OS can
@@ -306,7 +337,7 @@ def cmd_stop(vm_name, force, wait):
       vmctl stop ubuntu-server --force
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         engine.stop_vm(vm_name, force=force, wait=wait)
         action = "Powered off" if force else "Stopped" if wait else "Sent shutdown signal to"
         click.echo(f"{action} VM '{vm_name}'")
@@ -329,7 +360,8 @@ def cmd_stop(vm_name, force, wait):
     show_default=True,
     help="Output format.",
 )
-def cmd_read(vm_name, fmt):
+@click.pass_context
+def cmd_read(ctx, vm_name, fmt):
     """Print a VM's configuration to stdout.
 
     Reads the live configuration directly from VirtualBox and outputs
@@ -341,7 +373,7 @@ def cmd_read(vm_name, fmt):
       vmctl read ubuntu-server --format json
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         vm = engine.read_vm(vm_name)
         serializer = engine.get_serializer(fmt)
         click.echo(serializer.to_string(vm))
@@ -371,7 +403,8 @@ def cmd_read(vm_name, fmt):
     show_default=True,
     help="Output format (inferred from extension if not specified).",
 )
-def cmd_export(vm_name, output, fmt):
+@click.pass_context
+def cmd_export(ctx, vm_name, output, fmt):
     """Save a VM's configuration to a YAML or JSON file.
 
     The VM does not need to be stopped before exporting.
@@ -382,7 +415,7 @@ def cmd_export(vm_name, output, fmt):
       vmctl export ubuntu-server -o ubuntu-server.json --format json
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         engine.export_vm(vm_name, output, fmt)
         click.echo(f"Exported '{vm_name}' → {output}")
     except VMToolError as e:
@@ -408,7 +441,8 @@ def cmd_export(vm_name, output, fmt):
     is_flag=True,
     help="Actually create the VM (dry-run by default).",
 )
-def cmd_import(config_file, new_name, disk_format, execute):
+@click.pass_context
+def cmd_import(ctx, config_file, new_name, disk_format, execute):
     """Create a VM from a YAML or JSON configuration file.
 
     Without --execute the command prints the VBoxManage commands that
@@ -424,7 +458,7 @@ def cmd_import(config_file, new_name, disk_format, execute):
       vmctl import ubuntu-server.yaml --new-name test-server --disk-format vmdk
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         vm = engine.import_vm(config_file, new_name)
         _apply_disk_format(vm, disk_format)
         if execute:
@@ -456,7 +490,8 @@ def cmd_import(config_file, new_name, disk_format, execute):
     is_flag=True,
     help="Actually create the VM (dry-run by default).",
 )
-def cmd_create(source_vm, new_name, memory, cpus, disk_format, execute):
+@click.pass_context
+def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, execute):
     """Clone a VM configuration from an existing VirtualBox VM.
 
     Reads the source VM's configuration live from VirtualBox, applies
@@ -471,7 +506,7 @@ def cmd_create(source_vm, new_name, memory, cpus, disk_format, execute):
       vmctl create ubuntu-server --new-name vmware-clone --disk-format vmdk
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         vm = engine.read_vm(source_vm)
         vm.name = new_name
         if memory:
@@ -503,7 +538,8 @@ def cmd_create(source_vm, new_name, memory, cpus, disk_format, execute):
     is_flag=True,
     help="Actually apply the change (dry-run by default).",
 )
-def cmd_edit(vm_name, new_name, memory, vram, cpus, execute):
+@click.pass_context
+def cmd_edit(ctx, vm_name, new_name, memory, vram, cpus, execute):
     """Change the CPU, memory, video memory or name of an existing VM.
 
     Only the settings you pass are changed, and only the ones that actually
@@ -518,7 +554,7 @@ def cmd_edit(vm_name, new_name, memory, vram, cpus, execute):
       vmctl edit my-vm --new-name renamed-vm --execute
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         vm = engine.read_vm(vm_name)
         if new_name:
             vm.name = new_name
@@ -548,7 +584,8 @@ def cmd_edit(vm_name, new_name, memory, vram, cpus, execute):
     is_flag=True,
     help="Skip confirmation prompt.",
 )
-def cmd_delete(vm_name, force):
+@click.pass_context
+def cmd_delete(ctx, vm_name, force):
     """Unregister a VM and delete all associated disk files.
 
     This action is irreversible.  Without --force, you will be asked to
@@ -562,7 +599,7 @@ def cmd_delete(vm_name, force):
     try:
         if not force:
             click.confirm(f"Delete VM '{vm_name}' and all its disk files?", abort=True)
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         engine.delete_vm(vm_name)
         click.echo(f"Deleted VM '{vm_name}'")
     except click.Abort:
@@ -581,7 +618,8 @@ def cmd_delete(vm_name, force):
 
 @cli.command("validate")
 @click.argument("config_file", type=click.Path(exists=True, path_type=Path))
-def cmd_validate(config_file):
+@click.pass_context
+def cmd_validate(ctx, config_file):
     """Validate a YAML or JSON VM configuration file.
 
     Runs four validation phases: schema, provider limits, logical
@@ -592,7 +630,7 @@ def cmd_validate(config_file):
       vmctl validate my-config.yaml
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         vm = engine.import_vm(config_file)
         warnings = engine.validate_vm(vm)
         for w in warnings:
@@ -628,7 +666,8 @@ def batch():
     is_flag=True,
     help="Keep going after a VM fails instead of stopping at the first error.",
 )
-def batch_create(batch_file, execute, continue_on_error):
+@click.pass_context
+def batch_create(ctx, batch_file, execute, continue_on_error):
     """Create VMs from a batch definition file.
 
     The batch file defines a base VM and a list of named instances with
@@ -645,7 +684,7 @@ def batch_create(batch_file, execute, continue_on_error):
       vmctl batch create cluster.yaml --execute --continue-on-error
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         creator = BatchCreator(engine, on_warning=_warn)
         vms = creator.create_from_file(batch_file)
 
@@ -731,7 +770,8 @@ def batch_create(batch_file, execute, continue_on_error):
     show_default=True,
     help="Output format.",
 )
-def batch_template(output, fmt):
+@click.pass_context
+def batch_template(ctx, output, fmt):
     """Generate a starter batch template file.
 
     The generated file contains a working example with three VM instances
@@ -742,12 +782,47 @@ def batch_template(output, fmt):
       vmctl batch template -o my-cluster.yaml
     """
     try:
-        engine = VMCtlEngine()
+        engine = _engine(ctx)
         creator = BatchCreator(engine, on_warning=_warn)
         creator.generate_batch_template(output, fmt)
         click.echo(f"Generated batch template → {output}")
     except VMToolError as e:
         _fail(e)
+
+
+# ---------------------------------------------------------------------------
+# providers
+# ---------------------------------------------------------------------------
+
+
+@cli.command("providers")
+def cmd_providers():
+    """List the hypervisors vmctl can talk to, and whether they work here.
+
+    A provider is USABLE when its tooling is installed and responding. The one
+    marked DEFAULT is what vmctl picks when you do not pass --provider.
+
+    \b
+    Example:
+      vmctl providers
+    """
+    default = registry.resolve(None)
+    click.echo(f"{'NAME':<14} {'STATUS':<12} {'VERSION':<12} DESCRIPTION")
+    click.echo("-" * 74)
+    for entry in registry.entries():
+        usable = registry.is_available(entry.name)
+        version = ""
+        if usable:
+            try:
+                backend = registry.create(entry.name)
+                version = backend.version()
+            except Exception:
+                version = "?"
+        status = "usable" if usable else "unavailable"
+        if entry.name == default:
+            status += " *"
+        click.echo(f"{entry.name:<14} {status:<12} {version:<12} {entry.description}")
+    click.echo("\n* the provider vmctl would use by default")
 
 
 # ---------------------------------------------------------------------------

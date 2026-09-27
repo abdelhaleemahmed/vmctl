@@ -87,6 +87,17 @@ things prevented that:
 
 ### Added
 
+- **A second hypervisor: libvirt / QEMU-KVM.** `vmctl -p libvirt …` creates,
+  reads, edits, starts, stops and deletes domains. The same config file works
+  against either provider, and anything that does not translate is reported
+  rather than dropped. Verified end to end on libvirt 11.10.0 / QEMU 10.1.0,
+  including booting a domain.
+- **Provider selection**: `--provider/-p`, `$VMCTL_PROVIDER`, or detection of
+  whatever is installed. `vmctl providers` lists what is usable here and which
+  one is the default. Providers register lazily, so a hypervisor whose tooling is
+  absent costs nothing, and third-party providers can register through the
+  `vmctl.providers` entry-point group.
+
 - `DiskType.FLOPPY` and `StorageControllerType` values for NVMe, floppy, USB and
   virtio-scsi, so every bus and device kind VirtualBox supports can be
   expressed. Each bus/chipset pair and its port-count rules were verified on a

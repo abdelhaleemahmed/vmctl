@@ -841,8 +841,37 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > "attaching" to SATA) because `emptydrive` is accepted almost anywhere; it
 > had to be redone with a real medium of each kind.
 >
+> **Third step done:** `A-03` (provider registry) and **`P-01` (libvirt)**.
+>
+> The abstraction held. libvirt is four files plus a table, and adding it needed
+> **no change to the core** — except where it exposed VirtualBox assumptions
+> still sitting there, which is exactly what a second provider is for:
+>
+> * `ProviderError` defaulted its provider to `"virtualbox"`, and
+>   `VMNotFoundError`'s hint told users to run `VBoxManage list vms`. Both were
+>   printed while talking to libvirt.
+> * The CLI test suite silently switched to libvirt on this machine, because
+>   VirtualBox is not installed here and detection is by availability. Tests now
+>   pin their provider, which is more hermetic anyway.
+>
+> Three findings worth carrying forward:
+>
+> * **`A-07`'s conformance assertion is confirmed to be right.** libvirt returned
+>   the 1382-byte document vmctl wrote with 16 PCI addresses, 11 controllers, a
+>   CPU model and a memballoon added. `emit == input` would fail forever;
+>   *parse → emit → parse is stable* is the property that holds, and there is now
+>   a test asserting it.
+> * **`T-04`'s `MediumProbe` seam paid off for the second provider.** A libvirt
+>   domain does not record a disk's capacity, so the size has to come from the
+>   image — the same collaborator VirtualBox's parser takes, backed by
+>   `qemu-img info` instead of `showmediuminfo`.
+> * **libvirt needs `E-05`, not just benefits from it.** Its matrix depends on the
+>   QEMU build and machine type: IDE is absent because q35 has no IDE controller,
+>   and SCSI because this build lacks the LSI chipset. A static table can only be
+>   a conservative default, and the declaration says so.
+>
 > Remaining: `M-01`, `M-02`, `M-05`, `M-06` (the three-axis storage model and
-> medium conversion), `A-03`…`A-10`.
+> medium conversion), `A-04`…`A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1697,12 +1726,12 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-01 Plan/Step replaces List[List[str]]   <-- land alone
          [x] A-11 field-table mapping engine + codecs + decoders (with A-01)
          [x] A-02 typed Capabilities, matrix-driven validator
-         [ ] A-03 provider registry + --provider + entry points
+         [x] A-03 provider registry + --provider + entry points
          [ ] A-04 translation engine + policy + lossiness report
          [ ] A-05 neutral guest-OS catalog     [ ] A-06 deterministic slot allocation
          [ ] A-07 provider conformance suite   [ ] A-08 escaping / injection safety
          [ ] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
-Phase 6  [ ] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
+Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [ ] P-05 plain QEMU                 [ ] P-06 vmctl migrate --from/--to
 Phase 7  [ ] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema

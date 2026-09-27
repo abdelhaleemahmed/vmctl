@@ -116,6 +116,17 @@ def make_fixture_probe(label: str, strict: bool = True) -> Callable[[str], Dict[
 
 
 @pytest.fixture(autouse=True)
+def pinned_provider(monkeypatch):
+    """Pin the provider so results do not depend on what is installed here.
+
+    vmctl picks a provider by detection when none is named, so on a machine with
+    libvirt but no VirtualBox the CLI tests would silently exercise the wrong
+    provider. Tests that are about another provider override this.
+    """
+    monkeypatch.setenv("VMCTL_PROVIDER", "virtualbox")
+
+
+@pytest.fixture(autouse=True)
 def no_hypervisor(request, monkeypatch):
     """Fail any test that reaches for a real hypervisor.
 

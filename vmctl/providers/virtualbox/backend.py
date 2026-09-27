@@ -24,6 +24,8 @@ from .capabilities import VirtualBoxCapabilities
 class VirtualBoxBackend(BaseProvider):
     """VirtualBox provider backend"""
 
+    REQUIRED_BINARY = "VBoxManage"
+
     def __init__(self) -> None:
         """Initialise the VirtualBox backend.
 

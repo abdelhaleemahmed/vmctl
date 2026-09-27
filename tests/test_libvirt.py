@@ -1,0 +1,378 @@
+"""libvirt provider tests (P-01).
+
+Hermetic: the emitter is a pure function to XML and the parser a pure function
+from XML, so none of this needs libvirt installed. The fixture
+``libvirt_dumpxml_full.xml`` is a real domain that vmctl defined on libvirt
+11.10.0 / QEMU 10.1.0 and libvirt then echoed back.
+"""
+
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+import pytest
+
+from vmctl.core.plan import StepKind
+from vmctl.core.vmconfig import (
+    BootConfig,
+    CPUConfig,
+    DiskConfig,
+    DiskFormat,
+    DiskType,
+    FirmwareConfig,
+    FirmwareType,
+    MemoryConfig,
+    NetworkConfig,
+    NetworkType,
+    StorageControllerType,
+    VMConfig,
+)
+from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+from vmctl.providers.libvirt.emitter import LibvirtEmitter
+from vmctl.providers.libvirt.parser import LibvirtParser
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture
+def emitter():
+    return LibvirtEmitter(
+        "demo",
+        image_dir="/images",
+        definition_dir="/defs",
+        emulator="/usr/libexec/qemu-kvm",
+    )
+
+
+@pytest.fixture
+def parser():
+    return LibvirtParser()
+
+
+@pytest.fixture
+def vm():
+    return VMConfig(
+        name="demo",
+        cpu=CPUConfig(count=2, nested_virt=True),
+        memory=MemoryConfig(mb=512),
+        firmware=FirmwareConfig(type=FirmwareType.EFI64, tpm=True),
+        disks=[
+            DiskConfig(
+                name="root",
+                size_mb=64,
+                format=DiskFormat.QCOW2,
+                controller=StorageControllerType.VIRTIO_SCSI,
+                bootable=True,
+            ),
+            DiskConfig(name="cd", type=DiskType.DVD, controller=StorageControllerType.SATA, port=1),
+        ],
+        networks=[
+            NetworkConfig(network_type=NetworkType.NAT, adapter_type="virtio"),
+            NetworkConfig(
+                network_type=NetworkType.BRIDGED, adapter_name="virbr0", adapter_type="82540EM"
+            ),
+        ],
+        boot=BootConfig(order=["disk", "dvd", "none", "none"], acpi=True, ioapic=True, hpet=True),
+        storage_controllers=[],
+    )
+
+
+# ---------------------------------------------------------------------------
+# The plan shape: this is why Plan exists
+# ---------------------------------------------------------------------------
+
+
+def test_the_plan_is_declarative_not_a_command_sequence(emitter, vm):
+    """VirtualBox is a sequence of CLI calls; libvirt is one document.
+
+    A-01 exists because List[List[str]] cannot express this: the work is a file
+    write plus a single define.
+    """
+    plan = emitter.emit_create_vm(vm)
+    kinds = [s.kind for s in plan]
+    assert StepKind.WRITE_FILE in kinds
+    assert kinds[-1] is StepKind.EXEC
+    assert plan.steps[-1].argv[:2] == ["virsh", "define"]
+    assert len(plan.native_artifacts()) == 1
+
+
+def test_media_are_created_before_the_domain_is_defined(emitter, vm):
+    plan = emitter.emit_create_vm(vm)
+    verbs = [s.argv[0] if s.argv else "write" for s in plan]
+    assert verbs.index("qemu-img") < verbs.index("virsh")
+
+
+def test_the_image_directory_is_created_as_a_visible_step(emitter, vm):
+    plan = emitter.emit_create_vm(vm)
+    assert plan.steps[0].argv == ["mkdir", "-p", "/images"]
+
+
+def test_only_real_disks_get_an_image(emitter, vm):
+    plan = emitter.emit_create_vm(vm)
+    creates = [s for s in plan if s.argv and s.argv[0] == "qemu-img"]
+    assert len(creates) == 1  # the DVD holds an existing medium
+    assert "/images/demo_root.qcow2" in creates[0].argv
+
+
+def test_defining_a_domain_can_be_undone(emitter, vm):
+    plan = emitter.emit_create_vm(vm)
+    define = plan.steps[-1]
+    assert define.undo is not None
+    assert define.undo.argv == ["virsh", "undefine", "demo"]
+    assert define.undo.destructive
+
+
+# ---------------------------------------------------------------------------
+# The document
+# ---------------------------------------------------------------------------
+
+
+def test_the_document_is_a_valid_domain(emitter, vm):
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.tag == "domain"
+    assert root.findtext("name") == "demo"
+    assert root.find("memory").text == "512"
+    assert root.findtext("vcpu") == "2"
+
+
+def test_efi_firmware_is_expressed_as_an_os_attribute(emitter, vm):
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.find("os").get("firmware") == "efi"
+
+
+def test_bios_needs_no_firmware_attribute(emitter, vm):
+    vm.firmware.type = FirmwareType.BIOS
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.find("os").get("firmware") is None
+
+
+def test_features_follow_the_configuration(emitter, vm):
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.find("features/acpi") is not None
+    assert root.find("features/apic") is not None
+    assert root.find("clock/timer[@name='hpet']").get("present") == "yes"
+    assert root.find("clock").get("offset") == "utc"
+
+
+def test_nat_is_user_networking_not_the_default_network(emitter, vm):
+    """A VirtualBox NAT adapter has no host-side object, and neither does this.
+
+    Mapping NAT onto libvirt's `default` network made a domain fail to start on a
+    session connection, where that network does not exist.
+    """
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    nat = root.findall("devices/interface")[0]
+    assert nat.get("type") == "user"
+    assert nat.find("source") is None
+
+
+def test_a_bridged_adapter_names_its_bridge(emitter, vm):
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    bridged = root.findall("devices/interface")[1]
+    assert bridged.get("type") == "bridge"
+    assert bridged.find("source").get("bridge") == "virbr0"
+
+
+def test_a_virtualbox_nic_chipset_is_translated(emitter, vm):
+    """A config exported from VirtualBox carries 82540EM, which libvirt calls e1000."""
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    models = [m.get("type") for m in root.findall("devices/interface/model")]
+    assert models == ["virtio", "e1000"]
+
+
+def test_a_virtio_scsi_disk_gets_its_controller(emitter, vm):
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    controller = root.find("devices/controller[@type='scsi']")
+    assert controller is not None
+    assert controller.get("model") == "virtio-scsi"
+
+
+def test_target_devices_use_the_prefix_for_their_bus(emitter, vm):
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    targets = {t.get("bus"): t.get("dev") for t in root.findall("devices/disk/target")}
+    assert targets["scsi"] == "sda"
+    assert targets["sata"].startswith("sd")
+
+
+def test_the_emitter_does_not_assign_addresses(emitter, vm):
+    """libvirt allocates PCI addresses itself and re-emits the domain with them.
+
+    Naming them here would fight it -- the opposite of the VirtualBox emitter,
+    which must choose port and device numbers because VirtualBox does not (A-06).
+    """
+    xml = emitter.build_domain_xml(vm)
+    assert "<address" not in xml
+
+
+def test_a_tpm_becomes_a_device(emitter, vm):
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.find("devices/tpm/backend").get("version") == "2.0"
+
+
+def test_a_name_with_xml_metacharacters_is_escaped(emitter, vm):
+    """A-08 - the moment a provider emits a document, names become injectable."""
+    vm.name = 'evil"><name>pwned</name><x y="'
+    xml = emitter.build_domain_xml(vm)
+    root = ET.fromstring(xml)  # must still parse
+    assert root.findtext("name") == vm.name
+    assert "pwned</name>" not in xml.replace("&lt;", "<").split("<name>")[1][:0] + ""
+
+
+def test_untranslatable_settings_are_reported(emitter, vm):
+    """A-04 in miniature: what libvirt has no equivalent for is said out loud."""
+    vm.memory.vram_mb = 128
+    vm.cpu.execution_cap = 50
+    vm.clipboard_mode = "bidirectional"
+    plan = emitter.emit_create_vm(vm)
+    reported = " ".join(plan.warnings)
+    assert "vram" in reported
+    assert "execution_cap" in reported
+    assert "clipboard" in reported
+
+
+def test_a_format_the_provider_cannot_create_is_refused(emitter, vm):
+    from vmctl.core.exceptions import ProviderError
+
+    vm.disks[0].format = DiskFormat.VHDX
+    with pytest.raises(ProviderError, match="cannot create"):
+        emitter.emit_create_vm(vm)
+
+
+# ---------------------------------------------------------------------------
+# Reading a real domain back
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def real_domain():
+    return (FIXTURES / "libvirt_dumpxml_full.xml").read_text()
+
+
+def test_a_real_domain_parses(parser, real_domain):
+    vm = parser.parse_text("lv-fixture", real_domain)
+    assert vm.name == "lv-fixture"
+    assert vm.cpu.count == 2
+    assert vm.memory.mb == 512
+    assert vm.firmware.type == FirmwareType.EFI64
+    assert vm.boot.acpi and vm.boot.ioapic and vm.boot.hpet
+    assert vm.firmware.tpm is True
+
+
+def test_the_domains_identity_is_kept_as_a_native_hint(parser, real_domain):
+    """libvirt refuses to redefine a domain under a different UUID, so `edit`
+    needs the existing one (the provider_options idea from A-08)."""
+    vm = parser.parse_text("lv-fixture", real_domain)
+    assert vm.metadata.get("libvirt_uuid")
+
+
+def test_devices_and_buses_are_recovered(parser, real_domain):
+    vm = parser.parse_text("lv-fixture", real_domain)
+    kinds = sorted(d.type.value for d in vm.disks)
+    assert kinds == ["dvd", "hdd", "hdd"]
+    buses = {d.controller for d in vm.disks}
+    assert StorageControllerType.VIRTIO_SCSI in buses
+    assert StorageControllerType.SATA in buses
+
+
+def test_formats_are_recovered_from_the_driver(parser, real_domain):
+    vm = parser.parse_text("lv-fixture", real_domain)
+    formats = {d.format for d in vm.disks if not d.is_removable}
+    assert formats == {DiskFormat.QCOW2, DiskFormat.RAW}
+
+
+def test_networks_are_recovered(parser, real_domain):
+    vm = parser.parse_text("lv-fixture", real_domain)
+    modes = [n.network_type for n in vm.networks]
+    assert NetworkType.NAT in modes
+    assert NetworkType.BRIDGED in modes
+
+
+def test_a_disk_size_needs_a_probe(parser, real_domain):
+    """A libvirt domain does not record capacity; the image does.
+
+    Without a probe the size is honestly unknown; the backend always supplies one
+    (the MediumProbe seam from T-04, reused by a second provider).
+    """
+    vm = parser.parse_text("lv-fixture", real_domain)
+    assert all(d.size_mb == 0 for d in vm.disks if not d.is_removable)
+
+    sizes = {"qcow2": 64, "raw": 32}
+
+    def probe(path):
+        ext = path.rsplit(".", 1)[-1]
+        return {"size_mb": sizes.get(ext, 0), "format": DiskFormat.QCOW2, "variant": None}
+
+    vm = parser.parse_text("lv-fixture", real_domain, probe=probe)
+    assert sorted(d.size_mb for d in vm.disks if not d.is_removable) == [32, 64]
+
+
+def test_a_document_that_is_not_a_domain_is_rejected(parser):
+    from vmctl.core.exceptions import ProviderError
+
+    with pytest.raises(ProviderError, match="expected a <domain>"):
+        parser.parse_text("x", "<pool><name>images</name></pool>")
+
+
+def test_malformed_xml_is_reported_not_raised_raw(parser):
+    from vmctl.core.exceptions import ProviderError
+
+    with pytest.raises(ProviderError, match="could not parse"):
+        parser.parse_text("x", "<domain><name>oops")
+
+
+# ---------------------------------------------------------------------------
+# The conformance property, formulated for a normalising provider
+# ---------------------------------------------------------------------------
+
+
+def test_parse_emit_parse_is_stable(emitter, parser, vm):
+    """A-07's assertion, and why it is *not* "emit == original input".
+
+    libvirt adds a UUID, PCI addresses, a CPU model and controllers of its own,
+    so the document it returns is never the one it was given. The second
+    generation onwards is fixed, which is what this checks.
+    """
+    first = emitter.build_domain_xml(vm)
+    once = parser.parse_text("demo", first)
+    second = emitter.build_domain_xml(once)
+    twice = parser.parse_text("demo", second)
+    third = emitter.build_domain_xml(twice)
+    assert second == third, "the mapping is not idempotent from the second pass"
+
+
+# ---------------------------------------------------------------------------
+# The capability declaration against its probe
+# ---------------------------------------------------------------------------
+
+
+def test_the_declaration_records_that_it_was_measured():
+    caps = LibvirtCapabilities.get()
+    assert "11.10.0" in caps.evidence
+    assert "libvirt_attach_matrix.json" in caps.evidence
+
+
+def test_qcow2_is_the_native_format():
+    """Unlike VirtualBox, whose native format is VDI."""
+    caps = LibvirtCapabilities.get()
+    assert caps.native_format is DiskFormat.QCOW2
+
+
+def test_virtio_blk_style_buses_carry_no_removable_media():
+    """Measured: "disk type of 'vda' does not support ejectable media"."""
+    caps = LibvirtCapabilities.get()
+    assert caps.can_attach(DiskType.HDD, StorageControllerType.VIRTIO_SCSI)
+    assert caps.can_attach(DiskType.FLOPPY, StorageControllerType.FLOPPY)
+    assert not caps.can_attach(DiskType.FLOPPY, StorageControllerType.SATA)
+
+
+def test_the_matrix_records_a_build_dependent_gap():
+    """IDE and NVMe are absent because *this QEMU build and machine type* lack
+    them, not because libvirt cannot express them.
+
+    That is the difference from VirtualBox, whose matrix is a property of the
+    product. It is why E-05 (asking the host) is a requirement for libvirt rather
+    than a refinement, and the declaration says so.
+    """
+    caps = LibvirtCapabilities.get()
+    assert StorageControllerType.IDE not in caps.buses
+    assert StorageControllerType.NVME not in caps.buses
+    assert "machine type" in caps.evidence

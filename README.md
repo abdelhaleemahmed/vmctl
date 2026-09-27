@@ -1,6 +1,6 @@
 # vmctl
 
-**A command-line tool for managing VirtualBox VMs with config-as-code support.**
+**A command-line tool for managing virtual machines with config-as-code support.**
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -16,7 +16,21 @@ Export VM configurations to YAML or JSON, recreate identical VMs anywhere, and s
 pip install vmctl
 ```
 
-Requires VirtualBox **7.0 or later** and `VBoxManage` in your PATH.
+Requires a supported hypervisor:
+
+| Provider | Needs | Notes |
+|---|---|---|
+| `virtualbox` | VirtualBox **7.0+** and `VBoxManage` on PATH | the default |
+| `libvirt` | libvirt **8.0+** and `virsh` on PATH | QEMU/KVM; works without KVM (slower) |
+
+```bash
+vmctl providers                 # what is usable on this machine
+vmctl -p libvirt list           # talk to a specific one
+export VMCTL_PROVIDER=libvirt   # ...or set a default
+```
+
+With no `--provider`, vmctl uses `$VMCTL_PROVIDER`, then whichever hypervisor
+it finds installed.
 
 ---
 
@@ -40,6 +54,24 @@ vmctl batch create cluster.yaml --execute
 ---
 
 ## Features
+
+### More Than One Hypervisor
+
+The same config file works against either provider. vmctl translates it and tells
+you what does not carry over, rather than dropping it silently:
+
+```
+$ vmctl -p libvirt import ubuntu-server.yaml --new-name dev --execute
+Warning: memory.vram_mb is set but video memory is a device property in libvirt
+    1: mkdir -p /var/lib/libvirt/images
+    2: qemu-img create -f qcow2 /var/lib/libvirt/images/dev_system.qcow2 51200M
+    3: write /tmp/dev.xml (812 bytes)
+    4: virsh define /tmp/dev.xml
+```
+
+VirtualBox is driven with `VBoxManage` calls; libvirt gets a domain XML document
+and one `virsh define`. Both are described by the same plan, so `--execute` and
+dry-run behave identically whichever you use.
 
 ### Config-as-Code
 Every VM is a plain YAML (or JSON) file. Put it in Git, share it with a team, or use it to recreate the machine after a disk failure.
@@ -176,6 +208,7 @@ VM — set it in the config file.
 
 | Command | Description |
 |---------|-------------|
+| `vmctl providers` | List hypervisors and whether they work here |
 | `vmctl list [--format table\|simple]` | List all VMs with status |
 | `vmctl status <vm>` | Show current VM state |
 | `vmctl start <vm>` | Start VM in headless mode |

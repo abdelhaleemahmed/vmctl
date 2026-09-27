@@ -171,7 +171,7 @@ class ProviderError(VMToolError):
 
     Examples:
     - VirtualBox not installed
-    - VBoxManage command failed
+    - a hypervisor command failed
     - VM not found
     - Insufficient permissions
     """
@@ -180,7 +180,7 @@ class ProviderError(VMToolError):
         self,
         message: str,
         *,
-        provider: str = "virtualbox",
+        provider: Optional[str] = None,
         operation: Optional[str] = None,
         command: Optional[List[str]] = None,
         exit_code: Optional[int] = None,
@@ -188,7 +188,8 @@ class ProviderError(VMToolError):
         **kwargs,
     ):
         context = kwargs.pop("context", {})
-        context["provider"] = provider
+        if provider:
+            context["provider"] = provider
         if operation:
             context["operation"] = operation
         if command:
@@ -214,7 +215,7 @@ class VMNotFoundError(ProviderError):
         super().__init__(
             f"Virtual Machine '{vm_name}' not found",
             operation="read_vm",
-            recovery_hint=f"Check if VM '{vm_name}' exists with 'VBoxManage list vms'",
+            recovery_hint="Run 'vmctl list' to see the VMs that exist",
             context={"vm_name": vm_name},
             **kwargs,
         )
@@ -308,7 +309,7 @@ class DependencyError(VMToolError):
 
     Examples:
     - VirtualBox not installed
-    - VBoxManage not in PATH
+    - a hypervisor's CLI is not on PATH
     - Python package missing
     """
 

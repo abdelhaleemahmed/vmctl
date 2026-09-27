@@ -3,35 +3,40 @@ Core engine coordinating all components
 """
 
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import TYPE_CHECKING, Callable, List, Optional
+from . import registry
 from .plan import Plan
 from .vmconfig import VMConfig
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle avoidance
+    from ..providers.base import BaseProvider
 from .exceptions import ValidationError, SerializationError
 from ..validators.vm_validator import VMValidator
 from ..serializers.base import VMConfigSerializer
 from ..serializers.json_serializer import JSONSerializer
 from ..serializers.yaml_serializer import YAMLSerializer
-from ..providers.virtualbox.backend import VirtualBoxBackend
 
 
 class VMCtlEngine:
     """Main engine coordinating all VM operations"""
 
-    def __init__(self, provider: str = "virtualbox"):
-        """Initialise the engine with the specified hypervisor provider.
+    def __init__(self, provider: Optional[str] = None):
+        """Initialise the engine with a hypervisor provider.
 
         Args:
-            provider: Hypervisor backend to use. Currently only ``"virtualbox"``
-                is supported.
+            provider: Provider name. None resolves it from ``VMCTL_PROVIDER``,
+                then by detecting what is installed, then VirtualBox.
 
         Raises:
-            ValueError: If ``provider`` is not a recognised backend name.
+            ValidationError: If the named provider is not registered.
+            DependencyError: If its dependencies are missing.
         """
-        if provider == "virtualbox":
-            self.backend = VirtualBoxBackend()
-            self.validator = VMValidator(self.backend.capabilities)
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
+        # Import for the side effect of registering the built-in providers.
+        from .. import providers  # noqa: F401
+
+        self.provider_name = registry.resolve(provider)
+        self.backend: "BaseProvider" = registry.create(self.provider_name)
+        self.validator = VMValidator(self.backend.capabilities)
 
         self.serializers = {"json": JSONSerializer(), "yaml": YAMLSerializer()}
 

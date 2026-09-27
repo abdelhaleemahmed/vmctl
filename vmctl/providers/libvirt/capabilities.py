@@ -1,0 +1,125 @@
+"""
+libvirt capabilities.
+
+**Measured, not remembered** -- the recording is
+``tests/fixtures/libvirt_attach_matrix.json``, produced by defining a domain for
+every (device kind, bus) pair against libvirt 11.10.0 / QEMU 10.1.0 and keeping
+what it said.
+
+One finding changes the design. Unlike VirtualBox, **libvirt's matrix depends on
+the QEMU build and the machine type**, so a static table can only ever be a
+conservative default:
+
+* ``IDE controllers are unsupported for this QEMU binary or machine type`` --
+  q35 has no IDE controller at all. The same domain validates on ``pc``
+  (i440fx), which this host also offers.
+* ``This QEMU doesn't support the LSI 53C895A SCSI controller`` -- the bus is
+  fine, the *controller model* is missing from this build. virtio-scsi works.
+* ``NVMe disks are not supported with this QEMU binary``.
+* ``disk type of 'vda' does not support ejectable media`` -- virtio-blk and
+  ``sd`` cannot carry an optical drive, which is a property of the bus itself
+  and will hold everywhere.
+
+So the declaration below is what this build accepts on q35. Asking the host with
+``virsh domcapabilities`` is the only way to be exact, which is ``E-05`` in
+PLAN.md -- for libvirt that is a requirement rather than a refinement.
+"""
+
+from ...core.capabilities import BusSpec, Capabilities, FormatSpec, Support
+from ...core.vmconfig import DiskFormat, DiskType, FirmwareType, StorageControllerType
+
+_BUS = StorageControllerType
+
+#: libvirt assigns addresses itself, so port counts are vmctl's own bookkeeping
+#: rather than a limit the hypervisor imposes. They are generous on purpose.
+BUSES = {
+    _BUS.SATA: BusSpec("sata", "ahci", 1, 6, default_ports=6, controller_name="sata0"),
+    _BUS.VIRTIO_SCSI: BusSpec(
+        "virtio-scsi", "virtio-scsi", 1, 256, default_ports=256, controller_name="scsi0"
+    ),
+    _BUS.USB: BusSpec(
+        "usb", "qemu-xhci", 1, 8, default_ports=8, bootable=False, controller_name="usb0"
+    ),
+    _BUS.FLOPPY: BusSpec("fdc", "fdc", 1, 2, default_ports=2, controller_name="fdc0"),
+    # virtio-blk: the fastest disk bus, and the reason libvirt guests use it.
+    # It cannot carry removable media.
+    _BUS.SCSI: BusSpec("scsi", "lsilogic", 1, 256, default_ports=256, controller_name="scsi-lsi0"),
+}
+
+#: Measured on this build with machine type q35.
+ATTACH = {
+    (DiskType.HDD, _BUS.SATA): True,
+    (DiskType.DVD, _BUS.SATA): True,
+    (DiskType.FLOPPY, _BUS.SATA): False,
+    (DiskType.HDD, _BUS.VIRTIO_SCSI): True,
+    (DiskType.DVD, _BUS.VIRTIO_SCSI): True,
+    (DiskType.FLOPPY, _BUS.VIRTIO_SCSI): False,
+    (DiskType.HDD, _BUS.USB): True,
+    (DiskType.DVD, _BUS.USB): True,
+    (DiskType.FLOPPY, _BUS.USB): False,
+    (DiskType.HDD, _BUS.FLOPPY): False,
+    (DiskType.DVD, _BUS.FLOPPY): False,
+    (DiskType.FLOPPY, _BUS.FLOPPY): True,
+    # The LSI controller is absent from this QEMU build, so plain SCSI is
+    # declared unusable here even though libvirt understands the bus.
+    (DiskType.HDD, _BUS.SCSI): False,
+    (DiskType.DVD, _BUS.SCSI): False,
+    (DiskType.FLOPPY, _BUS.SCSI): False,
+}
+
+#: QEMU's native format is qcow2; raw is universal. The rest it can read through
+#: its block layer, and `qemu-img create` can make most of them, but vmctl only
+#: claims what it needs: a guest image it creates, and anything it may be handed.
+FORMATS = {
+    DiskFormat.QCOW2: FormatSpec(Support.NATIVE, ("qcow2",), "qcow2", ("thin", "thick")),
+    DiskFormat.RAW: FormatSpec(Support.READ_WRITE, ("raw", "img"), "raw", ("thin", "thick")),
+    DiskFormat.VMDK: FormatSpec(Support.READ_WRITE, ("vmdk",), "vmdk", ("thin",)),
+    DiskFormat.VDI: FormatSpec(Support.READ_WRITE, ("vdi",), "vdi", ("thin",)),
+    DiskFormat.VHD: FormatSpec(Support.READ_WRITE, ("vhd", "vpc"), "vpc", ("thin",)),
+    DiskFormat.VHDX: FormatSpec(Support.READ_ONLY, ("vhdx",), "vhdx", ()),
+    DiskFormat.QED: FormatSpec(Support.READ_WRITE, ("qed",), "qed", ("thin",)),
+    DiskFormat.PARALLELS: FormatSpec(Support.READ_ONLY, ("hdd",), "parallels", ()),
+}
+
+REMOVABLE_EXTENSIONS = ("iso", "img", "ima", "dsk", "flp", "vfd", "cdr")
+
+
+class LibvirtCapabilities:
+    """libvirt-specific capabilities and limits."""
+
+    @staticmethod
+    def get() -> Capabilities:
+        """Return the typed capability declaration for libvirt."""
+        return Capabilities(
+            provider="libvirt",
+            min_version="8.0",
+            max_cpus=240,
+            max_memory_mb=4_194_304,
+            # libvirt has no VRAM setting in the VirtualBox sense; video memory
+            # is a device property. The limit is nominal.
+            max_vram_mb=512,
+            max_network_adapters=8,
+            max_disks=256,
+            buses=dict(BUSES),
+            attach=dict(ATTACH),
+            formats=dict(FORMATS),
+            native_format=DiskFormat.QCOW2,
+            removable_extensions=REMOVABLE_EXTENSIONS,
+            firmware={
+                FirmwareType.BIOS: Support.NATIVE,
+                FirmwareType.EFI: Support.READ_WRITE,
+                FirmwareType.EFI64: Support.READ_WRITE,
+                # libvirt's firmware='efi' has no 32-bit form; it resolves a
+                # loader for the guest's architecture.
+                FirmwareType.EFI32: Support.UNSUPPORTED,
+            },
+            supports_tpm=True,
+            secure_boot_readable=True,
+            supported_network_types=("nat", "bridged", "hostonly", "internal"),
+            evidence=(
+                "probed on libvirt 11.10.0 / QEMU 10.1.0, machine q35; see "
+                "tests/fixtures/libvirt_attach_matrix.json. libvirt's matrix "
+                "depends on the QEMU build and machine type -- E-05 probing is "
+                "required for exactness."
+            ),
+        )
