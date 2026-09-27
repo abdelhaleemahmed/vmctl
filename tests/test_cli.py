@@ -182,7 +182,7 @@ def test_unsupported_extension_is_rejected(runner, vbox, tmp_path):
 
 
 def test_delete_asks_before_destroying(runner, vbox):
-    result = runner.invoke(cli, ["delete", "bios-minimal"], input="n\n")
+    result = runner.invoke(cli, ["delete", "vmctl-t-bios"], input="n\n")
     assert not any("unregistervm" in c for c in vbox)
     assert "cancelled" in result.output.lower()
 
@@ -191,27 +191,30 @@ def test_delete_asks_before_destroying(runner, vbox):
 # Known-broken behaviour, pinned
 # ---------------------------------------------------------------------------
 
-def test_delete_abort_currently_exits_zero(runner, vbox):
-    """L-01 — an aborted delete is indistinguishable from success in scripts."""
-    result = runner.invoke(cli, ["delete", "bios-minimal"], input="n\n")
-    assert result.exit_code == 0, "documented current behaviour"
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="L-01: aborting a delete exits 0")
-def test_delete_abort_should_exit_nonzero(runner, vbox):
-    result = runner.invoke(cli, ["delete", "bios-minimal"], input="n\n")
+def test_delete_abort_exits_nonzero(runner, vbox):
+    """L-01 - a declined delete used to exit 0, indistinguishable from success."""
+    result = runner.invoke(cli, ["delete", "vmctl-t-bios"], input="n\n")
     assert result.exit_code != 0
+    assert not any("unregistervm" in c for c in vbox)
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-09: the emitted variable is __VMCTL_COMPLETE (double underscore)")
-@pytest.mark.parametrize("shell", ["bash", "zsh"])
-def test_completion_emits_the_variable_click_reads(runner, shell):
+@pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
+def test_completion_emits_a_real_script(runner, shell):
+    """F-09 - it used to print an instruction with a mistyped variable name.
+
+    The variable was `__VMCTL_COMPLETE` (one underscore too many), and the
+    output was a command rather than a script, so the documented
+    `eval "$(vmctl completion bash)"` evaluated vmctl's help text.
+    """
     result = runner.invoke(cli, ["completion", shell])
     assert result.exit_code == 0
     assert "__VMCTL_COMPLETE" not in result.output
     assert "_VMCTL_COMPLETE" in result.output
+    # A script, not a one-line instruction.
+    assert len(result.output.splitlines()) > 3
+    assert "vmctl" in result.output
 
 
 def test_malformed_config_exits_cleanly(runner, vbox, tmp_path):
@@ -224,11 +227,55 @@ def test_malformed_config_exits_cleanly(runner, vbox, tmp_path):
     assert "Unknown field 'unknown_field'" in result.output
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-10: edit prints a config but never applies it")
+def test_edit_is_dry_run_by_default(runner, vbox):
+    """F-10 - edit used to print a config and never apply anything."""
+    result = runner.invoke(cli, ["edit", "vmctl-t-bios", "--cpus", "8"])
+    assert result.exit_code == 0
+    assert "Dry-run" in result.output
+    assert "--cpus 8" in result.output
+    assert not any("modifyvm" in c for c in vbox)
+
+
 def test_edit_applies_its_change(runner, vbox):
-    runner.invoke(cli, ["edit", "bios-minimal", "--cpus", "8"])
-    assert any("modifyvm" in c for c in vbox)
+    result = runner.invoke(cli, ["edit", "vmctl-t-bios", "--cpus", "8", "--execute"])
+    assert result.exit_code == 0
+    modify = [c for c in vbox if len(c) > 1 and c[1] == "modifyvm"]
+    assert modify, "no modifyvm command was run"
+    assert "--cpus" in modify[0]
+
+
+def test_edit_emits_only_what_changed(runner, vbox):
+    """Editing one setting must not re-apply the whole configuration."""
+    result = runner.invoke(cli, ["edit", "vmctl-t-bios", "--memory", "512"])
+    assert result.exit_code == 0
+    assert "--memory 512" in result.output
+    assert "--vram" not in result.output
+    assert "--cpus" not in result.output
+
+
+def test_edit_with_no_changes_says_so(runner, vbox):
+    result = runner.invoke(cli, ["edit", "vmctl-t-bios"])
+    assert result.exit_code == 0
+    assert "No changes" in result.output
+
+
+def test_edit_renames_before_other_changes(runner, vbox):
+    """Later commands address the VM by its new name, so the rename is first."""
+    result = runner.invoke(
+        cli, ["edit", "vmctl-t-bios", "--new-name", "newname", "--memory", "512"]
+    )
+    lines = [l for l in result.output.splitlines() if "modifyvm" in l]
+    assert "--name newname" in lines[0]
+    assert "newname --memory 512" in lines[1]
+
+
+def test_edit_refuses_a_running_vm(runner, monkeypatch, vbox):
+    """VirtualBox defers or rejects modifyvm on a running VM."""
+    from vmctl.providers.virtualbox.backend import VirtualBoxBackend
+    monkeypatch.setattr(VirtualBoxBackend, "get_vm_status", lambda self, n: "running")
+    result = runner.invoke(cli, ["edit", "vmctl-t-bios", "--cpus", "2", "--execute"])
+    assert result.exit_code == 1
+    assert "running" in result.output
 
 
 # ---------------------------------------------------------------------------

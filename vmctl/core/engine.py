@@ -72,6 +72,7 @@ class VMCtlEngine:
         self,
         vm_name: str,
         new_config: VMConfig,
+        execute: bool = True,
         on_warning: Optional[Callable[[str], None]] = None,
     ) -> List[List[str]]:
         """Edit an existing VM.
@@ -79,6 +80,7 @@ class VMCtlEngine:
         Args:
             vm_name: VM to change.
             new_config: Configuration to apply.
+            execute: Apply the change. False returns the commands only.
             on_warning: Where to send validation warnings.
 
         Returns:
@@ -88,7 +90,9 @@ class VMCtlEngine:
             if on_warning:
                 on_warning(warning)
 
-        return self.backend.edit_vm(vm_name, new_config)
+        return self.backend.edit_vm(
+            vm_name, new_config, execute=execute, on_warning=on_warning
+        )
 
     def delete_vm(self, vm_name: str) -> bool:
         """Delete a VM"""
@@ -102,9 +106,15 @@ class VMCtlEngine:
         """Start a VM"""
         return self.backend.start_vm(vm_name)
 
-    def stop_vm(self, vm_name: str, force: bool = False) -> bool:
-        """Stop a VM"""
-        return self.backend.stop_vm(vm_name, force=force)
+    def stop_vm(self, vm_name: str, force: bool = False, wait: int = 0) -> bool:
+        """Stop a VM.
+
+        Args:
+            vm_name: VM to stop.
+            force: Power off instead of requesting a clean shutdown.
+            wait: Seconds to wait for the VM to actually stop (0 = no wait).
+        """
+        return self.backend.stop_vm(vm_name, force=force, wait=wait)
 
     def get_vm_status(self, vm_name: str) -> str:
         """Get VM status"""

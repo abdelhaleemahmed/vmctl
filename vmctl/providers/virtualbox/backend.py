@@ -3,8 +3,9 @@
 VirtualBox backend implementation
 """
 import subprocess
+import time
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Callable, List, Optional, Dict, Any
 from ...core.vmconfig import VMConfig
 from ...core.exceptions import ProviderError
 from ..base import BaseProvider
@@ -112,6 +113,61 @@ class VirtualBoxBackend(BaseProvider):
 
         return commands
 
+    def edit_vm(
+        self,
+        vm_name: str,
+        new_config: VMConfig,
+        execute: bool = True,
+        on_warning: Optional[Callable[[str], None]] = None,
+    ) -> List[List[str]]:
+        """Apply a configuration to an existing VM with `modifyvm`.
+
+        Reads the VM's current state and emits only the flags that differ, so
+        editing one setting runs one command.
+
+        Args:
+            vm_name: The VM to change.
+            new_config: Desired configuration.
+            execute: Apply the change. False returns the commands only.
+            on_warning: Where to report requested changes that cannot be applied
+                in place (storage and network layout).
+
+        Returns:
+            list: The commands that were, or would be, executed.
+
+        Raises:
+            ProviderError: If the VM does not exist, is running, or a command
+                fails.
+        """
+        if not self.vm_exists(vm_name):
+            raise ProviderError(f"VM '{vm_name}' does not exist")
+
+        # VirtualBox refuses most modifyvm settings on a running VM, and the
+        # ones it accepts are silently deferred. Refuse rather than half-apply.
+        status = self.get_vm_status(vm_name)
+        if status == "running":
+            raise ProviderError(
+                f"VM '{vm_name}' is running; stop it before editing "
+                f"(vmctl stop {vm_name} --wait 60)"
+            )
+
+        current = self.read_vm(vm_name)
+        emitter = VirtualBoxEmitter(vm_name, machine_folder=self.machine_folder)
+        commands, unsupported = emitter.emit_modify_vm(current, new_config)
+
+        if unsupported and on_warning:
+            for item in unsupported:
+                on_warning(
+                    f"{item} differs from the VM but cannot be changed in "
+                    f"place; it was left alone"
+                )
+
+        if execute:
+            for cmd in commands:
+                self._run_command(cmd)
+
+        return commands
+
     def delete_vm(self, vm_name: str) -> bool:
         """Delete a VM and its associated files."""
         try:
@@ -157,8 +213,24 @@ class VirtualBoxBackend(BaseProvider):
         except FileNotFoundError:
             raise ProviderError("VBoxManage not found")
 
-    def stop_vm(self, vm_name: str, force: bool = False) -> bool:
-        """Stop a running VM."""
+    def stop_vm(self, vm_name: str, force: bool = False,
+                wait: int = 0) -> bool:
+        """Stop a running VM.
+
+        Args:
+            vm_name: VM to stop.
+            force: Power off immediately instead of asking the guest.
+            wait: Seconds to wait for the VM to actually stop. A graceful stop
+                only *asks* the guest, so without waiting the command returns
+                while the VM is still running (L-06). 0 means do not wait.
+
+        Returns:
+            True if the VM is stopped, or the request was sent and ``wait`` is 0.
+
+        Raises:
+            ProviderError: If the VM does not exist, the request fails, or the
+                VM is still running after ``wait`` seconds.
+        """
         try:
             if not self.vm_exists(vm_name):
                 raise ProviderError(f"VM '{vm_name}' does not exist")
@@ -176,6 +248,17 @@ class VirtualBoxBackend(BaseProvider):
 
             if result.returncode != 0:
                 raise ProviderError(f"Failed to stop VM: {result.stderr}")
+
+            if wait:
+                deadline = time.monotonic() + wait
+                while time.monotonic() < deadline:
+                    if self.get_vm_status(vm_name) != "running":
+                        return True
+                    time.sleep(1)
+                raise ProviderError(
+                    f"VM '{vm_name}' was still running {wait}s after the stop "
+                    f"request. Use --force to power it off."
+                )
 
             return True
 

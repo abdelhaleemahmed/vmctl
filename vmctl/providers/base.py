@@ -119,13 +119,14 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def stop_vm(self, vm_name: str, force: bool = False) -> bool:
+    def stop_vm(self, vm_name: str, force: bool = False, wait: int = 0) -> bool:
         """
         Stop a running VM.
 
         Args:
             vm_name: Name of the VM to stop
             force: If True, force power off. If False, attempt graceful shutdown
+            wait: Seconds to wait for the VM to actually stop (0 = no wait)
 
         Returns:
             True if VM was stopped successfully
@@ -163,19 +164,29 @@ class BaseProvider(ABC):
         """
         return vm_name in self.list_vms()
 
-    def edit_vm(self, vm_name: str, new_config: VMConfig) -> List[List[str]]:
+    def edit_vm(self, vm_name: str, new_config: VMConfig,
+                execute: bool = True) -> List[List[str]]:
         """
         Edit an existing VM's configuration.
-
-        Default implementation deletes and recreates the VM.
-        Providers can override this with more efficient implementations.
 
         Args:
             vm_name: Name of the VM to edit
             new_config: New configuration to apply
+            execute: If True, apply the change. If False, return the commands
+                that would be run (dry-run).
 
         Returns:
-            List of commands that were executed
+            List of commands that were, or would be, executed
+
+        Raises:
+            NotImplementedError: If the provider does not implement editing.
+
+        Note:
+            This used to default to ``delete_vm()`` followed by ``create_vm()``.
+            Since ``delete_vm`` passes ``--delete``, that destroyed the VM's
+            disks -- a data-loss trap for any provider that simply did not
+            override it (F-11). Providers must implement editing explicitly.
         """
-        self.delete_vm(vm_name)
-        return self.create_vm(new_config)
+        raise NotImplementedError(
+            f"{self.name} does not support editing VMs in place"
+        )

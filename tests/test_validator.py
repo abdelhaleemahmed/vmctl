@@ -261,3 +261,46 @@ def test_ostype_is_not_warned_about(validator, vm_minimal):
     holds internal ids, so any static check flags every real VM."""
     vm_minimal.ostype = "CompletelyMadeUp_64"
     assert validator.validate(vm_minimal) == []
+
+
+# ---------------------------------------------------------------------------
+# Provider contract
+# ---------------------------------------------------------------------------
+
+def test_base_provider_refuses_to_edit_rather_than_deleting(vm_minimal):
+    """F-11 - the default edit_vm was delete_vm() + create_vm(), and delete_vm
+    passes --delete, so it destroyed the disks of any provider that did not
+    override it. It must now refuse instead."""
+    from vmctl.providers.base import BaseProvider
+
+    destroyed = []
+
+    class Incomplete(BaseProvider):
+        name = "incomplete"
+        capabilities = {}
+
+        def list_vms(self):
+            return ["vm1"]
+
+        def read_vm(self, vm_name):
+            raise NotImplementedError
+
+        def create_vm(self, vm, execute=True):
+            raise AssertionError("must not recreate the VM")
+
+        def delete_vm(self, vm_name):
+            destroyed.append(vm_name)
+            raise AssertionError("must not delete the VM to edit it")
+
+        def start_vm(self, vm_name):
+            raise NotImplementedError
+
+        def stop_vm(self, vm_name, force=False, wait=0):
+            raise NotImplementedError
+
+        def get_vm_status(self, vm_name):
+            return "stopped"
+
+    with pytest.raises(NotImplementedError):
+        Incomplete().edit_vm("vm1", vm_minimal)
+    assert destroyed == []

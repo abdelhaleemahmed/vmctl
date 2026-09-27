@@ -103,11 +103,29 @@ instances:
 vmctl batch create lab-cluster.yaml --execute
 ```
 
+### Editing a VM in place
+
+`vmctl edit` reads the VM, compares it to what you asked for, and emits only the
+settings that actually differ — so changing one value runs one command:
+
+```
+$ vmctl edit dev-server --memory 4096 --cpus 4
+
+Dry-run mode.  Commands that would be executed:
+    1: VBoxManage modifyvm dev-server --memory 4096 --cpus 4
+
+Run with --execute to apply.
+```
+
+The VM must be stopped. Storage and network layout cannot be changed in place;
+`edit` says so rather than pretending otherwise.
+
 ### Full VM Lifecycle
 
 ```bash
 vmctl start <vm>            # Start (headless)
 vmctl stop <vm>             # Graceful shutdown (ACPI)
+vmctl stop <vm> --wait 60    # ...and wait up to 60s for it to stop
 vmctl stop <vm> --force     # Force power off
 vmctl status <vm>           # running / stopped / paused / saved
 vmctl delete <vm>           # Unregister and delete disk files
@@ -149,15 +167,15 @@ BIOS, EFI, EFI64, EFI32. Optional secure boot and TPM support.
 | `vmctl list [--format table\|simple]` | List all VMs with status |
 | `vmctl status <vm>` | Show current VM state |
 | `vmctl start <vm>` | Start VM in headless mode |
-| `vmctl stop <vm> [-f]` | Stop VM (graceful or forced) |
+| `vmctl stop <vm> [-f] [--wait SECONDS]` | Stop VM (graceful or forced), optionally waiting for it |
 | `vmctl read <vm> [--format yaml\|json]` | Print VM configuration |
 | `vmctl export <vm> -o <file>` | Save VM config to file |
 | `vmctl import <file> [--new-name <n>] [--execute]` | Create VM from config file |
 | `vmctl create <vm> --new-name <n> [--execute]` | Clone VM config from existing VM |
-| `vmctl edit <vm> [--memory MB] [--cpus N]` | Modify running VM properties |
+| `vmctl edit <vm> [--memory MB] [--vram MB] [--cpus N] [--new-name <n>] [--execute]` | Change a stopped VM's CPU, memory or name (dry-run by default) |
 | `vmctl delete <vm> [-f]` | Delete VM and disk files |
 | `vmctl validate <file>` | Validate config file |
-| `vmctl batch create <file> [--execute]` | Create multiple VMs from batch file |
+| `vmctl batch create <file> [--execute] [--continue-on-error]` | Create multiple VMs from batch file |
 | `vmctl batch template [-o <file>]` | Generate a starter batch template |
 
 ---

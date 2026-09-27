@@ -456,10 +456,19 @@ class VirtualBoxParser:
                     controller_name=ctrl_name,
                     port=int(port),
                     device=int(device),
-                    bootable=(boot.order[0] == 'disk'),
+                    bootable=False,  # set below for the first disk only
                     disk_path=disk_path,
                 )
             disks.append(disk)
+
+        # Mark only the first non-removable disk bootable, and only when the VM
+        # boots from disk at all. Every disk used to be marked bootable whenever
+        # boot1 was 'disk', including optical drives (L-03).
+        if 'disk' in boot.order:
+            for disk in disks:
+                if not disk.is_removable:
+                    disk.bootable = True
+                    break
         
         # Parse networks
         # Map VirtualBox network types to our NetworkType enum

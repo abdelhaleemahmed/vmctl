@@ -1,8 +1,8 @@
 VBoxManage createvm --name efi-secureboot --ostype Ubuntu_64 --register
 VBoxManage modifyvm efi-secureboot --memory 128 --vram 16 --cpus 1 --firmware efi64 --acpi on --ioapic on --rtcuseutc on --pae on --nested-hw-virt on --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
 VBoxManage storagectl efi-secureboot --name SATA Controller --add sata --controller IntelAhci --portcount 2 --bootable off
-VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/efi-secureboot/efi-secureboot_disk_SATA Controller_0_0.vdi --size 64 --format VDI --variant Fixed
-VBoxManage storageattach efi-secureboot --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/efi-secureboot/efi-secureboot_disk_SATA Controller_0_0.vdi
+VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/efi-secureboot/efi-secureboot_disk_SATA_Controller_0_0.vdi --size 64 --format VDI --variant Fixed
+VBoxManage storageattach efi-secureboot --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/efi-secureboot/efi-secureboot_disk_SATA_Controller_0_0.vdi
 VBoxManage modifyvm efi-secureboot --nic1 nat --nictype1 virtio --cableconnected1 on --macaddress1 080027964712
 VBoxManage modifyvm efi-secureboot --boot1 floppy
 VBoxManage modifyvm efi-secureboot --boot2 dvd

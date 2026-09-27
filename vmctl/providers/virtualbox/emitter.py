@@ -3,6 +3,7 @@
 Emit VirtualBox commands from VMConfig
 """
 import os
+import re
 import sys
 from collections import OrderedDict
 from typing import List, Dict, Any, Optional
@@ -181,7 +182,9 @@ class VirtualBoxEmitter:
                 vbox_format, ext = self.FORMAT_SPECS.get(
                     disk.format, ('VDI', 'vdi')
                 )
-                medium = self._medium_path(vm.name, f"{vm.name}_{disk.name}.{ext}")
+                medium = self._medium_path(
+                    vm.name, f"{vm.name}_{self._slug(disk.name)}.{ext}"
+                )
 
                 vbox_variant = "Standard"  # Thin/dynamic by default
                 if disk.variant == DiskVariant.THICK:
@@ -287,6 +290,18 @@ class VirtualBoxEmitter:
         DiskFormat.RAW: ('RAW', 'img'),
     }
 
+    @staticmethod
+    def _slug(name: str) -> str:
+        """Make a device name safe to use inside a filename.
+
+        Parsed disk names carry the controller name, which routinely contains
+        spaces ("disk_SATA Controller_0_0"), so medium filenames inherited them.
+        The readable name stays in the config; only the filename is slugged
+        (L-04).
+        """
+        cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
+        return cleaned or "disk"
+
     def _resolve_controllers(self, vm: VMConfig) -> Dict[str, StorageControllerConfig]:
         """Return the controllers to create, keyed by the name disks will use.
 
@@ -359,6 +374,91 @@ class VirtualBoxEmitter:
             "--portcount", str(port_count),
             "--bootable", "on" if controller.bootable else "off"
         ]
+
+    # -- editing an existing VM ---------------------------------------------
+
+    #: Settings that can be changed with a single ``modifyvm`` flag, as
+    #: (dotted config path, flag, renderer). Driving edits from a table means a
+    #: field is supported in one place rather than in a hand-written if-chain,
+    #: and read/write cannot drift apart. A-11 generalises this to both
+    #: directions for every provider.
+    MODIFIABLE = (
+        ("memory.mb", "--memory", str),
+        ("memory.vram_mb", "--vram", str),
+        ("cpu.count", "--cpus", str),
+        ("cpu.execution_cap", "--cpuexecutioncap", str),
+        ("cpu.pae", "--pae", lambda v: "on" if v else "off"),
+        ("cpu.nested_virt", "--nested-hw-virt", lambda v: "on" if v else "off"),
+        ("cpu.hotplug", "--cpuhotplug", lambda v: "on" if v else "off"),
+        ("memory.page_fusion", "--pagefusion", lambda v: "on" if v else "off"),
+        ("boot.acpi", "--acpi", lambda v: "on" if v else "off"),
+        ("boot.ioapic", "--ioapic", lambda v: "on" if v else "off"),
+        ("boot.hpet", "--hpet", lambda v: "on" if v else "off"),
+        ("rtc_utc", "--rtcuseutc", lambda v: "on" if v else "off"),
+        ("usb_enabled", "--usb", lambda v: "on" if v else "off"),
+        ("clipboard_mode", "--clipboard-mode", str),
+        ("draganddrop", "--draganddrop", str),
+        ("firmware.type", "--firmware", lambda v: v.value),
+        ("description", "--description", str),
+    )
+
+    #: Changes vmctl cannot apply in place, reported rather than silently ignored.
+    UNSUPPORTED_EDITS = (
+        ("disks", "storage layout"),
+        ("storage_controllers", "storage controllers"),
+        ("networks", "network adapters"),
+        ("ostype", "guest OS type"),
+    )
+
+    @staticmethod
+    def _get(obj: Any, dotted: str) -> Any:
+        for part in dotted.split("."):
+            obj = getattr(obj, part)
+        return obj
+
+    def emit_modify_vm(self, current: VMConfig, desired: VMConfig):
+        """Generate the commands that turn *current* into *desired*.
+
+        Only differences are emitted, so editing one setting produces one
+        command rather than re-applying everything.
+
+        Args:
+            current: The VM as it exists now.
+            desired: The VM as it should be.
+
+        Returns:
+            tuple: ``(commands, unsupported)`` where ``commands`` is a list of
+            argv lists and ``unsupported`` is a list of human-readable
+            descriptions of requested changes that cannot be applied in place.
+        """
+        commands = []
+        unsupported = []
+
+        # Renaming first: every later command addresses the VM by its new name
+        # only if the rename has already happened.
+        target = current.name
+        if desired.name != current.name:
+            commands.append([
+                "VBoxManage", "modifyvm", current.name, "--name", desired.name
+            ])
+            target = desired.name
+
+        changed = []
+        for path, flag, render in self.MODIFIABLE:
+            old = self._get(current, path)
+            new = self._get(desired, path)
+            if new is None or new == old:
+                continue
+            changed += [flag, render(new)]
+
+        if changed:
+            commands.append(["VBoxManage", "modifyvm", target] + changed)
+
+        for attr, label in self.UNSUPPORTED_EDITS:
+            if getattr(current, attr) != getattr(desired, attr):
+                unsupported.append(label)
+
+        return commands, unsupported
 
     def _configure_network_adapter(self, adapter_num: int, network: NetworkConfig) -> List[str]:
         """Generate command to configure network adapter"""

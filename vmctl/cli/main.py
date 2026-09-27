@@ -48,6 +48,25 @@ def _warn(message: str) -> None:
     click.echo(f"Warning: {message}", err=True)
 
 
+def _require_absent(engine, name: str) -> None:
+    """Fail before touching anything if *name* is already registered.
+
+    Without this the first VBoxManage call fails and the create stops partway,
+    which reads like a vmctl bug rather than a name collision (L-07).
+    """
+    try:
+        existing = engine.list_vms()
+    except ProviderError:
+        return  # cannot check; let the provider report its own error
+    if name in existing:
+        _fail(ValidationError(
+            f"A VM named {name!r} already exists",
+            field="name", value=name,
+            recovery_hint="Choose another name with --new-name, or delete the "
+                          "existing VM first.",
+        ))
+
+
 def _fail(exc: Exception) -> None:
     """Print an error the way a user can act on, then exit 1.
 
@@ -208,7 +227,11 @@ def cmd_start(vm_name):
     is_flag=True,
     help="Force power-off (equivalent to pulling the power cord).",
 )
-def cmd_stop(vm_name, force):
+@click.option(
+    "--wait", type=int, default=0, metavar="SECONDS",
+    help="Wait up to SECONDS for the VM to actually stop.",
+)
+def cmd_stop(vm_name, force, wait):
     """Stop a running VM.
 
     Without --force, sends an ACPI shutdown signal so the guest OS can
@@ -217,12 +240,13 @@ def cmd_stop(vm_name, force):
     \b
     Examples:
       vmctl stop ubuntu-server
+      vmctl stop ubuntu-server --wait 60
       vmctl stop ubuntu-server --force
     """
     try:
         engine = VMCtlEngine()
-        engine.stop_vm(vm_name, force=force)
-        action = "Powered off" if force else "Stopped"
+        engine.stop_vm(vm_name, force=force, wait=wait)
+        action = "Powered off" if force else "Stopped" if wait else "Sent shutdown signal to"
         click.echo(f"{action} VM '{vm_name}'")
     except ProviderError as e:
         _fail(e)
@@ -328,6 +352,7 @@ def cmd_import(config_file, new_name, execute):
         engine = VMCtlEngine()
         vm = engine.import_vm(config_file, new_name)
         if execute:
+            _require_absent(engine, vm.name)
             engine.create_vm(vm, on_warning=_warn)
             click.echo(f"Created VM '{vm.name}' from {config_file}")
         else:
@@ -376,6 +401,7 @@ def cmd_create(source_vm, new_name, memory, cpus, execute):
         if cpus:
             vm.cpu.count = cpus
         if execute:
+            _require_absent(engine, vm.name)
             engine.create_vm(vm, on_warning=_warn)
             click.echo(f"Created VM '{vm.name}'")
         else:
@@ -396,17 +422,26 @@ def cmd_create(source_vm, new_name, memory, cpus, execute):
 @click.argument("vm_name", shell_complete=_complete_vm_names)
 @click.option("--new-name", default=None, help="Rename the VM.")
 @click.option("--memory", type=int, default=None, help="Set memory in MB.")
+@click.option("--vram", type=int, default=None, help="Set video memory in MB.")
 @click.option("--cpus", type=int, default=None, help="Set CPU count.")
-def cmd_edit(vm_name, new_name, memory, cpus):
-    """Modify CPU, memory, or name of an existing VM.
+@click.option(
+    "--execute",
+    is_flag=True,
+    help="Actually apply the change (dry-run by default).",
+)
+def cmd_edit(vm_name, new_name, memory, vram, cpus, execute):
+    """Change the CPU, memory, video memory or name of an existing VM.
 
-    The VM should be stopped before changing CPU or memory settings.
+    Only the settings you pass are changed, and only the ones that actually
+    differ produce a command.  The VM must be stopped.
+
+    Without --execute the command prints the VBoxManage commands it would run.
 
     \b
     Examples:
       vmctl edit my-vm --cpus 8
-      vmctl edit my-vm --memory 16384
-      vmctl edit my-vm --new-name renamed-vm
+      vmctl edit my-vm --memory 16384 --execute
+      vmctl edit my-vm --new-name renamed-vm --execute
     """
     try:
         engine = VMCtlEngine()
@@ -415,13 +450,26 @@ def cmd_edit(vm_name, new_name, memory, cpus):
             vm.name = new_name
         if memory:
             vm.memory.mb = memory
+        if vram:
+            vm.memory.vram_mb = vram
         if cpus:
             vm.cpu.count = cpus
-        serializer = engine.get_serializer("yaml")
-        click.echo("Updated VM configuration:")
-        click.echo(serializer.to_string(vm))
-        click.echo("\nNote: full apply support requires VBoxManage modifyvm integration.")
-    except (ProviderError, SerializationError) as e:
+
+        commands = engine.edit_vm(vm_name, vm, execute=execute, on_warning=_warn)
+
+        if not commands:
+            click.echo("No changes to apply.")
+            return
+        if execute:
+            click.echo(f"Updated VM '{vm_name}'")
+            for cmd in commands:
+                click.echo(f"  {' '.join(cmd)}")
+        else:
+            click.echo("Dry-run mode.  Commands that would be executed:")
+            for i, cmd in enumerate(commands, 1):
+                click.echo(f"  {i:3d}: {' '.join(cmd)}")
+            click.echo("\nRun with --execute to apply.")
+    except (ProviderError, SerializationError, ValidationError) as e:
         _fail(e)
 
 
@@ -454,7 +502,10 @@ def cmd_delete(vm_name, force):
         engine.delete_vm(vm_name)
         click.echo(f"Deleted VM '{vm_name}'")
     except click.Abort:
-        click.echo("Deletion cancelled.")
+        # Exit non-zero: a script cannot otherwise tell "user said no" from
+        # "deleted successfully" (L-01).
+        click.echo("Deletion cancelled.", err=True)
+        sys.exit(1)
     except ProviderError as e:
         _fail(e)
 
@@ -506,32 +557,82 @@ def batch():
     is_flag=True,
     help="Actually create the VMs (dry-run by default).",
 )
-def batch_create(batch_file, execute):
+@click.option(
+    "--continue-on-error",
+    is_flag=True,
+    help="Keep going after a VM fails instead of stopping at the first error.",
+)
+def batch_create(batch_file, execute, continue_on_error):
     """Create VMs from a batch definition file.
 
     The batch file defines a base VM and a list of named instances with
     optional per-instance overrides for CPU, memory, and disks.
 
-    Without --execute the command summarises what would be created.
+    The whole file is resolved and validated, and every name is checked against
+    the VMs that already exist, before anything is created.  Without --execute
+    the command only summarises what it would do.
 
     \b
     Examples:
       vmctl batch create cluster.yaml
       vmctl batch create cluster.yaml --execute
+      vmctl batch create cluster.yaml --execute --continue-on-error
     """
     try:
         engine = VMCtlEngine()
         creator = BatchCreator(engine, on_warning=_warn)
         vms = creator.create_from_file(batch_file)
-        if execute:
-            for vm in vms:
-                engine.create_vm(vm, on_warning=_warn)
-            click.echo(f"Created {len(vms)} VMs from {batch_file}")
-        else:
+
+        clashes = creator.preflight(vms)
+        if clashes:
+            _fail(ValidationError(
+                f"{len(clashes)} VM name(s) in {batch_file} already exist: "
+                f"{', '.join(clashes)}",
+                recovery_hint="Rename those instances, or delete the existing "
+                              "VMs first.",
+            ))
+
+        if not execute:
             click.echo(f"Would create {len(vms)} VMs:")
             for vm in vms:
-                click.echo(f"  {vm.name}  ({vm.cpu.count} CPUs, {vm.memory.mb} MB RAM, {len(vm.disks)} disk(s))")
+                click.echo(
+                    f"  {vm.name}  ({vm.cpu.count} CPUs, {vm.memory.mb} MB RAM, "
+                    f"{len(vm.disks)} disk(s))"
+                )
             click.echo("\nRun with --execute to apply.")
+            return
+
+        created, failed = [], []
+        for vm in vms:
+            try:
+                engine.create_vm(vm, on_warning=_warn)
+                created.append(vm.name)
+                click.echo(f"Created {vm.name}")
+            except (ProviderError, ValidationError) as exc:
+                failed.append((vm.name, exc))
+                click.echo(f"Failed {vm.name}: {exc}", err=True)
+                if not continue_on_error:
+                    break
+
+        # Always report what actually happened: a partially created cluster is
+        # the thing a user most needs to know about (F-12).
+        click.echo(
+            f"\nCreated {len(created)} of {len(vms)} VMs from {batch_file}"
+        )
+        if failed:
+            click.echo(f"Failed: {', '.join(name for name, _ in failed)}", err=True)
+        skipped = [vm.name for vm in vms
+                   if vm.name not in created
+                   and vm.name not in {n for n, _ in failed}]
+        if skipped:
+            click.echo(
+                f"Not attempted: {', '.join(skipped)}"
+                + ("" if continue_on_error else " (stopped at the first failure; "
+                                                "use --continue-on-error to go on)"),
+                err=True,
+            )
+        if failed:
+            sys.exit(1)
     except (ValidationError, SerializationError, ProviderError) as e:
         _fail(e)
 
@@ -577,14 +678,14 @@ def batch_template(output, fmt):
 @cli.command("completion")
 @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
 def cmd_completion(shell):
-    """Print shell completion script to stdout.
+    """Print the shell completion script to stdout.
 
-    Source the output to enable tab completion for vmctl commands and
-    VM names in your current shell session.
+    Evaluate the output to enable tab completion for vmctl commands and for VM
+    names read live from VirtualBox.
 
     \b
     Setup:
-      # Bash (add to ~/.bashrc for permanent activation):
+      # Bash (add to ~/.bashrc to make it permanent):
       eval "$(vmctl completion bash)"
 
       # Zsh (add to ~/.zshrc):
@@ -593,23 +694,20 @@ def cmd_completion(shell):
       # Fish (add to ~/.config/fish/config.fish):
       vmctl completion fish | source
     """
-    prog = "vmctl"
-    env_var = f"_{prog.upper()}_COMPLETE"
-    if shell == "bash":
-        click.echo(f'_{env_var}=bash_source {prog}')
-        click.echo(f'\n# To activate, run:')
-        click.echo(f'#   eval "$({env_var}=bash_source {prog})"')
-        click.echo(f'# Or add to ~/.bashrc:')
-        click.echo(f'#   eval "$({env_var}=bash_source {prog})"')
-    elif shell == "zsh":
-        click.echo(f'_{env_var}=zsh_source {prog}')
-        click.echo(f'\n# To activate, run:')
-        click.echo(f'#   eval "$({env_var}=zsh_source {prog})"')
-        click.echo(f'# Or add to ~/.zshrc:')
-        click.echo(f'#   eval "$({env_var}=zsh_source {prog})"')
-    elif shell == "fish":
-        click.echo(f'# Add to ~/.config/fish/config.fish:')
-        click.echo(f'{env_var}=fish_source {prog} | source')
+    # Ask Click for the script rather than printing instructions about it. The
+    # old implementation echoed `__VMCTL_COMPLETE=bash_source vmctl` -- one
+    # underscore too many, and a command rather than a script, so the documented
+    # `eval "$(vmctl completion bash)"` set a variable Click ignores and then
+    # evaluated vmctl's help output (F-09).
+    from click.shell_completion import get_completion_class
+
+    completion_cls = get_completion_class(shell)
+    if completion_cls is None:  # pragma: no cover - Click always ships these
+        raise click.ClickException(f"Click cannot generate completion for {shell}")
+
+    prog_name = "vmctl"
+    complete_var = f"_{prog_name.upper()}_COMPLETE"
+    click.echo(completion_cls(cli, {}, prog_name, complete_var).source())
 
 
 # ---------------------------------------------------------------------------

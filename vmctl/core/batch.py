@@ -27,20 +27,78 @@ class BatchCreator:
         self.on_warning = on_warning
 
     def create_from_file(self, batch_file: Path) -> List[VMConfig]:
-        """Create multiple VMs from batch definition file"""
-        # Load batch definition
+        """Build every VM configuration described by a batch file.
+
+        Nothing is created here: the whole batch is resolved and validated
+        first, so a mistake in the last instance is reported before the first
+        VM exists.
+
+        Args:
+            batch_file: Path to the batch definition (YAML or JSON).
+
+        Returns:
+            list[VMConfig]: One configuration per instance, in file order.
+
+        Raises:
+            ValidationError: If the file is malformed, an instance has no name,
+                two instances share a name, or any instance fails validation.
+        """
         batch_def = self._load_batch_file(batch_file)
-        
-        # Load or create base VM
         base_vm = self._get_base_vm(batch_def)
-        
-        # Create instances
-        created_vms = []
-        for instance_def in batch_def.get('instances', []):
-            vm = self._create_instance(base_vm, instance_def)
-            created_vms.append(vm)
-        
-        return created_vms
+
+        instances = batch_def.get('instances') or []
+        if not isinstance(instances, list):
+            raise ValidationError(
+                "'instances' must be a list of VM definitions",
+                field="instances")
+        if not instances:
+            raise ValidationError(
+                "The batch file defines no instances",
+                field="instances",
+                recovery_hint="Add an 'instances:' list with at least one entry.")
+
+        # Every instance needs its own name. Without this, instances without a
+        # name all inherited the base VM's, and `--execute` created the first
+        # and then failed on the second with a half-built cluster left behind
+        # (F-12).
+        seen = {}
+        for index, instance_def in enumerate(instances):
+            if not isinstance(instance_def, dict):
+                raise ValidationError(
+                    f"instances[{index}] must be a mapping, got "
+                    f"{type(instance_def).__name__}", field=f"instances[{index}]")
+            name = instance_def.get('name')
+            if not name:
+                raise ValidationError(
+                    f"instances[{index}] has no 'name'",
+                    field=f"instances[{index}].name",
+                    recovery_hint="Every instance needs a unique name.")
+            if name in seen:
+                raise ValidationError(
+                    f"instances[{index}] repeats the name {name!r}, already "
+                    f"used by instances[{seen[name]}]",
+                    field=f"instances[{index}].name", value=name)
+            seen[name] = index
+
+        return [self._create_instance(base_vm, d) for d in instances]
+
+    def preflight(self, vms: List[VMConfig]) -> List[str]:
+        """Return the names in *vms* that already exist on the provider.
+
+        Checking up front turns "created three of five VMs, then failed" into a
+        refusal before anything is created.
+
+        Args:
+            vms: Configurations about to be created.
+
+        Returns:
+            list[str]: Names that are already registered.
+        """
+        try:
+            existing = set(self.engine.list_vms())
+        except Exception:
+            return []  # cannot check; the provider will report its own error
+        return [vm.name for vm in vms if vm.name in existing]
     
     def _load_batch_file(self, batch_file: Path) -> Dict[str, Any]:
         """Load batch definition file"""

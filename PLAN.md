@@ -565,6 +565,22 @@ unknown ostype prints two warnings and still exits 0; a port collision exits 1.
 
 ## Phase 3 — CLI honesty
 
+> **Status: complete.** F-09…F-12 and L-01, L-03, L-04, L-06, L-07 are done
+> (L-02 and L-05 landed earlier). Suite: 218 passed, **0 xfailed** — every
+> finding the suite pinned is now fixed. Verified on VirtualBox 7.1.18:
+> `edit` applied a memory+vram+cpu change in **one** command and read back
+> correctly, emitted **nothing** for an unchanged config, and renamed a VM;
+> a two-instance batch created both VMs with per-instance memory (128 and 192
+> MB) and preflight then refused a re-run. Test VMs deleted.
+>
+> `F-10` was implemented rather than renamed. `edit` is dry-run by default like
+> every other mutating command, refuses a running VM (VirtualBox defers or
+> rejects `modifyvm` there), and emits only the flags that differ — driven by a
+> `MODIFIABLE` table rather than an if-chain, which is the same "declare once,
+> use in both directions" idea `A-11` generalises. Changes it cannot apply in
+> place (storage and network layout) are reported, not silently dropped.
+> `emit_modify_vm` is also the building block `E-02 apply` needs.
+
 ### F-09 — `completion` emits a wrong env var name · S
 `vmctl/cli/main.py:567` — `env_var` is already `_VMCTL_COMPLETE`, then the code
 prints `f'_{env_var}...'`, producing `__VMCTL_COMPLETE` (double underscore).
@@ -1559,10 +1575,10 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [ ] F-22 empty removable drive dropped entirely (narrow fix or M-02)
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
-Phase 3  [ ] F-09 completion env var      [ ] F-10 make `edit` edit
-         [ ] F-11 neuter BaseProvider.edit_vm
-         [ ] F-12 batch names + preflight + failure handling
-         [ ] L-01..L-04, L-06, L-07 small CLI/model cleanups  [x] L-05 engine no-op wrappers
+Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
+         [x] F-11 neuter BaseProvider.edit_vm
+         [x] F-12 batch names + preflight + failure handling
+         [x] L-01..L-07 small CLI/model cleanups (all done)
 Phase 4  [ ] H-01 .gitignore              [ ] H-02 drop _build from git
          [ ] H-03 single-source version   [ ] H-04 CI
          [ ] H-05 CHANGELOG + release.sh  [ ] H-06 docs truth pass
