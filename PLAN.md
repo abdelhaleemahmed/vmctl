@@ -368,6 +368,20 @@ declared *second* was reported as `disks[0]`. The device loop reused its
 that line named the wrong device. A report that points at the wrong device is
 worse than no report, since acting on it edits the wrong thing.
 
+### F-33 — An empty optical drive reached for the host's own · S *(fixed)*
+`vmctl/providers/vmware/emitter.py`
+
+Found on the first real power-on of a vmctl-generated ``.vmx``. An empty CD-ROM was
+emitted with ``autodetect = "TRUE"``, which is how VMware is told to find *a* drive
+-- and the one it finds is the host's: "[msg.cdromlib.couldntProcess] Unable to
+process CD-ROM device 'Z:'". On a host with a disc in the drive, the guest would have
+been shown it.
+
+The same power-on turned up VMware's defaults adding a floppy drive pointed at the
+host's ``A:`` ("Could not connect to floppy"), so the emitter now states
+``floppy0.present = "FALSE"`` rather than leaving it to a default. A VM vmctl creates
+has the devices the configuration asked for and no others.
+
 ### F-31 — libvirt claimed disk formats its QEMU cannot write · M *(fixed)*
 `vmctl/providers/libvirt/capabilities.py`
 
@@ -1945,12 +1959,63 @@ domain and reading it back with `dumpxml`. Three findings that shape the design:
   all defined cleanly**, so `M-03`'s `(DeviceKind, BusType)` matrix can be
   probed here rather than guessed.
 
-#### P-02 — VMware Workstation / Fusion · M
+#### P-02 — VMware Workstation / Fusion · M *(done)*
 - `.vmx` is a key/value file: `WRITE_FILE` plus `vmrun` for lifecycle.
 - `vmdk` only — the cleanest test of `CONVERT_ONLY` in the matrix.
 - Buses: IDE, SATA, SCSI (with `lsilogic` / `pvscsi` models), NVMe.
 - `vmware-vdiskmanager` as the conversion backend.
 - ESXi/vCenter via `govc` is a separate provider later, not this one.
+
+> **Done, and measured on VMware Workstation 17 on the real host.** (An earlier note
+> here said VMware was unavailable; that was wrong -- the tools are in
+> `C:\Program Files\VMware\VMware Workstation`, and only leftover ISOs are in the
+> `(x86)` directory I checked first.)
+>
+> A `.vmx` is `key = "value"` lines, the same shape as VirtualBox's machine-readable
+> output, so the field table in `core/mapping.py` reads the scalar half of a VM with
+> **no VMware-specific code at all**. That was `A-11`'s promise and this is the
+> cheapest place to see it.
+>
+> Three rules came from the product rather than from the model, and each one is a VM
+> that silently misbehaves if it is missed:
+>
+> * **A duplicated key makes the whole file unreadable** -- "Cannot read the virtual
+>   machine configuration", and VMware will not open the VM at all. So the emitter
+>   builds an ordered mapping and renders it, rather than appending lines and hoping.
+> * **A `.vmx` needs `pciBridge0/4/5/6/7`.** Without them a PCIe device is refused
+>   with "Device nvme0 requested without secondary PCI slots available" -- which is
+>   exactly what NVMe being absent from a build looks like. The first matrix run
+>   "measured" NVMe, pvscsi and LSI SAS as unsupported; all three were my own
+>   incomplete file.
+> * **VMware silently drops a device it cannot place.** `sata0:30`, `scsi0:16`,
+>   `nvme0:64` and `ide0:2` all power on happily *without the disk*, and nothing is
+>   reported anywhere. The port counts in the declaration are therefore the only
+>   thing between a config and a VM that boots with no disk -- the strongest argument
+>   in this codebase for `A-06` existing at all.
+>
+> The format story is the one the plan predicted, only narrower: VMDK is not merely
+> native, it is the **only** format a `.vmx` can attach, and `vmware-vdiskmanager`
+> reads nothing else either. So a VirtualBox VM migrates onto VMware directly (VDI
+> becomes VMDK, reported), while from libvirt vmctl *refuses* -- "vmware cannot
+> convert qcow2 to vmdk" -- rather than producing a VM that cannot boot. A capability
+> declaration is only useful if it is willing to say no.
+>
+> Guest OS ids are validated by the product ("[msg.guestos.badname] Guest operating
+> system 'x' is not supported"), so the table is measured twice over: `vmcli VM
+> Create -g` prints its own enum, and every id vmctl maps to was accepted by an
+> actual power-on. `arch-64`, `alpine-64` and `openbsd-64` do not exist and fall back;
+> Windows 10 is still `windows9-64`, which VMware never renamed.
+>
+> `F-33` came out of the first power-on: an empty optical drive was reaching for the
+> *host's* CD-ROM, and VMware's defaults were adding a floppy pointed at the host's
+> `A:`.
+>
+> Verified end to end: a 128 MB VM with an NVMe system disk, a SATA data disk at slot
+> 1, an empty IDE optical drive and two NICs (vmxnet3 on NAT, e1000 on host-only)
+> powered on with both disks opening and the SSD flag taking effect; read back through
+> the parser it carries 9 of 10 checked settings, the tenth being the Ubuntu version
+> VMware has no id for -- which is now reported as a substitution rather than lost in
+> silence. `vmrun deleteVM` and the scratch directory were both removed afterwards.
 
 #### P-03 — Hyper-V · M
 - Emitter produces PowerShell (`New-VM`, `Set-VM`, `New-VHD`,
@@ -2146,12 +2211,13 @@ the model (E-03, E-05) want Phase 5 first.
   (`ioapic_optional`) that only existed because a warning had been written for one
   provider's hardware.
 
-  **`P-02` and `P-03` are blocked on hardware, not on design.** Neither VMware nor
-  Hyper-V is available here — the Windows host has leftover ISOs from an uninstalled
-  Workstation and no `Get-VM` — and every table in this plan is measured against a
-  running product. Writing them from documentation would produce exactly the
-  artefact `F-31` was: a declaration that reads plausibly and is wrong about the
-  build in front of you.
+  `P-02` is done and measured. **`P-03` (Hyper-V) is still blocked on hardware**:
+  the Windows host has no `Get-VM`, so the feature is not enabled, and every table in
+  this plan is measured against a running product. Writing it from documentation
+  would produce exactly the artefact `F-31` was — a declaration that reads plausibly
+  and is wrong about the build in front of you. The VMware probe made the point
+  twice: the first matrix run reported NVMe, pvscsi and LSI SAS as unsupported, and
+  all three were a fault in my own `.vmx`.
 - **v1.8.0 — Tier A features** *(E-01 diff, E-04 export --all, E-06 schema,
   E-16 --out, E-17 capabilities, then E-03 clone-disks, E-05 probing)*
 - **v2.0.0 — declarative + cross-hypervisor** *(E-02 `apply`, P-06 `migrate`)*
@@ -2278,6 +2344,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-30 a libvirt VM warned about VirtualBox's requirements
          [x] F-31 libvirt claimed formats its QEMU cannot write
          [x] F-32 reading a running VM invented a 20 GB disk
+         [x] F-33 an empty optical drive reached for the host's own
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2301,7 +2368,7 @@ Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
          [x] A-07 provider conformance suite   [~] A-08 escaping / injection safety
          [x] A-09 storage location abstraction [x] A-10 arch/machine/topology/NicModel
-Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
+Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [x] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
 Phase 7  [ ] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema

@@ -46,3 +46,16 @@ registry.register(
     _qemu,
     "Plain QEMU: one process per VM, no daemon",
 )
+
+
+def _vmware() -> type:
+    from .vmware.backend import VMwareBackend
+
+    return VMwareBackend
+
+
+registry.register(
+    "vmware",
+    _vmware,
+    "VMware Workstation / Fusion via vmrun",
+)

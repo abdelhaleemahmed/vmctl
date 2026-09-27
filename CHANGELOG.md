@@ -96,6 +96,11 @@ things prevented that:
 
 ### Added
 
+- **A fourth hypervisor: VMware Workstation** (`vmctl -p vmware`). A VM is a
+  directory with a `.vmx` in it; vmctl writes the file, makes the disks with
+  `vmware-vdiskmanager` and drives the lifecycle with `vmrun`. VMDK is the only
+  format VMware can attach, so a VirtualBox VM migrates across directly while one
+  from libvirt or QEMU is refused with the reason rather than created unbootable.
 - **A third hypervisor: plain QEMU** (`vmctl -p qemu`). No daemon and no registry --
   each VM is a directory holding its disks and a runnable command line, which is
   also what vmctl reads back when you export it. Create, list, read, edit, start,

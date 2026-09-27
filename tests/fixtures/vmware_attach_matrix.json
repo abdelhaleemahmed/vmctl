@@ -1,0 +1,23 @@
+{
+  "attach": {
+    "cdrom|ide": true,
+    "cdrom|nvme": false,
+    "cdrom|sata": true,
+    "cdrom|scsi-lsilogic": true,
+    "cdrom|scsi-lsisas": true,
+    "cdrom|scsi-pvscsi": true,
+    "disk|ide": true,
+    "disk|nvme": true,
+    "disk|sata": true,
+    "disk|scsi-lsilogic": true,
+    "disk|scsi-lsisas": true,
+    "disk|scsi-pvscsi": true,
+    "floppy|floppy": true
+  },
+  "notes": {
+    "cdrom|nvme": "Error: The system returned an error. Communication with the virtual machine might have been interrupted."
+  },
+  "requires": "A .vmx needs the pciBridge0/4/5/6/7 entries VMware writes itself: without them a PCIe device is refused with 'Device nvme0 requested without secondary PCI slots available', which first looked like NVMe being absent.",
+  "virtual_hw": "22",
+  "vmrun_version": "1.17.0.25388281"
+}

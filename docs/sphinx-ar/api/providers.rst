@@ -58,3 +58,23 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.providers.vmware.backend
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.vmware.parser
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.vmware.emitter
+   :members:
+   :member-order: bysource
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.vmware.capabilities
+   :members:
+   :member-order: bysource
+   :show-inheritance:

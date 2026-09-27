@@ -107,3 +107,35 @@ QEMU Capabilities
    :members:
    :undoc-members:
    :show-inheritance:
+
+VMware Backend
+--------------
+
+.. automodule:: vmctl.providers.vmware.backend
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+VMware Parser
+-------------
+
+.. automodule:: vmctl.providers.vmware.parser
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+VMware Emitter
+--------------
+
+.. automodule:: vmctl.providers.vmware.emitter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+VMware Capabilities
+-------------------
+
+.. automodule:: vmctl.providers.vmware.capabilities
+   :members:
+   :undoc-members:
+   :show-inheritance:

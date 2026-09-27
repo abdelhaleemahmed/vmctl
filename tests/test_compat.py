@@ -422,3 +422,17 @@ def test_a_1_1_x_config_creates_a_qemu_vm(tmp_path):
     assert argv, "the disks should be created"
     written = [step for step in plan if step.content][0]
     assert "exec " in written.content and "-device" in written.content
+
+
+def test_a_1_1_x_config_creates_a_vmware_vm():
+    """The fourth hypervisor, from the same 1.1.9 file. Its VDI disks are not
+    something VMware can write, so `nearest` makes them VMDK and says so -- which is
+    the difference between a provider that translates and one that pretends."""
+    from vmctl.core.translate import Policy
+    from vmctl.providers.vmware.emitter import VMwareEmitter
+
+    vm = YAMLSerializer().load(CONFIGS / "v1_1_9_multidisk.yaml")
+    emitter = VMwareEmitter(vm.name, tools_dir="", policy=Policy.NEAREST)
+    plan = emitter.emit_create_vm(vm)
+    assert [s for s in plan if s.content], "a .vmx should be written"
+    assert any("vdi is not supported" in line for line in plan.warnings)
