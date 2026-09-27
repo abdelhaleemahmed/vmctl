@@ -54,6 +54,9 @@ dev = [
     "flake8>=5.0",
     "mypy>=0.991",
     "types-PyYAML",
+    # Checks that `vmctl schema` emits a valid schema, and that the committed copy
+    # still describes the model (E-06). Not needed to run vmctl.
+    "jsonschema>=4.0",
     "build",
     "twine",
 ]
@@ -67,6 +70,7 @@ test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "pytest-mock>=3.10",
+    "jsonschema>=4.0",
 ]
 
 [project.urls]

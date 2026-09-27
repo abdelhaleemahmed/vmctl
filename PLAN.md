@@ -2185,9 +2185,15 @@ the model (E-03, E-05) want Phase 5 first.
 - **E-03 `--clone-disks` on `import`/`create` · M.** Every doc warns that disk
   contents are not copied. `VBoxManage clonemedium` can copy them when the
   source is local. Opt-in, with a clear size/time warning up front.
-- **E-04 `vmctl export --all -d <dir>` · S.** The README's "lab snapshots" use
+- **E-04 `vmctl export --all -d <dir>` · S. *(done)*** The README's "lab snapshots" use
   case currently needs a shell loop. One command, one file per VM, plus a
   manifest — and it turns the whole lab into something committable.
+
+  > Done. "Committable" turned out to be the design constraint: the manifest carries
+  > the provider and the VMs with their files, sorted, and **no timestamp and no
+  > version** -- a file that changes every time it is written is one nobody can
+  > review. A VM that cannot be read is reported and skipped rather than costing the
+  > other nineteen, and the command then exits non-zero so a script notices.
 - **E-05 Live capability probing · M.** Replace parts of the static
   `capabilities.py` dict with real queries: `VBoxManage list ostypes`,
   `list bridgedifs`, `list hostonlyifs`, `list systemproperties`. This turns
@@ -2196,10 +2202,25 @@ the model (E-03, E-05) want Phase 5 first.
   `eth0` does not exist here" at validate time instead of mid-create. Cache per
   process; keep the static dict as the offline fallback so tests stay
   hermetic.
-- **E-06 `vmctl schema -o vmctl.schema.json` · S.** Emit a JSON Schema for the
+- **E-06 `vmctl schema -o vmctl.schema.json` · S. *(done)*** Emit a JSON Schema for the
   config format. Editors then autocomplete and validate config files in place,
   which is exactly what config-as-code users expect. Generate it from the
   dataclasses so it cannot drift; have CI assert the committed copy is current.
+
+  > Done, in `core/schema.py`, walked out of the dataclasses with the same
+  > introspection the loader uses -- so a field added to the model appears in the
+  > schema with no edit, which a test asserts. Enum members come from the enums, and
+  > field descriptions from the `Attributes:` sections that already explain them.
+  >
+  > The whole difficulty is that **the schema must accept exactly what vmctl accepts**.
+  > Three rounds against the repository's own files found the gaps: the 1.1.x field
+  > names (`disks:`, `type:`), the 1.1.x *values* (`type: ssd`, and
+  > `adapter_type: "82540EM"` -- which needed the legacy NIC table re-keyed by the
+  > spelling people actually wrote, since a JSON Schema enum is case-sensitive and the
+  > loader never was), and batch files, whose `base_vm` is a VM config but whose
+  > instances are overrides with a bare-number shorthand that lives in the creator
+  > rather than the model. All of it is in the schema now, and the committed copy is
+  > checked by CI *and* by the suite.
 
 - **E-16 `--out <path>` native artifact export · S. *(done)*** Once `A-01` exists, dump
   what would run — a shell script, a libvirt domain XML, a `.vmx`, a PowerShell
@@ -2469,7 +2490,7 @@ Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [x] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
-Phase 7  [x] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema
+Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [ ] E-03 clone-disks  [ ] E-05 capability probing
          [ ] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C

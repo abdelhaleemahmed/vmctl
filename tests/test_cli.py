@@ -770,3 +770,62 @@ def test_diff_changes_nothing(runner, vbox, tmp_path):
     runner.invoke(cli, ["export", "bios-minimal", "-o", str(config)])
     runner.invoke(cli, ["diff", "bios-minimal", str(config)])
     assert not any(c[1] in ("modifyvm", "createvm", "storageattach", "unregistervm") for c in vbox)
+
+
+# ---------------------------------------------------------------------------
+# export --all (E-04)
+# ---------------------------------------------------------------------------
+
+
+def test_export_all_writes_one_file_per_vm_and_a_manifest(runner, vbox, tmp_path):
+    """The documented "lab snapshot" used to need a shell loop."""
+    out = tmp_path / "lab"
+    result = runner.invoke(cli, ["export", "--all", "-d", str(out)])
+    assert result.exit_code == 0
+    files = sorted(p.name for p in out.iterdir())
+    assert "manifest.yaml" in files
+    assert len([f for f in files if f != "manifest.yaml"]) == len(
+        [
+            line
+            for line in runner.invoke(cli, ["list", "--format", "simple"]).output.splitlines()
+            if line.strip()
+        ]
+    )
+
+
+def test_the_manifest_is_committable(runner, vbox, tmp_path):
+    """Written twice, byte for byte the same: no timestamp, no version. A file that
+    changes every time it is written is one nobody can review."""
+    out = tmp_path / "lab"
+    runner.invoke(cli, ["export", "--all", "-d", str(out)])
+    first = (out / "manifest.yaml").read_text()
+    runner.invoke(cli, ["export", "--all", "-d", str(out)])
+    assert (out / "manifest.yaml").read_text() == first
+    assert "provider: virtualbox" in first
+
+
+def test_export_all_as_json(runner, vbox, tmp_path):
+    import json as _json
+
+    out = tmp_path / "lab"
+    runner.invoke(cli, ["export", "--all", "-d", str(out), "--format", "json"])
+    manifest = _json.loads((out / "manifest.json").read_text())
+    assert manifest["provider"] == "virtualbox"
+    assert all(entry["file"].endswith(".json") for entry in manifest["vms"])
+
+
+def test_export_all_refuses_a_name(runner, vbox, tmp_path):
+    result = runner.invoke(cli, ["export", "--all", "-d", str(tmp_path), "some-vm"])
+    assert result.exit_code == 1
+    assert "takes -d" in result.output
+
+
+def test_export_all_needs_a_directory(runner, vbox):
+    result = runner.invoke(cli, ["export", "--all"])
+    assert result.exit_code == 1
+    assert "-d" in result.output
+
+
+def test_export_without_all_still_needs_a_name_and_output(runner, vbox):
+    assert runner.invoke(cli, ["export"]).exit_code == 1
+    assert "or --all" in runner.invoke(cli, ["export"]).output

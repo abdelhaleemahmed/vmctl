@@ -445,19 +445,25 @@ LEGACY_CONTROLLER_FIELDS = {"name": "native_name", "controller_type": "bus"}
 #: Old name -> new name, on a network adapter.
 LEGACY_NETWORK_FIELDS = {"adapter_type": "model"}
 
-#: 1.1.x chipset spellings -> the neutral model. Both providers' native names are
-#: here because a config exported from either one has to keep loading: VirtualBox
-#: reports ``82540EM`` and QEMU ``e1000``, and they are the same card (A-10).
+#: 1.1.x chipset spellings -> the neutral model, keyed the way a file writes them.
+#: Both providers' native names are here because a config exported from either one has
+#: to keep loading: VirtualBox reports ``82540EM`` and QEMU ``e1000``, and they are the
+#: same card (A-10). The real spelling is the key so that the JSON Schema can offer it
+#: (E-06); lookups go through the lower-cased view below, since the loader has always
+#: been case-insensitive.
 LEGACY_NIC_MODELS = {
-    "82540em": "e1000",
-    "82543gc": "e1000",
-    "82545em": "e1000",
-    "am79c970a": "pcnet",
-    "am79c973": "pcnet",
-    "am79c960": "pcnet",
+    "82540EM": "e1000",
+    "82543GC": "e1000",
+    "82545EM": "e1000",
+    "Am79C970A": "pcnet",
+    "Am79C973": "pcnet",
+    "Am79C960": "pcnet",
     "virtio-net": "virtio",
     "ne2k_pci": "ne2k",
 }
+
+#: The same table, for a lookup that does not care about case.
+_LEGACY_NIC_LOOKUP = {name.lower(): model for name, model in LEGACY_NIC_MODELS.items()}
 
 #: Old name -> new name, on the VM itself.
 LEGACY_VM_FIELDS = {"disks": "storage", "ostype": "guest_os"}
@@ -527,7 +533,7 @@ def _nic_model_given_as_text(kwargs: Dict[str, Any]) -> None:
         if not isinstance(value, str):
             continue
         text = value.strip().lower()
-        kwargs[key] = NicModel(LEGACY_NIC_MODELS.get(text, text))
+        kwargs[key] = NicModel(_LEGACY_NIC_LOOKUP.get(text, text))
 
 
 def _accept_legacy_keywords(
@@ -627,7 +633,7 @@ class NetworkConfig:
         """
         raw = data.get("adapter_type")
         if isinstance(raw, str):
-            data["adapter_type"] = LEGACY_NIC_MODELS.get(raw.strip().lower(), raw)
+            data["adapter_type"] = _LEGACY_NIC_LOOKUP.get(raw.strip().lower(), raw)
         return _rename_keys(data, LEGACY_NETWORK_FIELDS, path)
 
     @property

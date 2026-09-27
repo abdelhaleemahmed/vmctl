@@ -96,6 +96,12 @@ things prevented that:
 
 ### Added
 
+- **`vmctl export --all -d <dir>`** exports every VM as its own file plus a manifest,
+  and nothing in the output changes between runs -- so the directory is something you
+  can commit and review. The documented "lab snapshot" needed a shell loop before.
+- **`vmctl schema`** emits a JSON Schema for config files, generated from vmctl's own
+  model. Point an editor at it for autocompletion and in-place validation; it accepts
+  the 1.1.x field names and covers batch files too.
 - **`vmctl diff <vm> <file>`** shows how a VM differs from a config file, field by
   field. Read-only, and it exits 1 when they differ so a pipeline can watch for drift.
   Only what the file actually states is compared -- a default is not a request -- and

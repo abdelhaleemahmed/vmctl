@@ -103,6 +103,13 @@ Migration
    :members:
    :show-inheritance:
 
+Config schema
+-------------
+
+.. automodule:: vmctl.core.schema
+   :members:
+   :show-inheritance:
+
 Drift
 -----
 

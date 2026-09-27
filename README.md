@@ -140,6 +140,31 @@ A substitution lands on the bus that hypervisor's own users would pick — a dis
 moves to `virtio-scsi` under libvirt, an optical drive to `sata` — rather than
 merely somewhere valid.
 
+### Editor Support
+
+```bash
+vmctl schema -o vmctl.schema.json
+```
+
+Then, at the top of a config file:
+
+```yaml
+# yaml-language-server: $schema=./vmctl.schema.json
+```
+
+The schema is generated from vmctl's own model, so it cannot describe a file vmctl
+would reject — and it accepts the 1.1.x field names, because a schema that refused
+those would be describing a tool that does not exist. It covers batch files too.
+
+### Snapshotting A Whole Lab
+
+```bash
+vmctl export --all -d lab/
+```
+
+One file per VM plus a manifest, and nothing in it changes between runs — no
+timestamps, no versions — so `lab/` is a directory you can commit and review.
+
 ### Has It Drifted?
 
 `vmctl diff` compares a VM against a file, field by field. Read-only, and it exits 1
@@ -330,6 +355,8 @@ VM — set it in the config file.
 | Command | Description |
 |---------|-------------|
 | `vmctl providers` | List hypervisors and whether they work here |
+| `vmctl export --all -d <dir>` | Export every VM, one file each, plus a manifest |
+| `vmctl schema [-o <file>]` | JSON Schema for config files, generated from the model |
 | `vmctl diff <vm> <file>` | Show how a VM differs from a config file (exit 1 when it does) |
 | `vmctl capabilities [--format json]` | Print what this hypervisor supports: formats, buses, the attach matrix, limits — and where each figure was measured |
 | `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute] [--out PATH]` | Recreate a VM on another hypervisor |

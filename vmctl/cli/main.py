@@ -15,6 +15,8 @@ from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
 from vmctl.core.convert import convert as plan_convert
 from vmctl.core.diff import diff, stated_paths, summarise
+from vmctl.core.naming import safe_filename
+from vmctl.core.schema import build as build_schema
 from vmctl.core.migrate import plan_migration
 from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import DeviceKind, DiskFormat
@@ -470,13 +472,26 @@ def cmd_read(ctx, vm_name, fmt):
 
 
 @cli.command("export")
-@click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.argument("vm_name", required=False, shell_complete=_complete_vm_names)
 @click.option(
     "--output",
     "-o",
     type=click.Path(path_type=Path),
-    required=True,
-    help="Output file path (.yaml or .json).",
+    default=None,
+    help="Output file path (.yaml or .json). Required unless --all is given.",
+)
+@click.option(
+    "--all",
+    "export_all",
+    is_flag=True,
+    help="Export every VM, one file each, into the directory given by -d.",
+)
+@click.option(
+    "-d",
+    "--directory",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Where --all writes its files.",
 )
 @click.option(
     "--format",
@@ -487,22 +502,85 @@ def cmd_read(ctx, vm_name, fmt):
     help="Output format (inferred from extension if not specified).",
 )
 @click.pass_context
-def cmd_export(ctx, vm_name, output, fmt):
+def cmd_export(ctx, vm_name, output, export_all, directory, fmt):
     """Save a VM's configuration to a YAML or JSON file.
 
     The VM does not need to be stopped before exporting.
+
+    With ``--all`` every VM is written as its own file, plus a manifest listing
+    them -- which turns a whole lab into something committable, and is what the
+    documented "lab snapshot" used to need a shell loop for.
 
     \b
     Examples:
       vmctl export ubuntu-server -o ubuntu-server.yaml
       vmctl export ubuntu-server -o ubuntu-server.json --format json
+      vmctl export --all -d lab/                  # one file per VM, plus a manifest
     """
+    if export_all:
+        if vm_name or output:
+            _fail(ValidationError("--all exports every VM, so it takes -d, not a name or -o"))
+        if not directory:
+            _fail(ValidationError("--all needs -d to say where the files go", field="-d"))
+        _export_all(ctx, directory, fmt)
+        return
+    if not vm_name or not output:
+        _fail(
+            ValidationError(
+                "export needs a VM name and -o, or --all with -d",
+                recovery_hint="vmctl export <vm> -o <file>, or vmctl export --all -d <dir>",
+            )
+        )
     try:
         engine = _engine(ctx)
         engine.export_vm(vm_name, output, fmt)
         click.echo(f"Exported '{vm_name}' → {output}")
     except VMToolError as e:
         _fail(e)
+
+
+def _export_all(ctx, directory: Path, fmt: str) -> None:
+    """Export every VM into a directory, with a manifest (E-04).
+
+    The manifest is deliberately dull: the provider, and the VMs with their files,
+    sorted. No timestamp and no version -- the point is a directory that can be
+    committed, and a file that changes every time it is written is one nobody can
+    review.
+    """
+    try:
+        engine = _engine(ctx)
+        names = sorted(engine.list_vms())
+    except Exception as exc:
+        _fail(exc)
+        return
+
+    directory.mkdir(parents=True, exist_ok=True)
+    suffix = "json" if fmt == "json" else "yaml"
+    exported: List[dict] = []
+    failed: List[str] = []
+    for name in names:
+        target = directory / f"{safe_filename(name)}.{suffix}"
+        try:
+            engine.export_vm(name, target, fmt)
+        except Exception as exc:
+            # One unreadable VM must not cost the other nineteen.
+            failed.append(name)
+            _warn(f"{name} could not be exported: {exc}")
+            continue
+        exported.append({"name": name, "file": target.name})
+        click.echo(f"Exported '{name}' → {target}")
+
+    manifest = directory / f"manifest.{suffix}"
+    body = {"provider": engine.provider_name, "vms": exported}
+    if fmt == "json":
+        manifest.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n")
+    else:
+        import yaml
+
+        manifest.write_text(yaml.safe_dump(body, sort_keys=True, default_flow_style=False))
+    click.echo(f"Wrote {manifest} ({len(exported)} VM(s))")
+    if failed:
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -1157,6 +1235,42 @@ def cmd_providers():
             status += " *"
         click.echo(f"{entry.name:<14} {status:<12} {version:<12} {entry.description}")
     click.echo("\n* the provider vmctl would use by default")
+
+
+# ---------------------------------------------------------------------------
+# schema
+# ---------------------------------------------------------------------------
+
+
+@cli.command("schema")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Where to write it. Prints to stdout when not given.",
+)
+def cmd_schema(output):
+    """Print a JSON Schema for the configuration format.
+
+    Point an editor at it and config files get autocompletion and validation in
+    place, which is what config-as-code users expect. It is generated from vmctl's own
+    model, so it cannot describe a file vmctl would reject -- and it accepts the 1.1.x
+    field names too, because a schema that refused those would be wrong.
+
+    \b
+    Examples:
+      vmctl schema -o vmctl.schema.json
+      # then, at the top of a config file:
+      #   # yaml-language-server: $schema=./vmctl.schema.json
+    """
+    text = json.dumps(build_schema(), indent=2, sort_keys=True) + "\n"
+    if output is None:
+        click.echo(text, nl=False)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(text)
+    click.echo(f"Wrote {output}")
 
 
 # ---------------------------------------------------------------------------

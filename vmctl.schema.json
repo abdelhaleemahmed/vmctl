@@ -1,0 +1,829 @@
+{
+  "$defs": {
+    "BatchDefinition": {
+      "additionalProperties": false,
+      "description": "Several VMs from one base configuration.",
+      "properties": {
+        "base_vm": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VMConfig"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "The configuration every instance starts from: inline, a path to a config file, or the name of an existing VM to copy."
+        },
+        "description": {
+          "type": "string"
+        },
+        "instances": {
+          "description": "One entry per VM, each overriding part of the base.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cpu": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "disks": {
+                "deprecated": true,
+                "description": "Accepted older name for 'storage'.",
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "memory": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "metadata": {
+                "type": "object"
+              },
+              "name": {
+                "type": "string"
+              },
+              "networks": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "storage": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "name": {
+          "description": "A name for the batch itself.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "base_vm",
+        "instances"
+      ],
+      "type": "object"
+    },
+    "BootConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "acpi": {
+          "default": true,
+          "description": "Enable ACPI support (required by most modern OSes).",
+          "type": "boolean"
+        },
+        "boot1": {
+          "default": "disk",
+          "type": "string"
+        },
+        "boot2": {
+          "default": "dvd",
+          "type": "string"
+        },
+        "boot3": {
+          "default": "none",
+          "type": "string"
+        },
+        "boot4": {
+          "default": "none",
+          "type": "string"
+        },
+        "hpet": {
+          "default": false,
+          "description": "Enable High Precision Event Timer.",
+          "type": "boolean"
+        },
+        "ioapic": {
+          "default": false,
+          "description": "Enable I/O APIC (required for more than one CPU or for Windows).",
+          "type": "boolean"
+        },
+        "order": {
+          "description": "Ordered list of boot devices; valid values are ``\"disk\"``, ``\"dvd\"``, ``\"floppy\"``, ``\"network\"``, ``\"none\"``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "CPUConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "cores": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cores per socket, or None."
+        },
+        "count": {
+          "default": 2,
+          "description": "Number of virtual CPUs (1\u2013128).",
+          "type": "integer"
+        },
+        "execution_cap": {
+          "default": 100,
+          "description": "Maximum percentage of host CPU time the VM may use (1\u2013100).",
+          "type": "integer"
+        },
+        "hotplug": {
+          "default": false,
+          "description": "Allow CPUs to be added/removed while the VM is running.",
+          "type": "boolean"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The CPU model the guest sees: ``host`` to pass the host's CPU through, ``host-model`` for the closest migratable description, or a named model such as ``Skylake-Client``. None leaves it to the provider. VirtualBox has no such setting and reports it (A-10)."
+        },
+        "nested_virt": {
+          "default": false,
+          "description": "Enable nested virtualisation (required for running KVM inside VirtualBox).",
+          "type": "boolean"
+        },
+        "pae": {
+          "default": false,
+          "description": "Enable Physical Address Extension for 32-bit OSes.",
+          "type": "boolean"
+        },
+        "sockets": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sockets to present, or None to let the provider decide."
+        },
+        "threads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Threads per core, or None."
+        }
+      },
+      "type": "object"
+    },
+    "FirmwareConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secure_boot": {
+          "default": false,
+          "description": "Enable Secure Boot (requires EFI firmware).",
+          "type": "boolean"
+        },
+        "tpm": {
+          "default": false,
+          "description": "Enable TPM chip emulation.",
+          "type": "boolean"
+        },
+        "type": {
+          "default": "bios",
+          "description": "Firmware type (BIOS, EFI, EFI64, EFI32).",
+          "enum": [
+            "bios",
+            "efi",
+            "efi64",
+            "efi32"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "ballooning": {
+          "default": false,
+          "description": "Enable dynamic memory ballooning (guest must support it).",
+          "type": "boolean"
+        },
+        "mb": {
+          "default": 2048,
+          "description": "RAM in megabytes (4\u20131,048,576).",
+          "type": "integer"
+        },
+        "page_fusion": {
+          "default": false,
+          "description": "Enable kernel same-page merging to reduce physical RAM usage.",
+          "type": "boolean"
+        },
+        "vram_mb": {
+          "default": 16,
+          "description": "Video RAM in megabytes (1\u2013256).",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "NetworkConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Physical or virtual interface name used for BRIDGED / HOSTONLY modes."
+        },
+        "adapter_type": {
+          "default": "e1000",
+          "deprecated": true,
+          "description": "Accepted older name for 'model'.",
+          "enum": [
+            "virtio",
+            "e1000",
+            "e1000e",
+            "rtl8139",
+            "pcnet",
+            "ne2k",
+            "vmxnet3",
+            "82540EM",
+            "82543GC",
+            "82545EM",
+            "Am79C970A",
+            "Am79C973",
+            "Am79C960",
+            "virtio-net",
+            "ne2k_pci"
+          ],
+          "type": "string"
+        },
+        "mac_address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom MAC address; ``None`` lets VirtualBox assign one automatically."
+        },
+        "model": {
+          "default": "e1000",
+          "description": "The network chipset the guest sees. Was ``adapter_type``, which held VirtualBox's own id (``\"82540EM\"``) in the neutral model (A-10).",
+          "enum": [
+            "virtio",
+            "e1000",
+            "e1000e",
+            "rtl8139",
+            "pcnet",
+            "ne2k",
+            "vmxnet3",
+            "82540EM",
+            "82543GC",
+            "82545EM",
+            "Am79C970A",
+            "Am79C973",
+            "Am79C960",
+            "virtio-net",
+            "ne2k_pci"
+          ],
+          "type": "string"
+        },
+        "network_type": {
+          "default": "nat",
+          "description": "Connection mode (NAT, BRIDGED, HOSTONLY, INTERNAL, NATNETWORK).",
+          "enum": [
+            "nat",
+            "bridged",
+            "hostonly",
+            "internal",
+            "natnetwork"
+          ],
+          "type": "string"
+        },
+        "promiscuous_mode": {
+          "default": false,
+          "description": "Allow the adapter to receive packets not addressed to it.",
+          "type": "boolean"
+        },
+        "provider_options": {
+          "description": "Native details with no neutral equivalent, by provider name. This is what keeps a same-provider round trip exact where the neutral vocabulary is deliberately coarser: VirtualBox has three Intel PRO/1000 variants that are all ``e1000`` to the model, and re-creating the VM should give the guest back the same card, not the family's default (A-10).",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "StorageController": {
+      "additionalProperties": false,
+      "properties": {
+        "bootable": {
+          "default": false,
+          "description": "Whether the firmware may boot from this controller.",
+          "type": "boolean"
+        },
+        "bus": {
+          "default": "sata",
+          "description": "The bus this controller implements. Was ``controller_type``, which was documented as a chipset and valued as a bus.",
+          "enum": [
+            "ide",
+            "sata",
+            "scsi",
+            "sas",
+            "nvme",
+            "virtio-blk",
+            "virtio-scsi",
+            "usb",
+            "floppy"
+          ],
+          "type": "string"
+        },
+        "controller_type": {
+          "default": "sata",
+          "deprecated": true,
+          "description": "Accepted older name for 'bus'.",
+          "enum": [
+            "ide",
+            "sata",
+            "scsi",
+            "sas",
+            "nvme",
+            "virtio-blk",
+            "virtio-scsi",
+            "usb",
+            "floppy"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "default": "",
+          "description": "Stable logical key, e.g. ``\"sata0\"``. What devices reference, and what stays the same when the same VM is expressed on another hypervisor.",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Neutral model name, when the bus offers a choice. The chipset a provider uses to implement it is that provider's business, resolved through its tables."
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "deprecated": true,
+          "description": "Accepted older name for 'native_name'."
+        },
+        "native_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the provider calls it (``\"SATA Controller\"``). Kept so a same-provider round trip is faithful; meaningless anywhere else, which is why it is separate from ``id``."
+        },
+        "port_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many ports to give it, or None for the provider's own default -- which is the only safe answer, since a bus may accept exactly one number (IDE takes 2, USB takes 8) and it differs per provider."
+        }
+      },
+      "type": "object"
+    },
+    "StorageDevice": {
+      "additionalProperties": false,
+      "properties": {
+        "allocation": {
+          "default": "thin",
+          "description": "THIN (dynamic) or THICK (preallocated). Was ``variant``.",
+          "enum": [
+            "thin",
+            "thick"
+          ],
+          "type": "string"
+        },
+        "bootable": {
+          "default": false,
+          "description": "Mark this device as a boot device.",
+          "type": "boolean"
+        },
+        "bus": {
+          "default": "sata",
+          "description": "The interface it hangs off. Was ``controller`` -- which named a *bus* while ``controller_name`` named a *controller*, one word doing two jobs (M-02).",
+          "enum": [
+            "ide",
+            "sata",
+            "scsi",
+            "sas",
+            "nvme",
+            "virtio-blk",
+            "virtio-scsi",
+            "usb",
+            "floppy"
+          ],
+          "type": "string"
+        },
+        "controller": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which controller to attach to: a :attr:`StorageController.id`, or a provider's own name for one, or None to take whichever controller serves ``bus``. Was ``controller_name``."
+        },
+        "controller_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "deprecated": true,
+          "description": "Accepted older name for 'controller'."
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "deprecated": true,
+          "description": "Accepted older name for 'unit'."
+        },
+        "discard": {
+          "default": false,
+          "description": "Pass the guest's TRIM/UNMAP through to the host, so freeing space in the guest frees it on the host.",
+          "type": "boolean"
+        },
+        "disk_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the image is on the source host. Never exported: it describes a host, not the VM."
+        },
+        "format": {
+          "anyOf": [
+            {
+              "enum": [
+                "vdi",
+                "vmdk",
+                "vhd",
+                "vhdx",
+                "qcow2",
+                "qed",
+                "parallels",
+                "raw"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Image format, or None for whichever format the provider creates natively. None is what keeps a config portable: it is the difference between \"a disk\" and \"a VirtualBox disk\" (M-04)."
+        },
+        "hotpluggable": {
+          "default": false,
+          "description": "Let the guest detach the device while it is running.",
+          "type": "boolean"
+        },
+        "kind": {
+          "default": "disk",
+          "description": "What the guest sees: a disk, a CD-ROM or a floppy drive. Was ``type``.",
+          "enum": [
+            "disk",
+            "cdrom",
+            "floppy",
+            "hdd",
+            "ssd",
+            "dvd"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Identifier for this device within the VM (e.g. ``\"system\"``).",
+          "type": "string"
+        },
+        "nonrotational": {
+          "default": false,
+          "description": "Present the disk to the guest as solid-state. Was ``type: ssd`` (M-01).",
+          "type": "boolean"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "deprecated": true,
+          "description": "Accepted older name for 'slot'."
+        },
+        "provider_options": {
+          "description": "Settings only one hypervisor has, carried verbatim. vmctl does not interpret them; they exist so that a native detail can survive a round trip on its own provider instead of being dropped, without every such detail having to become a neutral field first.",
+          "type": "object"
+        },
+        "readonly": {
+          "default": false,
+          "description": "Attach without write access.",
+          "type": "boolean"
+        },
+        "size_mb": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Capacity in megabytes. None on a removable drive, which has none; a disk that does not say gets :data:`DEFAULT_DISK_MB`."
+        },
+        "slot": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Port on the controller (0-based), or None to be assigned. Was ``port``."
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An existing medium to attach instead of creating one -- an ISO for an optical drive, or an image that already exists, which is how a migration attaches the converted copy of a disk."
+        },
+        "type": {
+          "default": "disk",
+          "deprecated": true,
+          "description": "Accepted older name for 'kind'.",
+          "enum": [
+            "disk",
+            "cdrom",
+            "floppy",
+            "hdd",
+            "ssd",
+            "dvd"
+          ],
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Device on that slot (0 or 1 on IDE), or None to be assigned. Was ``device``."
+        },
+        "variant": {
+          "default": "thin",
+          "deprecated": true,
+          "description": "Accepted older name for 'allocation'.",
+          "enum": [
+            "thin",
+            "thick"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "VMConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "arch": {
+          "default": "x86_64",
+          "enum": [
+            "x86_64",
+            "i686",
+            "aarch64",
+            "armv7l",
+            "ppc64le",
+            "s390x"
+          ],
+          "type": "string"
+        },
+        "audio_enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "boot": {
+          "$ref": "#/$defs/BootConfig"
+        },
+        "clipboard_mode": {
+          "default": "disabled",
+          "type": "string"
+        },
+        "cpu": {
+          "$ref": "#/$defs/CPUConfig"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "disks": {
+          "deprecated": true,
+          "description": "Accepted older name for 'storage'.",
+          "items": {
+            "$ref": "#/$defs/StorageDevice"
+          },
+          "type": "array"
+        },
+        "draganddrop": {
+          "default": "disabled",
+          "type": "string"
+        },
+        "firmware": {
+          "$ref": "#/$defs/FirmwareConfig"
+        },
+        "guest_os": {
+          "default": "ubuntu",
+          "type": "string"
+        },
+        "machine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryConfig"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "name": {
+          "type": "string"
+        },
+        "networks": {
+          "items": {
+            "$ref": "#/$defs/NetworkConfig"
+          },
+          "type": "array"
+        },
+        "ostype": {
+          "default": "ubuntu",
+          "deprecated": true,
+          "description": "Accepted older name for 'guest_os'.",
+          "type": "string"
+        },
+        "rtc_utc": {
+          "default": true,
+          "type": "boolean"
+        },
+        "storage": {
+          "items": {
+            "$ref": "#/$defs/StorageDevice"
+          },
+          "type": "array"
+        },
+        "storage_controllers": {
+          "items": {
+            "$ref": "#/$defs/StorageController"
+          },
+          "type": "array"
+        },
+        "usb_enabled": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/ahmedhal/vmctl/blob/main/vmctl.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A virtual machine, or a batch that creates several from one base -- in terms no hypervisor owns. Generated from vmctl's own model, so it cannot describe a file vmctl would reject, and it accepts the 1.1.x field names.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/VMConfig"
+    },
+    {
+      "$ref": "#/$defs/BatchDefinition"
+    }
+  ],
+  "title": "vmctl configuration"
+}

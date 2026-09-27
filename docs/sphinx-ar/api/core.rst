@@ -83,3 +83,8 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.core.schema
+   :members:
+   :member-order: bysource
+   :show-inheritance:

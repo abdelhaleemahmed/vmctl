@@ -88,6 +88,13 @@ jobs:
         run: |
           vmctl batch template -o /tmp/template.yaml
           vmctl batch create /tmp/template.yaml
+      # The committed schema is what a user's editor validates against, so a model
+      # change that does not regenerate it leaves them checking a tool that no
+      # longer exists (E-06). The suite asserts this too; here it is visible.
+      - name: The committed schema must still describe the model
+        run: |
+          vmctl schema -o /tmp/vmctl.schema.json
+          diff -u vmctl.schema.json /tmp/vmctl.schema.json
 
   docs:
     name: docs build
