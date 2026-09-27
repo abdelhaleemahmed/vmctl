@@ -465,6 +465,35 @@ parser preserve the native type string rather than guess.
 
 ## Phase 2 — Validation and error UX
 
+> **Status: complete.** F-06, F-07 and F-08 are fixed, plus L-05. `validate` now
+> reports the field at fault instead of raising `TypeError`; `from_dict` no
+> longer mutates its input; the validator is pure, capability-driven, and its
+> warnings actually fire. Suite: 197 passed, 4 xfailed (all Phase 3).
+> Re-verified end to end on VirtualBox 7.1.18 after the change — 19/19 and
+> 19/19 fields matched, and the emitter goldens did not move, which is what
+> proves the `controller_name` default change was behaviour-neutral.
+>
+> Two judgement calls worth knowing about:
+>
+> * **The ostype warning was dropped, not implemented.** VirtualBox reports
+>   display names (`"Ubuntu (64-bit)"`) while the capability list holds internal
+>   ids (`Ubuntu_64`), so any static comparison warns on *every real VM*. A
+>   warning that fires on correct input is worse than no warning; this needs
+>   `VBoxManage list ostypes`, i.e. `E-05`.
+> * **Per-missing-boot-device warnings were dropped for the same reason.**
+>   VirtualBox's default boot order is floppy, dvd, disk, and most VMs have
+>   neither a floppy nor a DVD. The rule now fires only when *nothing* in the
+>   boot order exists, which is genuinely unbootable.
+>
+> `DiskConfig.controller_name` now defaults to `None` rather than the literal
+> `"SATA"` (the deferred half of F-01). The old default claimed a specific
+> controller even for a disk on another bus, which produced a false slot-clash
+> error the moment F-08's collision check existed. Resolution now goes through
+> one shared `resolve_controller()` in `core/vmconfig.py`, used by both the
+> emitter and the validator, so the two cannot disagree about where a disk lands
+> — they did, and that disagreement is how a system disk reached a floppy
+> controller.
+
 ### F-06 — `validate` crashes instead of validating · M
 `vmctl/core/vmconfig.py:361`, `vmctl/serializers/yaml_serializer.py:24`
 
@@ -1528,12 +1557,12 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-20 'Format variant:' prefix -> variant always thin
          [x] F-21 audio="default" misread as audio enabled
          [ ] F-22 empty removable drive dropped entirely (narrow fix or M-02)
-Phase 2  [ ] F-06 friendly config errors  [ ] F-07 from_dict must not mutate
-         [ ] F-08 real warnings; pure validator; port-collision check
+Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
+         [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [ ] F-09 completion env var      [ ] F-10 make `edit` edit
          [ ] F-11 neuter BaseProvider.edit_vm
          [ ] F-12 batch names + preflight + failure handling
-         [ ] L-01..L-07 small CLI/model cleanups
+         [ ] L-01..L-04, L-06, L-07 small CLI/model cleanups  [x] L-05 engine no-op wrappers
 Phase 4  [ ] H-01 .gitignore              [ ] H-02 drop _build from git
          [ ] H-03 single-source version   [ ] H-04 CI
          [ ] H-05 CHANGELOG + release.sh  [ ] H-06 docs truth pass

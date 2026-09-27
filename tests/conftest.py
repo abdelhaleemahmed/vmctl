@@ -161,7 +161,7 @@ def vm_minimal() -> VMConfig:
     """The smallest config a user could hand-write (as in the README)."""
     return VMConfig(
         name="minimal-vm",
-        cpu=CPUConfig(count=2),
+        cpu=CPUConfig(count=1),
         memory=MemoryConfig(mb=2048),
         firmware=FirmwareConfig(),
         disks=[DiskConfig(name="system", size_mb=20480, bootable=True)],

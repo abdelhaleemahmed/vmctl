@@ -3,7 +3,7 @@ Batch VM creation engine
 """
 import copy
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Callable, Dict, List, Any, Optional
 import yaml
 import json
 from .vmconfig import VMConfig
@@ -13,14 +13,18 @@ from .exceptions import ValidationError
 class BatchCreator:
     """Batch VM creation engine"""
 
-    def __init__(self, engine):
+    def __init__(self, engine, on_warning: Optional[Callable[[str], None]] = None):
         """Initialise the batch creator with an engine instance.
 
         Args:
             engine: A configured :class:`~vmctl.core.engine.VMCtlEngine` used
                 to create, read, and validate individual VMs.
+            on_warning: Where to send validation warnings. Defaults to
+                discarding them; the CLI routes them to stderr so that stdout
+                stays pipeable.
         """
         self.engine = engine
+        self.on_warning = on_warning
 
     def create_from_file(self, batch_file: Path) -> List[VMConfig]:
         """Create multiple VMs from batch definition file"""
@@ -120,10 +124,11 @@ class BatchCreator:
         if 'metadata' in instance_def:
             vm.metadata.update(instance_def['metadata'])
         
-        # Validate
-        warnings = self.engine.validate_vm(vm)
-        for warning in warnings:
-            print(f"Warning for {vm.name}: {warning}")
+        # Validate. Errors raise and abort the whole batch before anything is
+        # created; warnings are reported and the instance is kept.
+        for warning in self.engine.validate_vm(vm):
+            if self.on_warning:
+                self.on_warning(f"{vm.name}: {warning}")
         
         return vm
     

@@ -4,7 +4,7 @@ import json
 import pytest
 import yaml
 
-from vmctl.core.exceptions import SerializationError
+from vmctl.core.exceptions import SerializationError, ValidationError
 from vmctl.serializers.json_serializer import JSONSerializer
 from vmctl.serializers.yaml_serializer import YAMLSerializer
 
@@ -57,29 +57,30 @@ def test_missing_file_raises_serialization_error(tmp_path):
         YAMLSerializer().load(tmp_path / "nope.yaml")
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-06: an empty file raises TypeError, not SerializationError/ValidationError")
 def test_empty_file_is_reported_as_a_config_error(tmp_path):
+    """F-06 - used to raise TypeError: argument of type 'NoneType'."""
     path = tmp_path / "empty.yaml"
     path.write_text("")
-    with pytest.raises((SerializationError, ValueError)):
+    with pytest.raises(ValidationError, match="empty"):
         YAMLSerializer().load(path)
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-06: an unknown key raises a bare TypeError")
 def test_unknown_key_is_reported_as_a_config_error(tmp_path):
+    """F-06 - used to raise TypeError from the VMConfig constructor."""
     path = tmp_path / "bad.yaml"
     path.write_text("name: v\nunknown_field: 5\n")
-    with pytest.raises((SerializationError, ValueError)):
+    with pytest.raises(ValidationError) as excinfo:
         YAMLSerializer().load(path)
+    assert "unknown_field" in str(excinfo.value)
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-06: a bad enum raises a bare ValueError from the enum, with no field context")
 def test_bad_enum_value_names_the_field(tmp_path):
+    """F-06 - used to raise a bare enum ValueError with no field context."""
     path = tmp_path / "bad.yaml"
-    path.write_text("name: v\ndisks:\n  - name: d\n    controller: nvme\n")
-    with pytest.raises(SerializationError) as excinfo:
+    path.write_text("name: v\ndisks:\n  - name: d\n    controller: fibrechannel\n")
+    with pytest.raises(ValidationError) as excinfo:
         YAMLSerializer().load(path)
-    assert "controller" in str(excinfo.value)
+    assert "disks[0].controller" in str(excinfo.value)
+    # nvme is now a real bus, so it must load rather than fail
+    path.write_text("name: v\ndisks:\n  - name: d\n    controller: nvme\n")
+    YAMLSerializer().load(path)

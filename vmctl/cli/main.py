@@ -10,7 +10,10 @@ import click
 from vmctl import __version__
 from vmctl.core.engine import VMCtlEngine
 from vmctl.core.batch import BatchCreator
-from vmctl.core.exceptions import ValidationError, SerializationError, ProviderError
+from vmctl.core.exceptions import (
+    ProviderError, SerializationError, ValidationError, VMToolError,
+    get_error_summary,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -34,6 +37,48 @@ def _complete_vm_names(ctx, param, incomplete):
         return names
     except Exception:
         return []
+
+
+# ---------------------------------------------------------------------------
+# Error reporting
+# ---------------------------------------------------------------------------
+
+def _warn(message: str) -> None:
+    """Print a validation warning to stderr, so stdout stays pipeable."""
+    click.echo(f"Warning: {message}", err=True)
+
+
+def _fail(exc: Exception) -> None:
+    """Print an error the way a user can act on, then exit 1.
+
+    vmctl's own exceptions carry the field at fault, what was expected, and a
+    recovery hint. Printing only ``str(exc)`` threw all of that away, so a
+    mistyped field said what was wrong but not what to write instead.
+    """
+    if not isinstance(exc, VMToolError):
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo(get_error_summary(exc), err=True)
+
+    detail = []
+    for key, value in exc.context.items():
+        if key == "constraints" and isinstance(value, list):
+            detail.extend(str(item) for item in value)
+        else:
+            detail.append(f"{key.replace('_', ' ')}: {value}")
+    for line in detail:
+        click.echo(f"  {line}", err=True)
+
+    # ValidationError derives a hint from `expected`/`constraints` when none was
+    # given, which would just restate the lines above. Only print a hint that
+    # adds something.
+    hint = exc.recovery_hint
+    if hint:
+        gist = hint.split(": ", 1)[-1]
+        if not any(gist in line for line in detail):
+            click.echo(f"  hint: {hint}", err=True)
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -101,8 +146,7 @@ def cmd_list(fmt):
                     status = "unknown"
                 click.echo(f"{vm:<30} {status:<12}")
     except ProviderError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -126,8 +170,7 @@ def cmd_status(vm_name):
         status = engine.get_vm_status(vm_name)
         click.echo(status)
     except ProviderError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -151,8 +194,7 @@ def cmd_start(vm_name):
         engine.start_vm(vm_name)
         click.echo(f"Started VM '{vm_name}'")
     except ProviderError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +225,7 @@ def cmd_stop(vm_name, force):
         action = "Powered off" if force else "Stopped"
         click.echo(f"{action} VM '{vm_name}'")
     except ProviderError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -217,8 +258,7 @@ def cmd_read(vm_name, fmt):
         serializer = engine.get_serializer(fmt)
         click.echo(serializer.to_string(vm))
     except (ProviderError, SerializationError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -255,8 +295,7 @@ def cmd_export(vm_name, output, fmt):
         engine.export_vm(vm_name, output, fmt)
         click.echo(f"Exported '{vm_name}' → {output}")
     except (ProviderError, SerializationError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -289,17 +328,16 @@ def cmd_import(config_file, new_name, execute):
         engine = VMCtlEngine()
         vm = engine.import_vm(config_file, new_name)
         if execute:
-            engine.create_vm(vm)
+            engine.create_vm(vm, on_warning=_warn)
             click.echo(f"Created VM '{vm.name}' from {config_file}")
         else:
-            commands = engine.create_vm(vm, execute=False)
+            commands = engine.create_vm(vm, execute=False, on_warning=_warn)
             click.echo("Dry-run mode.  Commands that would be executed:")
             for i, cmd in enumerate(commands, 1):
                 click.echo(f"  {i:3d}: {' '.join(cmd)}")
             click.echo("\nRun with --execute to apply.")
     except (ProviderError, SerializationError, ValidationError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -338,17 +376,16 @@ def cmd_create(source_vm, new_name, memory, cpus, execute):
         if cpus:
             vm.cpu.count = cpus
         if execute:
-            engine.create_vm(vm)
+            engine.create_vm(vm, on_warning=_warn)
             click.echo(f"Created VM '{vm.name}'")
         else:
-            commands = engine.create_vm(vm, execute=False)
+            commands = engine.create_vm(vm, execute=False, on_warning=_warn)
             click.echo("Dry-run mode.  Commands that would be executed:")
             for i, cmd in enumerate(commands, 1):
                 click.echo(f"  {i:3d}: {' '.join(cmd)}")
             click.echo("\nRun with --execute to apply.")
     except (ProviderError, ValidationError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -385,8 +422,7 @@ def cmd_edit(vm_name, new_name, memory, cpus):
         click.echo(serializer.to_string(vm))
         click.echo("\nNote: full apply support requires VBoxManage modifyvm integration.")
     except (ProviderError, SerializationError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -420,8 +456,7 @@ def cmd_delete(vm_name, force):
     except click.Abort:
         click.echo("Deletion cancelled.")
     except ProviderError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -444,18 +479,15 @@ def cmd_validate(config_file):
         engine = VMCtlEngine()
         vm = engine.import_vm(config_file)
         warnings = engine.validate_vm(vm)
-        if warnings:
-            click.echo("Warnings:")
-            for w in warnings:
-                click.echo(f"  Warning: {w}")
+        for w in warnings:
+            _warn(w)
         click.echo("Configuration is valid!")
         click.echo(f"  VM Name: {vm.name}")
         click.echo(f"  CPU:     {vm.cpu.count} cores")
         click.echo(f"  Memory:  {vm.memory.mb} MB")
         click.echo(f"  Disks:   {len(vm.disks)}")
-    except (ValidationError, SerializationError) as e:
-        click.echo(f"Validation failed: {e}", err=True)
-        sys.exit(1)
+    except (ValidationError, SerializationError, ProviderError) as e:
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------
@@ -489,11 +521,11 @@ def batch_create(batch_file, execute):
     """
     try:
         engine = VMCtlEngine()
-        creator = BatchCreator(engine)
+        creator = BatchCreator(engine, on_warning=_warn)
         vms = creator.create_from_file(batch_file)
         if execute:
             for vm in vms:
-                engine.create_vm(vm)
+                engine.create_vm(vm, on_warning=_warn)
             click.echo(f"Created {len(vms)} VMs from {batch_file}")
         else:
             click.echo(f"Would create {len(vms)} VMs:")
@@ -501,8 +533,7 @@ def batch_create(batch_file, execute):
                 click.echo(f"  {vm.name}  ({vm.cpu.count} CPUs, {vm.memory.mb} MB RAM, {len(vm.disks)} disk(s))")
             click.echo("\nRun with --execute to apply.")
     except (ValidationError, SerializationError, ProviderError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 @batch.command("template")
@@ -532,12 +563,11 @@ def batch_template(output, fmt):
     """
     try:
         engine = VMCtlEngine()
-        creator = BatchCreator(engine)
+        creator = BatchCreator(engine, on_warning=_warn)
         creator.generate_batch_template(output, fmt)
         click.echo(f"Generated batch template → {output}")
     except (ValidationError, SerializationError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        _fail(e)
 
 
 # ---------------------------------------------------------------------------

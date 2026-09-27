@@ -69,8 +69,6 @@ def test_disk_path_is_intentionally_dropped_on_export():
     assert reload_through(YAMLSerializer(), vm).disks[0].disk_path is None
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-07: from_dict pops from the caller's dict")
 def test_from_dict_does_not_mutate_its_input():
     """F-07 — loading a config destroys the dict it was given."""
     data = {"name": "x", "cpu": {"count": 4}, "memory": {"mb": 1024}}

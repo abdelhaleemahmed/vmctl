@@ -8,7 +8,8 @@ from collections import OrderedDict
 from typing import List, Dict, Any, Optional
 from ...core.vmconfig import (
     VMConfig, DiskConfig, DiskFormat, DiskType, DiskVariant, FirmwareType,
-    NetworkConfig, NetworkType, StorageControllerConfig, StorageControllerType
+    NetworkConfig, NetworkType, StorageControllerConfig, StorageControllerType,
+    resolve_controller,
 )
 from ...core.exceptions import ProviderError
 
@@ -333,15 +334,10 @@ class VirtualBoxEmitter:
     def _match_controller(disk, resolved, by_bus):
         """Find the controller a disk should attach to, or None.
 
-        Resolution order: an explicit ``controller_name`` that exists, then any
-        declared controller on the disk's bus. The old code special-cased the
-        literal string ``"SATA"`` as "unset", which discarded the real name of
-        VirtualBox's default SATA controller and re-resolved by type -- landing
-        on a mis-typed floppy controller when one sorted first (F-01/F-15).
+        Delegates to :func:`~vmctl.core.vmconfig.resolve_controller` so the
+        emitter and the validator place devices identically (F-01/F-15).
         """
-        if disk.controller_name and disk.controller_name in resolved:
-            return resolved[disk.controller_name]
-        return by_bus.get(disk.controller)
+        return resolve_controller(disk, resolved, by_bus)
 
     def _create_storage_controller(self, controller: StorageControllerConfig) -> List[str]:
         """Generate the command that creates one storage controller."""

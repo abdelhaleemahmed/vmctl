@@ -26,15 +26,29 @@ class VirtualBoxCapabilities:
                 'Fedora_64', 'Fedora', 'CentOS_64', 'CentOS',
                 'Linux_64', 'Linux', 'Other_64', 'Other'
             ],
+            # Maximum ports per bus. The floppy and USB figures were verified
+            # on VirtualBox 7.1.18 by creating controllers on a live host: a
+            # USB controller accepts exactly 8 ports ("must be in range
+            # [8, 8]"), and only one floppy controller may exist.
             'max_ports_per_controller': {
-                'ide': 30,    # VirtualBox reports various counts
+                'ide': 2,
                 'sata': 30,
-                'scsi': 254,
+                'scsi': 16,
                 'sas': 255,
-                'nvme': 255
+                'nvme': 255,
+                'floppy': 1,
+                'usb': 8,
+                'virtio-scsi': 256,
             },
+            'devices_per_port': {'ide': 2},  # master/slave; every other bus is 1
             'supported_network_types': [
                 'nat', 'bridged', 'hostonly', 'internal', 'natnetwork'
             ],
-            'supported_storage_controllers': ['ide', 'sata', 'scsi', 'sas']
+            # Verified against `VBoxManage storagectl --help` on 7.1.18. Note
+            # that virtio-scsi is a valid --add value even though the help text
+            # omits it.
+            'supported_storage_controllers': [
+                'ide', 'sata', 'scsi', 'sas', 'nvme', 'floppy', 'usb',
+                'virtio-scsi',
+            ]
         }

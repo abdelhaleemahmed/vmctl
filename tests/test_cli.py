@@ -178,7 +178,7 @@ def test_unsupported_extension_is_rejected(runner, vbox, tmp_path):
     path.write_text("name: x\n")
     result = runner.invoke(cli, ["import", str(path)])
     assert result.exit_code == 1
-    assert "Error" in result.output
+    assert "unsupported file format" in result.output.lower()
 
 
 def test_delete_asks_before_destroying(runner, vbox):
@@ -214,14 +214,14 @@ def test_completion_emits_the_variable_click_reads(runner, shell):
     assert "_VMCTL_COMPLETE" in result.output
 
 
-@pytest.mark.documents_bug
-@pytest.mark.xfail(strict=True, reason="F-06: a malformed config raises TypeError out of the CLI")
 def test_malformed_config_exits_cleanly(runner, vbox, tmp_path):
+    """F-06 - a typo used to produce a raw TypeError traceback."""
     path = tmp_path / "bad.yaml"
     path.write_text("name: v\nunknown_field: 5\n")
     result = runner.invoke(cli, ["validate", str(path)])
     assert result.exit_code == 1
     assert not isinstance(result.exception, TypeError)
+    assert "Unknown field 'unknown_field'" in result.output
 
 
 @pytest.mark.documents_bug
@@ -229,3 +229,81 @@ def test_malformed_config_exits_cleanly(runner, vbox, tmp_path):
 def test_edit_applies_its_change(runner, vbox):
     runner.invoke(cli, ["edit", "bios-minimal", "--cpus", "8"])
     assert any("modifyvm" in c for c in vbox)
+
+
+# ---------------------------------------------------------------------------
+# Error and warning reporting (Phase 2)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("body,needle", [
+    ("", "empty"),
+    ("name: v\nunknown_field: 5\n", "Unknown field 'unknown_field'"),
+    ("name: v\ncpu:\n  cont: 2\n", "Did you mean 'count'?"),
+    ("name: v\ncpu:\n  count: four\n", "must be a number"),
+    ("disks: []\n", "missing required field 'name'"),
+    ("name: v\ndisks:\n  - name: d\n    controller: fibrechannel\n",
+     "not a valid value for disks[0].controller"),
+])
+def test_malformed_configs_report_the_field(runner, vbox, tmp_path, body, needle):
+    """F-06 - each of these used to be a raw TypeError or enum ValueError."""
+    path = tmp_path / "bad.yaml"
+    path.write_text(body)
+    result = runner.invoke(cli, ["validate", str(path)])
+    assert result.exit_code == 1
+    assert needle in result.output
+    assert "Traceback" not in result.output
+
+
+def test_bad_enum_lists_the_accepted_values(runner, vbox, tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("name: v\nfirmware:\n  type: uefi\n")
+    result = runner.invoke(cli, ["validate", str(path)])
+    assert result.exit_code == 1
+    for value in ("bios", "efi", "efi32", "efi64"):
+        assert value in result.output
+
+
+def test_validation_warnings_do_not_fail_the_command(runner, vbox, tmp_path):
+    """A warning means 'probably not what you meant', not 'cannot be created'."""
+    path = tmp_path / "warn.yaml"
+    path.write_text(
+        "name: warny\ncpu:\n  count: 1\nmemory:\n  mb: 2050\n"
+        "disks:\n  - name: system\n    size_mb: 1024\n"
+    )
+    result = runner.invoke(cli, ["validate", str(path)])
+    assert result.exit_code == 0
+    assert "multiple of 4" in result.output
+    assert "Configuration is valid!" in result.output
+
+
+def test_a_slot_clash_is_caught_before_anything_runs(runner, vbox, tmp_path):
+    """F-08 - this used to fail inside VBoxManage partway through a create."""
+    path = tmp_path / "clash.yaml"
+    path.write_text(
+        "name: clash\n"
+        "storage_controllers:\n  - name: SATA Controller\n"
+        "    controller_type: sata\n    port_count: 4\n"
+        "disks:\n"
+        "  - name: a\n    size_mb: 1024\n    controller_name: SATA Controller\n    port: 0\n"
+        "  - name: b\n    size_mb: 1024\n    controller_name: SATA Controller\n    port: 0\n"
+    )
+    result = runner.invoke(cli, ["validate", str(path)])
+    assert result.exit_code == 1
+    assert "both attached to" in result.output
+    assert not any(c[1] == "createvm" for c in vbox)
+
+
+def test_dry_run_stdout_carries_only_commands(runner, vbox, tmp_path):
+    """Warnings go to stderr so `vmctl import ... | sh` stays usable."""
+    path = tmp_path / "warn.yaml"
+    path.write_text(
+        "name: warny\ncpu:\n  count: 4\nmemory:\n  mb: 2050\n"
+        "disks:\n  - name: system\n    size_mb: 1024\n"
+        "networks:\n  - network_type: bridged\n"
+    )
+    result = runner.invoke(cli, ["import", str(path)], catch_exceptions=False)
+    assert result.exit_code == 0
+    runner_mixed = CliRunner(mix_stderr=False).invoke(cli, ["import", str(path)])
+    assert "Warning:" not in runner_mixed.stdout
+    assert "Warning:" in runner_mixed.stderr
+    assert "VBoxManage createvm" in runner_mixed.stdout

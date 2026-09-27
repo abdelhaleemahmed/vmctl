@@ -1,9 +1,16 @@
 """
 Core VM configuration models - the center of gravity
 """
-from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict, Any
+import copy
+import difflib
+from dataclasses import dataclass, field, asdict, fields, is_dataclass, MISSING
 from enum import Enum
+from functools import lru_cache
+from typing import (
+    Any, Dict, List, Optional, Union, get_args, get_origin, get_type_hints,
+)
+
+from .exceptions import ValidationError
 
 
 class FirmwareType(Enum):
@@ -192,7 +199,8 @@ class DiskConfig:
         format: Image file format — VDI, VMDK, VHD, or RAW.
         variant: Allocation strategy — THIN (dynamic) or THICK (fixed).
         controller: Storage bus type the disk is attached to.
-        controller_name: Exact VirtualBox controller name (e.g. ``"SATA Controller"``).
+        controller_name: Exact controller name (e.g. ``"SATA Controller"``), or
+            None to use whichever controller serves ``controller``.
         port: Controller port number (0-based).
         device: Device number on the port (0 or 1).
         bootable: Mark this disk as a boot device.
@@ -207,7 +215,12 @@ class DiskConfig:
     format: DiskFormat = DiskFormat.VDI  # Disk image format
     variant: DiskVariant = DiskVariant.THIN  # Thin provisioned by default
     controller: StorageControllerType = StorageControllerType.SATA
-    controller_name: str = "SATA"  # Actual controller name for VirtualBox
+    # None means "whichever controller serves `controller`". It used to default
+    # to the literal "SATA", which claimed a specific controller name even for a
+    # disk on another bus, and forced consumers to special-case that string
+    # (F-01). A config that names "SATA" still works: it is matched as a real
+    # name first, and falls back to bus matching if nothing has that name.
+    controller_name: Optional[str] = None
     port: int = 0
     device: int = 0
     bootable: bool = False
@@ -263,6 +276,18 @@ class NetworkConfig:
     adapter_name: Optional[str] = None  # For bridged/host-only
     mac_address: Optional[str] = None
     promiscuous_mode: bool = False
+
+    @property
+    def needs_adapter_name(self) -> bool:
+        """True when this mode is useless without a named network or interface.
+
+        BRIDGED needs a host NIC, HOSTONLY a host-only interface, and NATNETWORK
+        an existing NAT network. INTERNAL is excluded: VirtualBox defaults an
+        unnamed internal network to ``intnet``, which works.
+        """
+        return self.network_type in (
+            NetworkType.BRIDGED, NetworkType.HOSTONLY, NetworkType.NATNETWORK,
+        )
 
     def to_dict(self) -> dict:
         """Return network configuration as a plain dictionary.
@@ -334,6 +359,32 @@ class StorageControllerConfig:
         return result
 
 
+def resolve_controller(
+    disk: 'DiskConfig',
+    by_name: Dict[str, 'StorageControllerConfig'],
+    by_bus: Dict[Any, 'StorageControllerConfig'],
+) -> Optional['StorageControllerConfig']:
+    """Find the controller a device attaches to.
+
+    An explicit name wins if something actually has that name; otherwise the
+    device goes to whichever controller serves its bus. Kept here, in the model,
+    so the validator and the emitter cannot disagree about where a disk lands --
+    they did, and the disagreement was how a system disk ended up on a floppy
+    controller.
+
+    Args:
+        disk: The device to place.
+        by_name: Controllers keyed by name.
+        by_bus: One controller per bus type.
+
+    Returns:
+        The matching controller, or None if neither lookup succeeds.
+    """
+    if disk.controller_name and disk.controller_name in by_name:
+        return by_name[disk.controller_name]
+    return by_bus.get(disk.controller)
+
+
 @dataclass
 class VMConfig:
     """Canonical VM configuration - the center of gravity"""
@@ -364,6 +415,22 @@ class VMConfig:
         if not self.disks:
             self.disks = [DiskConfig(name=f"{self.name}_system")]
     
+    def controller_for(self, disk: DiskConfig) -> Optional[StorageControllerConfig]:
+        """Return the declared controller this device attaches to, if any.
+
+        Args:
+            disk: A device belonging to this VM.
+
+        Returns:
+            The controller, or None when the VM declares nothing suitable (the
+            provider is then expected to supply one).
+        """
+        by_name = {sc.name: sc for sc in self.storage_controllers}
+        by_bus: Dict[Any, StorageControllerConfig] = {}
+        for sc in self.storage_controllers:
+            by_bus.setdefault(sc.controller_type, sc)
+        return resolve_controller(disk, by_name, by_bus)
+
     def to_dict(self) -> dict:
         """Convert VMConfig to dictionary for serialization"""
         result = {
@@ -388,49 +455,226 @@ class VMConfig:
     
     @classmethod
     def from_dict(cls, data: dict) -> 'VMConfig':
-        """Create VMConfig from dictionary"""
-        # Convert string enums back to Enum types
-        if 'firmware' in data and 'type' in data['firmware']:
-            data['firmware']['type'] = FirmwareType(data['firmware']['type'])
-        
-        if 'disks' in data:
-            for disk in data['disks']:
-                if 'type' in disk:
-                    disk['type'] = DiskType(disk['type'])
-                if 'format' in disk:
-                    disk['format'] = DiskFormat(disk['format'])
-                if 'variant' in disk:
-                    disk['variant'] = DiskVariant(disk['variant'])
-                if 'controller' in disk:
-                    disk['controller'] = StorageControllerType(disk['controller'])
-        
-        if 'networks' in data:
-            for net in data['networks']:
-                if 'network_type' in net:
-                    net['network_type'] = NetworkType(net['network_type'])
-        
-        if 'storage_controllers' in data:
-            for sc in data['storage_controllers']:
-                if 'controller_type' in sc:
-                    sc['controller_type'] = StorageControllerType(sc['controller_type'])
-        
-        # Create nested objects
-        cpu = CPUConfig(**data.pop('cpu', {}))
-        memory = MemoryConfig(**data.pop('memory', {}))
-        firmware = FirmwareConfig(**data.pop('firmware', {}))
-        boot = BootConfig(**data.pop('boot', {}))
-        
-        disks = [DiskConfig(**disk) for disk in data.pop('disks', [])]
-        networks = [NetworkConfig(**net) for net in data.pop('networks', [])]
-        storage_controllers = [StorageControllerConfig(**sc) for sc in data.pop('storage_controllers', [])]
-        
-        return cls(
-            cpu=cpu,
-            memory=memory,
-            firmware=firmware,
-            disks=disks,
-            networks=networks,
-            boot=boot,
-            storage_controllers=storage_controllers,
-            **data
+        """Create a VMConfig from a loaded YAML/JSON mapping.
+
+        Validates as it goes: an unknown key, a value of the wrong type, a bad
+        enum value or a missing required field each raise a
+        :class:`~vmctl.core.exceptions.ValidationError` naming the field, rather
+        than surfacing a ``TypeError`` from the constructor or a bare enum
+        ``ValueError`` (F-06).
+
+        The input mapping is not modified (F-07).
+
+        Args:
+            data: Mapping loaded from a config file.
+
+        Returns:
+            VMConfig: The parsed configuration.
+
+        Raises:
+            ValidationError: If the mapping cannot describe a VM.
+        """
+        if data is None:
+            raise ValidationError(
+                "The configuration is empty",
+                recovery_hint="A config file needs at least a 'name' field.",
+            )
+        if not isinstance(data, dict):
+            raise ValidationError(
+                f"A configuration must be a mapping, got {type(data).__name__}",
+                expected="a mapping of field names to values",
+            )
+        return _build(cls, copy.deepcopy(data))
+
+
+# ---------------------------------------------------------------------------
+# Loading configuration dictionaries
+#
+# Every check below is derived from the dataclasses above via introspection --
+# there is no hand-maintained list of valid keys or types to drift out of sync.
+# The goal is that a malformed config file produces one clear sentence naming
+# the field, not a TypeError or a bare enum ValueError (F-06).
+# ---------------------------------------------------------------------------
+
+def _label(path: str) -> str:
+    """Human name for a position in the config tree."""
+    return path or "the configuration"
+
+
+@lru_cache(maxsize=None)
+def _hints(dc: type) -> Dict[str, Any]:
+    """Resolved type hints for a dataclass, cached."""
+    return get_type_hints(dc)
+
+
+def _join(path: str, name: str) -> str:
+    return f"{path}.{name}" if path else name
+
+
+def _unknown_field(key: str, valid: List[str], path: str) -> ValidationError:
+    """Build the error for a key the model does not define."""
+    close = difflib.get_close_matches(key, valid, n=1)
+    hint = f"Did you mean {close[0]!r}?" if close else None
+    return ValidationError(
+        f"Unknown field {key!r} in {_label(path)}",
+        field=_join(path, key),
+        constraints=[f"valid fields: {', '.join(sorted(valid))}"],
+        recovery_hint=hint,
+    )
+
+
+def _coerce(value: Any, tp: Any, path: str) -> Any:
+    """Convert a loaded value to the type the model declares.
+
+    Args:
+        value: Value straight from YAML/JSON.
+        tp: Declared type (may be ``Optional[...]``, ``List[...]``, an Enum, a
+            nested dataclass, or a plain scalar).
+        path: Dotted path used in error messages.
+
+    Returns:
+        The converted value.
+
+    Raises:
+        ValidationError: If the value cannot be represented as ``tp``.
+    """
+    origin = get_origin(tp)
+
+    # Optional[X] / Union[X, None]
+    if origin is Union:
+        args = [a for a in get_args(tp) if a is not type(None)]
+        if value is None:
+            return None
+        return _coerce(value, args[0], path)
+
+    if origin is list:
+        if not isinstance(value, list):
+            raise ValidationError(
+                f"{_label(path)} must be a list, got {type(value).__name__}",
+                field=path, expected="a list",
+            )
+        inner = (get_args(tp) or (Any,))[0]
+        return [_coerce(v, inner, f"{path}[{i}]") for i, v in enumerate(value)]
+
+    if origin is dict:
+        if not isinstance(value, dict):
+            raise ValidationError(
+                f"{_label(path)} must be a mapping, got {type(value).__name__}",
+                field=path, expected="a mapping",
+            )
+        return dict(value)
+
+    if is_dataclass(tp):
+        return _build(tp, value, path)
+
+    if isinstance(tp, type) and issubclass(tp, Enum):
+        if isinstance(value, tp):
+            return value
+        try:
+            return tp(value)
+        except ValueError:
+            raise ValidationError(
+                f"{value!r} is not a valid value for {_label(path)}",
+                field=path,
+                value=value,
+                expected=" | ".join(e.value for e in tp),
+            ) from None
+
+    if tp is bool:
+        if isinstance(value, bool):
+            return value
+        raise ValidationError(
+            f"{_label(path)} must be true or false, got {value!r}",
+            field=path, value=value, expected="true | false",
         )
+
+    if tp is int:
+        if isinstance(value, bool):
+            raise ValidationError(
+                f"{_label(path)} must be a number, got {value!r}",
+                field=path, value=value, expected="a whole number",
+            )
+        if isinstance(value, int):
+            return value
+        # A quoted number in YAML is a common slip; accept it rather than
+        # failing on something whose intent is unambiguous.
+        if isinstance(value, str):
+            try:
+                return int(value.strip())
+            except ValueError:
+                pass
+        raise ValidationError(
+            f"{_label(path)} must be a number, got {value!r}",
+            field=path, value=value, expected="a whole number",
+        )
+
+    if tp is str:
+        if isinstance(value, str):
+            return value
+        raise ValidationError(
+            f"{_label(path)} must be text, got {type(value).__name__}",
+            field=path, value=value, expected="text",
+        )
+
+    return value
+
+
+def _build(dc: type, data: Any, path: str = "") -> Any:
+    """Construct a dataclass from a loaded mapping.
+
+    Unknown keys are rejected, missing optional sections are filled with their
+    defaults, and missing required fields are named.
+
+    Args:
+        dc: Dataclass to construct.
+        data: Mapping loaded from the config file.
+        path: Dotted path used in error messages.
+
+    Returns:
+        An instance of ``dc``.
+
+    Raises:
+        ValidationError: On an unknown key, a bad value, or a missing
+            required field.
+    """
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        raise ValidationError(
+            f"{_label(path)} must be a mapping, got {type(data).__name__}",
+            field=path, expected="a mapping",
+        )
+
+    spec = {f.name: f for f in fields(dc)}
+    hints = _hints(dc)
+
+    for key in data:
+        if key not in spec:
+            raise _unknown_field(key, list(spec), path)
+
+    kwargs = {}
+    for name, f in spec.items():
+        tp = hints.get(name, Any)
+        if name in data:
+            kwargs[name] = _coerce(data[name], tp, _join(path, name))
+            continue
+        # Absent: fall back to the dataclass default where there is one.
+        if f.default is not MISSING or f.default_factory is not MISSING:
+            continue
+        # No default. Nested sections and lists are optional in practice -- a
+        # hand-written config routinely omits `firmware:` or `boot:`.
+        if is_dataclass(tp):
+            kwargs[name] = tp()
+        elif get_origin(tp) is list:
+            kwargs[name] = []
+        else:
+            required = [
+                n for n, ff in spec.items()
+                if ff.default is MISSING and ff.default_factory is MISSING
+            ]
+            raise ValidationError(
+                f"{_label(path)} is missing required field {name!r}",
+                field=_join(path, name),
+                constraints=["required fields: " + ", ".join(required)],
+            )
+    return dc(**kwargs)

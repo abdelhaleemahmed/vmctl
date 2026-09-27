@@ -2,7 +2,7 @@
 Core engine coordinating all components
 """
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Callable, Optional, List, Dict, Any
 from .vmconfig import VMConfig
 from .exceptions import ValidationError, SerializationError, ProviderError
 from ..validators.vm_validator import VMValidator
@@ -38,68 +38,77 @@ class VMCtlEngine:
 
     def read_vm(self, vm_name: str) -> VMConfig:
         """Read VM configuration from provider"""
-        try:
-            return self.backend.read_vm(vm_name)
-        except ProviderError as e:
-            raise e
+        return self.backend.read_vm(vm_name)
 
-    def create_vm(self, vm: VMConfig, validate: bool = True, execute: bool = True) -> List[List[str]]:
-        """Create a new VM"""
+    def create_vm(
+        self,
+        vm: VMConfig,
+        validate: bool = True,
+        execute: bool = True,
+        on_warning: Optional[Callable[[str], None]] = None,
+    ) -> List[List[str]]:
+        """Create a new VM.
+
+        Args:
+            vm: Configuration to create.
+            validate: Run the validator first. Errors raise; warnings are
+                reported through ``on_warning``.
+            execute: Actually create it. False returns the commands only.
+            on_warning: Where to send warnings. The engine used to ``print()``
+                them, which mixed them into stdout ahead of dry-run output that
+                a caller may be piping; the CLI now routes them to stderr.
+
+        Returns:
+            list: The commands that were, or would be, executed.
+        """
         if validate:
-            warnings = self.validator.validate(vm)
-            for warning in warnings:
-                print(f"Warning: {warning}")
+            for warning in self.validator.validate(vm):
+                if on_warning:
+                    on_warning(warning)
 
-        try:
-            return self.backend.create_vm(vm, execute=execute)
-        except ProviderError as e:
-            raise e
+        return self.backend.create_vm(vm, execute=execute)
 
-    def edit_vm(self, vm_name: str, new_config: VMConfig) -> List[List[str]]:
-        """Edit existing VM"""
-        warnings = self.validator.validate(new_config)
-        for warning in warnings:
-            print(f"Warning: {warning}")
+    def edit_vm(
+        self,
+        vm_name: str,
+        new_config: VMConfig,
+        on_warning: Optional[Callable[[str], None]] = None,
+    ) -> List[List[str]]:
+        """Edit an existing VM.
 
-        try:
-            return self.backend.edit_vm(vm_name, new_config)
-        except ProviderError as e:
-            raise e
+        Args:
+            vm_name: VM to change.
+            new_config: Configuration to apply.
+            on_warning: Where to send validation warnings.
+
+        Returns:
+            list: The commands that were executed.
+        """
+        for warning in self.validator.validate(new_config):
+            if on_warning:
+                on_warning(warning)
+
+        return self.backend.edit_vm(vm_name, new_config)
 
     def delete_vm(self, vm_name: str) -> bool:
         """Delete a VM"""
-        try:
-            return self.backend.delete_vm(vm_name)
-        except ProviderError as e:
-            raise e
+        return self.backend.delete_vm(vm_name)
 
     def list_vms(self) -> List[str]:
         """List all VMs"""
-        try:
-            return self.backend.list_vms()
-        except ProviderError as e:
-            raise e
+        return self.backend.list_vms()
 
     def start_vm(self, vm_name: str) -> bool:
         """Start a VM"""
-        try:
-            return self.backend.start_vm(vm_name)
-        except ProviderError as e:
-            raise e
+        return self.backend.start_vm(vm_name)
 
     def stop_vm(self, vm_name: str, force: bool = False) -> bool:
         """Stop a VM"""
-        try:
-            return self.backend.stop_vm(vm_name, force=force)
-        except ProviderError as e:
-            raise e
+        return self.backend.stop_vm(vm_name, force=force)
 
     def get_vm_status(self, vm_name: str) -> str:
         """Get VM status"""
-        try:
-            return self.backend.get_vm_status(vm_name)
-        except ProviderError as e:
-            raise e
+        return self.backend.get_vm_status(vm_name)
 
     def export_vm(self, vm_name: str, output_path: Path, format: str = "yaml") -> None:
         """Export VM configuration to file"""
