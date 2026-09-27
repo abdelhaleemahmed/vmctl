@@ -11,6 +11,7 @@ from typing import List, Optional
 from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
+from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import DiskFormat
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 from vmctl.core.batch import BatchCreator
@@ -441,8 +442,17 @@ def cmd_export(ctx, vm_name, output, fmt):
     is_flag=True,
     help="Actually create the VM (dry-run by default).",
 )
+@click.option(
+    "--policy",
+    type=click.Choice([p.value for p in Policy]),
+    default=Policy.STRICT.value,
+    show_default=True,
+    help="What to do about settings this hypervisor does not support: refuse "
+    "(strict), substitute the nearest supported value and report it (nearest), "
+    "or also convert disk images (convert).",
+)
 @click.pass_context
-def cmd_import(ctx, config_file, new_name, disk_format, execute):
+def cmd_import(ctx, config_file, new_name, disk_format, policy, execute):
     """Create a VM from a YAML or JSON configuration file.
 
     Without --execute the command prints the VBoxManage commands that
@@ -463,7 +473,7 @@ def cmd_import(ctx, config_file, new_name, disk_format, execute):
         _apply_disk_format(vm, disk_format)
         if execute:
             _require_absent(engine, vm.name)
-        plan = engine.create_vm(vm, execute=execute, on_warning=_warn)
+        plan = engine.create_vm(vm, execute=execute, on_warning=_warn, policy=Policy(policy))
         _show_plan(plan, execute, f"Created VM '{vm.name}' from {config_file}")
     except VMToolError as e:
         _fail(e)
@@ -490,8 +500,17 @@ def cmd_import(ctx, config_file, new_name, disk_format, execute):
     is_flag=True,
     help="Actually create the VM (dry-run by default).",
 )
+@click.option(
+    "--policy",
+    type=click.Choice([p.value for p in Policy]),
+    default=Policy.STRICT.value,
+    show_default=True,
+    help="What to do about settings this hypervisor does not support: refuse "
+    "(strict), substitute the nearest supported value and report it (nearest), "
+    "or also convert disk images (convert).",
+)
 @click.pass_context
-def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, execute):
+def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, execute):
     """Clone a VM configuration from an existing VirtualBox VM.
 
     Reads the source VM's configuration live from VirtualBox, applies
@@ -516,7 +535,7 @@ def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, execute):
         _apply_disk_format(vm, disk_format)
         if execute:
             _require_absent(engine, vm.name)
-        plan = engine.create_vm(vm, execute=execute, on_warning=_warn)
+        plan = engine.create_vm(vm, execute=execute, on_warning=_warn, policy=Policy(policy))
         _show_plan(plan, execute, f"Created VM '{vm.name}'")
     except VMToolError as e:
         _fail(e)

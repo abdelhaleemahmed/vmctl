@@ -230,11 +230,28 @@ def test_untranslatable_settings_are_reported(emitter, vm):
 
 
 def test_a_format_the_provider_cannot_create_is_refused(emitter, vm):
-    from vmctl.core.exceptions import ProviderError
+    """Under the default strict policy, an impossible format is an error."""
+    from vmctl.core.exceptions import ValidationError
 
     vm.disks[0].format = DiskFormat.VHDX
-    with pytest.raises(ProviderError, match="cannot create"):
+    with pytest.raises(ValidationError) as excinfo:
         emitter.emit_create_vm(vm)
+    assert "can be attached but not created" in str(excinfo.value)
+    # ...and the error says how to get the other behaviour.
+    assert "--policy nearest" in (excinfo.value.recovery_hint or "")
+
+
+def test_nearest_substitutes_a_format_and_reports_it(vm):
+    """A-04 - "make it work here, and tell me what changed"."""
+    from vmctl.core.translate import Policy
+    from vmctl.providers.libvirt.emitter import LibvirtEmitter
+
+    vm.disks[0].format = DiskFormat.VHDX
+    emitter = LibvirtEmitter("demo", image_dir="/images", policy=Policy.NEAREST)
+    plan = emitter.emit_create_vm(vm)
+    assert any("vhdx" in w and "qcow2" in w for w in plan.warnings)
+    created = [s for s in plan if s.argv and s.argv[0] == "qemu-img"][0]
+    assert "qcow2" in created.argv
 
 
 # ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ from ...core.exceptions import ProviderError
 from ...core.mapping import changed_flags, emit_flags
 from ...core.plan import Plan
 from ...core.slots import place
+from ...core.translate import Policy, Translator
 from ...core.capabilities import Capabilities
 from .capabilities import VirtualBoxCapabilities
 from .tables import FIELDS, MODIFIABLE
@@ -41,6 +42,7 @@ class VirtualBoxEmitter:
         machine_folder: Optional[str] = None,
         path_sep: Optional[str] = None,
         capabilities: Optional[Capabilities] = None,
+        policy: Policy = Policy.STRICT,
     ):
         """Initialise the emitter for a specific VM.
 
@@ -57,11 +59,14 @@ class VirtualBoxEmitter:
                 from a POSIX host.
             capabilities: Provider limits to emit within. Defaults to
                 VirtualBox's own declaration.
+            policy: What to do about values VirtualBox does not support. The
+                default refuses; ``nearest`` substitutes and reports.
         """
         self.vm_name = vm_name
         # Bus rules, port limits and format support come from the provider's
         # capability declaration rather than a second copy kept here (A-02).
         self.capabilities = capabilities or VirtualBoxCapabilities.get()
+        self.policy = policy
         self.machine_folder = machine_folder or self.FALLBACK_MACHINE_FOLDER
         self.path_sep = path_sep or os.sep
         self.commands: List[List[str]] = []
@@ -80,6 +85,9 @@ class VirtualBoxEmitter:
             Plan: The steps to run, each with a human-readable description.
         """
         plan = Plan("virtualbox")
+        # Anything that cannot be expressed exactly is recorded here and ends up
+        # in the plan's warnings, rather than being changed quietly (A-04).
+        translator = Translator(self.capabilities, self.policy)
         commands: List[List[str]] = []
 
         # Map display names to internal VirtualBox OS type names
@@ -167,7 +175,7 @@ class VirtualBoxEmitter:
             commands.append(self._create_storage_controller(sc))
 
         # Create and attach media.
-        for disk, placement in zip(vm.disks, placements):
+        for index, (disk, placement) in enumerate(zip(vm.disks, placements)):
             controller = self._match_controller(disk, controllers, by_bus)
             if controller is None:
                 raise ProviderError(
@@ -185,29 +193,14 @@ class VirtualBoxEmitter:
                 # blank image as a dvddrive, which VirtualBox rejects (F-04).
                 medium = disk.source or "emptydrive"
             else:
-                fmt = self.capabilities.format_spec(disk.format)
-                if not fmt.support.creatable:
-                    raise ProviderError(
-                        f"disk {disk.name!r} asks for format "
-                        f"{disk.format.value!r}, which this provider cannot "
-                        f"create ({fmt.support.value})"
-                    )
+                chosen_format = translator.format_for(disk, f"disks[{index}].format")
+                fmt = self.capabilities.format_spec(chosen_format)
                 medium = self._medium_path(
                     vm.name, f"{vm.name}_{self._slug(disk.name)}.{fmt.extension}"
                 )
 
-                # A format may only be creatable in one allocation: VirtualBox
-                # can make a dynamic QCOW2 but not a fixed one, and a fixed RAW
-                # but not a dynamic one. Use what the config asked for when it is
-                # possible, and the only possibility otherwise.
-                wanted = "thick" if disk.variant == DiskVariant.THICK else "thin"
-                if wanted not in fmt.allocations:
-                    wanted = fmt.allocations[0]
-                    plan.warn(
-                        f"{disk.format.value} media can only be created "
-                        f"{wanted}; {disk.name} was adjusted"
-                    )
-                vbox_variant = "Fixed" if wanted == "thick" else "Standard"
+                allocation = translator.allocation_for(disk, chosen_format, f"disks[{index}]")
+                vbox_variant = "Fixed" if allocation == DiskVariant.THICK else "Standard"
 
                 commands.append(
                     [
@@ -281,6 +274,9 @@ class VirtualBoxEmitter:
 
         for cmd in commands:
             plan.exec(cmd, self._describe(cmd))
+        for line in translator.report.lines():
+            plan.warn(line)
+        self.report = translator.report
         return plan
 
     @staticmethod

@@ -8,6 +8,7 @@ import time
 from typing import Callable, List, Optional, cast
 from ...core.capabilities import Capabilities
 from ...core.plan import Plan, StepKind
+from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
 from ...core.exceptions import (
     DependencyError,
@@ -178,15 +179,17 @@ class VirtualBoxBackend(BaseProvider):
         vm: VMConfig = self.parser.parse_vm(vm_name)
         return vm
 
-    def create_vm(self, vm: VMConfig, execute: bool = True) -> Plan:
+    def create_vm(self, vm: VMConfig, execute: bool = True, policy: Policy = Policy.STRICT) -> Plan:
         """Create a new VM from VMConfig.
 
         Args:
             vm: Configuration to create.
             execute: Run the plan. False returns it unexecuted (dry-run).
+            policy: What to do about values VirtualBox does not support.
 
         Returns:
-            Plan: The steps that were, or would be, run.
+            Plan: The steps that were, or would be, run. Anything that did not
+            translate exactly is in its warnings.
         """
         if execute:
             self.check_supported()
@@ -194,6 +197,7 @@ class VirtualBoxBackend(BaseProvider):
             vm.name,
             machine_folder=self.machine_folder,
             capabilities=self._capabilities,
+            policy=policy,
         )
         plan = emitter.emit_create_vm(vm)
 

@@ -26,6 +26,7 @@ from typing import Dict, Optional
 from ...core.capabilities import Capabilities
 from ...core.exceptions import ProviderError
 from ...core.plan import Plan, Step, StepKind
+from ...core.translate import Policy, Translator
 from ...core.vmconfig import DiskType, VMConfig
 from .capabilities import LibvirtCapabilities
 from .tables import (
@@ -66,6 +67,7 @@ class LibvirtEmitter:
         arch: str = "x86_64",
         emulator: Optional[str] = None,
         capabilities: Optional[Capabilities] = None,
+        policy: Policy = Policy.STRICT,
     ):
         """Initialise the emitter.
 
@@ -83,9 +85,11 @@ class LibvirtEmitter:
             arch: Guest architecture.
             emulator: Path to the QEMU binary, when it must be stated.
             capabilities: Provider limits to emit within.
+            policy: What to do about values libvirt does not support.
         """
         self.vm_name = vm_name
         self.capabilities = capabilities or LibvirtCapabilities.get()
+        self.policy = policy
         self.image_dir = image_dir or "/var/lib/libvirt/images"
         self.definition_dir = definition_dir or "/tmp"
         self.domain_type = domain_type
@@ -98,12 +102,24 @@ class LibvirtEmitter:
     def _image_path(self, vm: VMConfig, disk, extension: str) -> str:
         return f"{self.image_dir.rstrip('/')}/{vm.name}_{disk.name}.{extension}"
 
-    def _libvirt_bus(self, disk) -> str:
-        bus = BUS_TO_LIBVIRT.get(disk.controller)
+    def _libvirt_bus_for(self, model_bus, disk) -> str:
+        """Return the libvirt ``<target bus=...>`` value for a model bus.
+
+        Args:
+            model_bus: The bus actually being used, after translation.
+            disk: The device, for the error message.
+
+        Returns:
+            The libvirt bus name.
+
+        Raises:
+            ProviderError: If libvirt has no way to express the bus.
+        """
+        bus = BUS_TO_LIBVIRT.get(model_bus)
         if bus is None:
             raise ProviderError(
-                f"disk {disk.name!r} uses the {disk.controller.value!r} bus, "
-                f"which this provider cannot express"
+                f"disk {disk.name!r} uses the {model_bus.value!r} bus, which "
+                f"this provider cannot express"
             )
         return bus
 
@@ -114,16 +130,19 @@ class LibvirtEmitter:
 
     # -- the document --------------------------------------------------------
 
-    def build_domain_xml(self, vm: VMConfig, plan: Optional[Plan] = None) -> str:
+    def build_domain_xml(self, vm: VMConfig, translator: Optional[Translator] = None) -> str:
         """Render *vm* as a libvirt domain document.
 
         Args:
             vm: Configuration to express.
-            plan: Plan to record translation warnings on, if any.
+            translator: Records anything that does not carry over exactly. One is
+                created for the caller when omitted.
 
         Returns:
             str: The XML document.
         """
+        if translator is None:
+            translator = Translator(self.capabilities, self.policy)
         domain = ET.Element("domain", type=self.domain_type)
         ET.SubElement(domain, "name").text = vm.name
         # Redefining a domain requires its existing UUID: libvirt rejects a
@@ -168,7 +187,7 @@ class LibvirtEmitter:
         if self.emulator:
             ET.SubElement(devices, "emulator").text = self.emulator
 
-        self._add_storage(vm, devices, plan)
+        self._add_storage(vm, devices, translator)
         self._add_networks(vm, devices)
 
         if vm.firmware.tpm:
@@ -181,7 +200,9 @@ class LibvirtEmitter:
         ET.indent(domain, space="  ")
         return ET.tostring(domain, encoding="unicode") + "\n"
 
-    def _add_storage(self, vm: VMConfig, devices: ET.Element, plan: Optional[Plan]) -> None:
+    def _add_storage(
+        self, vm: VMConfig, devices: ET.Element, translator: Optional[Translator]
+    ) -> None:
         """Add controllers and disks, letting libvirt place them."""
         needed_controllers: Dict[str, str] = {}
         counters: Dict[str, int] = {}
@@ -190,9 +211,18 @@ class LibvirtEmitter:
         # not expressed here at all -- but the *order* devices are declared in
         # decides their target names, so it must be stable. Configuration order
         # already is, and is what a reader expects, so it is used directly.
-        for disk in vm.disks:
-            bus = self._libvirt_bus(disk)
-            model = BUS_CONTROLLER_MODEL.get(disk.controller)
+        for index, disk in enumerate(vm.disks):
+            # Resolve the bus through the translator, not directly: a config from
+            # VirtualBox routinely names IDE, which q35 has no controller for at
+            # all. Mapping it straight through produced a domain libvirt would
+            # reject, with nothing said about it (A-04).
+            model_bus = (
+                translator.bus_for(disk, f"disks[{index}].controller")
+                if translator is not None
+                else disk.controller
+            )
+            bus = self._libvirt_bus_for(model_bus, disk)
+            model = BUS_CONTROLLER_MODEL.get(model_bus)
             if model:
                 needed_controllers[bus] = model
 
@@ -206,17 +236,17 @@ class LibvirtEmitter:
             if disk.is_removable:
                 source = disk.source
             else:
-                spec = self.capabilities.format_spec(disk.format)
-                if not spec.support.creatable:
-                    raise ProviderError(
-                        f"disk {disk.name!r} uses format {disk.format.value!r}, "
-                        f"which this provider cannot create ({spec.support.value})"
-                    )
+                chosen = (
+                    translator.format_for(disk, f"disks[{index}].format")
+                    if translator is not None
+                    else disk.format
+                )
+                spec = self.capabilities.format_spec(chosen)
                 source = self._image_path(vm, disk, spec.extension)
 
             disk_el = ET.SubElement(devices, "disk", type="file", device=device_kind)
             if not disk.is_removable:
-                driver_type = FORMAT_TO_DRIVER.get(disk.format, "qcow2")
+                driver_type = FORMAT_TO_DRIVER.get(chosen, "qcow2")
                 ET.SubElement(disk_el, "driver", name="qemu", type=driver_type)
             if source:
                 ET.SubElement(disk_el, "source", file=source)
@@ -229,11 +259,11 @@ class LibvirtEmitter:
         for bus, model in sorted(needed_controllers.items()):
             ET.SubElement(devices, "controller", type=bus, index="0", model=model)
 
-        if plan is not None:
+        if translator is not None:
             for path, reason in UNTRANSLATABLE:
                 value = _get(vm, path)
                 if _is_set(value):
-                    plan.warn(f"{path} is set but {reason}")
+                    translator.drop(path, value, reason)
 
     def _add_networks(self, vm: VMConfig, devices: ET.Element) -> None:
         """Add interfaces."""
@@ -268,6 +298,7 @@ class LibvirtEmitter:
             ``virsh define`` that consumes it.
         """
         plan = Plan("libvirt")
+        translator = Translator(self.capabilities, self.policy)
 
         creatable = [d for d in vm.disks if not d.is_removable]
         if creatable:
@@ -282,14 +313,15 @@ class LibvirtEmitter:
                 )
             )
 
-        for disk in creatable:
-            spec = self.capabilities.format_spec(disk.format)
+        for index, disk in enumerate(creatable):
+            chosen = translator.format_for(disk, f"disks[{index}].format")
+            spec = self.capabilities.format_spec(chosen)
             path = self._image_path(vm, disk, spec.extension)
             argv = [
                 "qemu-img",
                 "create",
                 "-f",
-                FORMAT_TO_DRIVER.get(disk.format, "qcow2"),
+                FORMAT_TO_DRIVER.get(chosen, "qcow2"),
                 path,
                 f"{disk.size_mb}M",
             ]
@@ -307,7 +339,7 @@ class LibvirtEmitter:
                 )
             )
 
-        xml = self.build_domain_xml(vm, plan)
+        xml = self.build_domain_xml(vm, translator)
         definition = Path(self.definition_dir) / f"{vm.name}.xml"
         plan.add(
             Step(
@@ -330,6 +362,9 @@ class LibvirtEmitter:
                 ),
             )
         )
+        for line in translator.report.lines():
+            plan.warn(line)
+        self.report = translator.report
         return plan
 
     def emit_modify_vm(self, current: VMConfig, desired: VMConfig) -> Plan:
@@ -359,7 +394,7 @@ class LibvirtEmitter:
             desired = copy.deepcopy(desired)
             desired.metadata.pop("libvirt_uuid", None)
 
-        xml = self.build_domain_xml(desired, plan)
+        xml = self.build_domain_xml(desired)
         definition = Path(self.definition_dir) / f"{desired.name}.xml"
         plan.add(
             Step(

@@ -27,6 +27,7 @@ from ...core.exceptions import (
     VMStateError,
 )
 from ...core.plan import Plan, StepKind
+from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
 from ..base import BaseProvider
 from .capabilities import LibvirtCapabilities
@@ -118,13 +119,14 @@ class LibvirtBackend(BaseProvider):
         """
         return "kvm" if os.path.exists("/dev/kvm") else "qemu"
 
-    def _emitter(self, vm_name: str) -> LibvirtEmitter:
+    def _emitter(self, vm_name: str, policy: Policy = Policy.STRICT) -> LibvirtEmitter:
         return LibvirtEmitter(
             vm_name,
             image_dir=self.image_dir,
             domain_type=self.domain_type,
             emulator=self._emulator(),
             capabilities=self._capabilities,
+            policy=policy,
         )
 
     @staticmethod
@@ -263,17 +265,18 @@ class LibvirtBackend(BaseProvider):
         xml = self._virsh("dumpxml", vm_name, check=True)
         return self.parser.parse_text(vm_name, xml, probe=self.probe_medium)
 
-    def create_vm(self, vm: VMConfig, execute: bool = True) -> Plan:
+    def create_vm(self, vm: VMConfig, execute: bool = True, policy: Policy = Policy.STRICT) -> Plan:
         """Create a domain from a VMConfig.
 
         Args:
             vm: Configuration to create.
             execute: Run the plan. False returns it unexecuted.
+            policy: What to do about values libvirt does not support.
 
         Returns:
             Plan: the steps that were, or would be, run.
         """
-        plan = self._emitter(vm.name).emit_create_vm(vm)
+        plan = self._emitter(vm.name, policy).emit_create_vm(vm)
         if execute:
             self.run_plan(plan)
         return plan

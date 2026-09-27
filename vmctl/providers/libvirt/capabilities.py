@@ -104,6 +104,12 @@ class LibvirtCapabilities:
             attach=dict(ATTACH),
             formats=dict(FORMATS),
             native_format=DiskFormat.QCOW2,
+            native_buses={
+                # virtio is the reason to run a guest under KVM at all.
+                DiskType.HDD: _BUS.VIRTIO_SCSI,
+                DiskType.DVD: _BUS.SATA,
+                DiskType.FLOPPY: _BUS.FLOPPY,
+            },
             removable_extensions=REMOVABLE_EXTENSIONS,
             firmware={
                 FirmwareType.BIOS: Support.NATIVE,

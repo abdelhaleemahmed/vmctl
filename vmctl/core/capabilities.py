@@ -37,6 +37,16 @@ class Support(Enum):
         """True when the provider can create a new medium in this format."""
         return self in (Support.NATIVE, Support.READ_WRITE)
 
+    def describe(self) -> str:
+        """Return a phrase that reads naturally inside an error message."""
+        return {
+            Support.NATIVE: "is this provider's own format",
+            Support.READ_WRITE: "is fully supported",
+            Support.READ_ONLY: "can be attached but not created",
+            Support.CONVERT_ONLY: "must be converted before it can be used",
+            Support.UNSUPPORTED: "is not supported at all",
+        }[self]
+
 
 @dataclass(frozen=True)
 class BusSpec:
@@ -138,6 +148,10 @@ class Capabilities:
     formats: Dict[DiskFormat, FormatSpec] = field(default_factory=dict)
     #: Format used when a configuration does not name one.
     native_format: DiskFormat = DiskFormat.VDI
+    #: The bus a provider would idiomatically put each device kind on. Used when
+    #: a bus has to be substituted, so the result lands somewhere a user of that
+    #: hypervisor would expect rather than merely somewhere valid.
+    native_buses: Dict[DiskType, StorageControllerType] = field(default_factory=dict)
 
     firmware: Dict[FirmwareType, Support] = field(default_factory=dict)
     supports_tpm: bool = True
@@ -181,6 +195,22 @@ class Capabilities:
     def buses_for(self, kind: DiskType) -> List[StorageControllerType]:
         """Return every bus that will carry a device of *kind*."""
         return [b for b in self.buses if self.can_attach(kind, b)]
+
+    def native_bus(self, kind: DiskType) -> Optional[StorageControllerType]:
+        """Return the idiomatic bus for a device kind, if one is declared.
+
+        Args:
+            kind: The device kind.
+
+        Returns:
+            The preferred bus, or None when the provider does not say.
+        """
+        if kind is DiskType.SSD:
+            kind = DiskType.HDD
+        preferred = self.native_buses.get(kind)
+        if preferred is not None and self.can_attach(kind, preferred):
+            return preferred
+        return None
 
     def format_spec(self, fmt: DiskFormat) -> FormatSpec:
         """Return the support entry for a format, defaulting to unsupported."""

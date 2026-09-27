@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional
 from . import registry
 from .plan import Plan
+from .translate import Policy
 from .vmconfig import VMConfig
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle avoidance
@@ -50,6 +51,7 @@ class VMCtlEngine:
         validate: bool = True,
         execute: bool = True,
         on_warning: Optional[Callable[[str], None]] = None,
+        policy: Policy = Policy.STRICT,
     ) -> Plan:
         """Create a new VM.
 
@@ -61,16 +63,20 @@ class VMCtlEngine:
             on_warning: Where to send warnings. The engine used to ``print()``
                 them, which mixed them into stdout ahead of dry-run output that
                 a caller may be piping; the CLI now routes them to stderr.
+            policy: What to do about values the provider does not support.
 
         Returns:
             Plan: The steps that were, or would be, run.
         """
         if validate:
-            for warning in self.validator.validate(vm):
+            # The policy has to reach validation as well as emission: otherwise
+            # the validator refuses a substitutable value before the translator
+            # gets a chance to substitute it.
+            for warning in self.validator.validate(vm, policy):
                 if on_warning:
                     on_warning(warning)
 
-        return self.backend.create_vm(vm, execute=execute)
+        return self.backend.create_vm(vm, execute=execute, policy=policy)
 
     def edit_vm(
         self,

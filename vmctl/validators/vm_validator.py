@@ -14,11 +14,12 @@ meant a caller's object changed under them and no warning was ever produced
 (F-08).
 """
 
-from typing import List
+from typing import List, Optional
 
 from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
 from ..core.slots import place
+from ..core.translate import Policy
 from ..core.vmconfig import DiskType, FirmwareType, VMConfig
 
 
@@ -44,11 +45,17 @@ class VMValidator:
 
     # -- entry point ---------------------------------------------------------
 
-    def validate(self, vm: VMConfig) -> List[str]:
+    def validate(self, vm: VMConfig, policy: Policy = Policy.STRICT) -> List[str]:
         """Validate a VM configuration.
 
         Args:
             vm: The configuration to check. Not modified.
+            policy: What the caller intends to do about unsupported values. Under
+                ``strict`` an unsupported bus or format is an error here; under
+                ``nearest`` it is a warning, because the emitter's translator
+                will substitute a supported value and report what it changed.
+                Without this the validator refused first and ``--policy nearest``
+                could never take effect.
 
         Returns:
             list[str]: Human-readable warnings, empty if there are none.
@@ -58,7 +65,7 @@ class VMValidator:
         """
         warnings: List[str] = []
         self._validate_schema(vm)
-        self._validate_provider_limits(vm)
+        self._validate_provider_limits(vm, policy, warnings)
         self._validate_storage_topology(vm)
         self._validate_logical_constraints(vm, warnings)
         return warnings
@@ -109,8 +116,33 @@ class VMValidator:
                     value=disk.size_mb,
                 )
 
-    def _validate_provider_limits(self, vm: VMConfig) -> None:
-        """Check the configuration against the provider's declared limits."""
+    def _validate_provider_limits(
+        self,
+        vm: VMConfig,
+        policy: Policy = Policy.STRICT,
+        warnings: Optional[List[str]] = None,
+    ) -> None:
+        """Check the configuration against the provider's declared limits.
+
+        Args:
+            vm: The configuration to check.
+            policy: Decides whether a substitutable value is an error or a
+                warning here.
+            warnings: Where to record substitutable findings.
+        """
+
+        def _reject(error: ValidationError, note: str) -> None:
+            """Raise under strict; stand aside otherwise.
+
+            Under a substituting policy this says nothing: the translator makes
+            the substitution and reports it precisely ("used vdi instead of
+            vhdx"), so warning here as well would say the same thing twice, less
+            usefully. The note is kept as the argument for readability at the
+            call site.
+            """
+            if not policy.may_substitute:
+                raise error
+
         caps = self.capabilities
 
         if vm.cpu.count > caps.max_cpus:
@@ -215,25 +247,38 @@ class VMValidator:
         for i, disk in enumerate(vm.disks):
             if not caps.can_attach(disk.type, disk.controller):
                 usable = caps.buses_for(disk.type)
-                raise ValidationError(
-                    f"disks[{i}] ({disk.name}) is a {disk.type.value} device on "
-                    f"the {disk.controller.value} bus, which this provider does "
-                    f"not support",
-                    field=f"disks[{i}].controller",
-                    value=disk.controller.value,
-                    expected=" | ".join(sorted(b.value for b in usable)) or "(none)",
+                _reject(
+                    ValidationError(
+                        f"disks[{i}] ({disk.name}) is a {disk.type.value} device "
+                        f"on the {disk.controller.value} bus, which this provider "
+                        f"does not support",
+                        field=f"disks[{i}].controller",
+                        value=disk.controller.value,
+                        expected=" | ".join(sorted(b.value for b in usable)) or "(none)",
+                        recovery_hint="Pass --policy nearest to let vmctl choose a "
+                        "supported bus and tell you which.",
+                    ),
+                    f"disks[{i}] ({disk.name}) is on the {disk.controller.value} "
+                    f"bus, which this provider does not support for a "
+                    f"{disk.type.value} device; it will be moved",
                 )
             if disk.is_removable:
                 continue
             fmt = caps.format_spec(disk.format)
             if not fmt.support.creatable:
-                raise ValidationError(
-                    f"disks[{i}] ({disk.name}) uses format "
-                    f"{disk.format.value!r}, which this provider cannot create "
-                    f"({fmt.support.value})",
-                    field=f"disks[{i}].format",
-                    value=disk.format.value,
-                    expected=" | ".join(sorted(f.value for f in caps.creatable_formats())),
+                _reject(
+                    ValidationError(
+                        f"disks[{i}] ({disk.name}) uses format "
+                        f"{disk.format.value!r}, which {fmt.support.describe()} "
+                        f"here",
+                        field=f"disks[{i}].format",
+                        value=disk.format.value,
+                        expected=" | ".join(sorted(f.value for f in caps.creatable_formats())),
+                        recovery_hint="Pass --policy nearest to let vmctl "
+                        "substitute a supported format and tell you which.",
+                    ),
+                    f"disks[{i}] ({disk.name}) uses format {disk.format.value!r}, "
+                    f"which {fmt.support.describe()} here; it will be substituted",
                 )
 
     def _validate_storage_topology(self, vm: VMConfig) -> None:

@@ -92,6 +92,12 @@ things prevented that:
   against either provider, and anything that does not translate is reported
   rather than dropped. Verified end to end on libvirt 11.10.0 / QEMU 10.1.0,
   including booting a domain.
+- **`--policy strict|nearest|convert`** decides what happens when a
+  configuration asks for something the hypervisor cannot do. `strict` (the
+  default) refuses and names what would have to change; `nearest` substitutes the
+  closest supported value; `convert` also converts disk images. Every
+  substitution, drop and conversion is reported before anything runs — the point
+  being that a VM never comes out quietly different from the one asked for.
 - **Automatic device placement.** A configuration no longer has to say which
   port and device number each disk uses; vmctl assigns the lowest free position
   on the controller, deterministically, respecting IDE's master/slave pairing.

@@ -893,8 +893,45 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > deterministic and is what a reader expects, so it iterates that directly and
 > does not use port/unit at all — libvirt assigns addresses itself.
 >
+> **Fifth step done:** `A-04` (translation policy and lossiness report).
+>
+> `core/translate.py` resolves a configuration against a provider and **records
+> every decision**. Three policies: `strict` refuses and names what would have to
+> change, `nearest` substitutes and reports, `convert` may convert media instead.
+> Both emitters resolve format and bus through it, so nothing is changed quietly.
+>
+> Demonstrated by creating a VM **captured from real VirtualBox on real
+> libvirt** — effectively `P-06` by hand:
+>
+> ```
+> disks[0].controller: ide is not supported, used virtio-scsi instead
+> disks[1].controller: ide is not supported, used sata instead
+> memory.vram_mb: 16 was not applied (video memory is a device property here)
+> ```
+>
+> Two design points worth keeping:
+>
+> * **A substitution lands on the provider's idiomatic value, not the first valid
+>   one.** `Capabilities.native_buses` lets each provider say which bus it would
+>   put each device kind on, so a disk moves to `virtio-scsi` under libvirt rather
+>   than to whichever bus sorts first. A substitution that is merely valid is a
+>   worse answer than one a user of that hypervisor would have chosen.
+> * **The policy had to reach validation, not just emission.** The validator
+>   refused an unsupported format before the translator could substitute it, so
+>   `--policy nearest` could never take effect. It now stands aside under a
+>   substituting policy and lets the translator report precisely — which also
+>   removed a duplicated warning.
+>
+> An allocation is always adjusted regardless of policy: VirtualBox cannot create
+> a dynamic RAW or a fixed qcow2, so there is exactly one possible answer and
+> refusing would be unhelpful. It is recorded like any other substitution.
+>
+> Wiring the bus through the translator exposed a real gap: the libvirt emitter
+> had been mapping `ide` straight through, producing a domain libvirt rejects,
+> with nothing said.
+>
 > Remaining: `M-01`, `M-02`, `M-05`, `M-06` (the three-axis storage model and
-> medium conversion), `A-04`, `A-05`, `A-07`…`A-10`.
+> medium conversion), `A-05`, `A-07`…`A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1750,7 +1787,7 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-11 field-table mapping engine + codecs + decoders (with A-01)
          [x] A-02 typed Capabilities, matrix-driven validator
          [x] A-03 provider registry + --provider + entry points
-         [ ] A-04 translation engine + policy + lossiness report
+         [x] A-04 translation engine + policy + lossiness report
          [ ] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
          [ ] A-07 provider conformance suite   [ ] A-08 escaping / injection safety
          [ ] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel

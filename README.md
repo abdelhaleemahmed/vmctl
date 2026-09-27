@@ -73,6 +73,28 @@ VirtualBox is driven with `VBoxManage` calls; libvirt gets a domain XML document
 and one `virsh define`. Both are described by the same plan, so `--execute` and
 dry-run behave identically whichever you use.
 
+### Nothing Changes Silently
+
+When a configuration asks for something the target hypervisor cannot do, vmctl
+says so before it does anything. `--policy` decides what happens next:
+
+| Policy | Behaviour |
+|---|---|
+| `strict` *(default)* | Refuse, and name what would have to change |
+| `nearest` | Substitute the closest supported value and report each one |
+| `convert` | As `nearest`, and convert disk images rather than replacing their format |
+
+```
+$ vmctl -p libvirt import from-virtualbox.yaml --new-name moved --policy convert
+Warning: disks[0].controller: ide is not supported, used virtio-scsi instead
+Warning: disks[1].controller: ide is not supported, used sata instead
+Warning: memory.vram_mb: 16 was not applied (video memory is a device property here)
+```
+
+A substitution lands on the bus that hypervisor's own users would pick — a disk
+moves to `virtio-scsi` under libvirt, an optical drive to `sata` — rather than
+merely somewhere valid.
+
 ### Config-as-Code
 Every VM is a plain YAML (or JSON) file. Put it in Git, share it with a team, or use it to recreate the machine after a disk failure.
 

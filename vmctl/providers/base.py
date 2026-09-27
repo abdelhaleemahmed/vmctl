@@ -16,6 +16,7 @@ except ImportError:  # pragma: no cover
 
 from ..core.capabilities import Capabilities
 from ..core.plan import Plan
+from ..core.translate import Policy
 from ..core.vmconfig import VMConfig
 
 
@@ -101,7 +102,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def create_vm(self, vm: VMConfig, execute: bool = True) -> Plan:
+    def create_vm(self, vm: VMConfig, execute: bool = True, policy: Policy = Policy.STRICT) -> Plan:
         """
         Create a new VM from configuration.
 
@@ -109,6 +110,8 @@ class BaseProvider(ABC):
             vm: VMConfig object defining the VM
             execute: If True, actually create the VM. If False, return the plan
                 without running it (dry-run)
+            policy: What to do about values this provider does not support --
+                refuse (strict), substitute and report (nearest), or convert
 
         Returns:
             Plan: the steps that were, or would be, run

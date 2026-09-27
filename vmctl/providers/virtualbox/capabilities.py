@@ -160,6 +160,11 @@ class VirtualBoxCapabilities:
             attach=dict(ATTACH),
             formats=dict(FORMATS),
             native_format=DiskFormat.VDI,
+            native_buses={
+                DiskType.HDD: _BUS.SATA,
+                DiskType.DVD: _BUS.IDE,
+                DiskType.FLOPPY: _BUS.FLOPPY,
+            },
             removable_extensions=REMOVABLE_EXTENSIONS,
             firmware={
                 FirmwareType.BIOS: Support.NATIVE,
