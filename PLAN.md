@@ -1751,10 +1751,10 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-02 typed Capabilities, matrix-driven validator
          [x] A-03 provider registry + --provider + entry points
          [ ] A-04 translation engine + policy + lossiness report
-         [x] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
+         [ ] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
          [ ] A-07 provider conformance suite   [ ] A-08 escaping / injection safety
          [ ] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
-Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
+Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [ ] P-05 plain QEMU                 [ ] P-06 vmctl migrate --from/--to
 Phase 7  [ ] E-01 diff   [ ] E-04 export --all  [ ] E-06 schema
