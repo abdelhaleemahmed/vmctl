@@ -1,7 +1,7 @@
 VBoxManage createvm --name floppy-first --ostype Linux_64 --register
 VBoxManage modifyvm floppy-first --memory 128 --vram 16 --cpus 1 --firmware bios --acpi on --ioapic on --rtcuseutc on --pae on --nested-hw-virt off --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
-VBoxManage storagectl floppy-first --name Floppy --add floppy --controller I82078 --portcount 1 --bootable off
-VBoxManage storagectl floppy-first --name SATA --add sata --controller IntelAhci --portcount 1 --bootable off
+VBoxManage storagectl floppy-first --name Floppy --add floppy --controller I82078 --portcount 1 --bootable on
+VBoxManage storagectl floppy-first --name SATA --add sata --controller IntelAhci --portcount 1 --bootable on
 VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/floppy-first/floppy-first_disk_SATA_0_0.vdi --size 64 --format VDI --variant Standard
 VBoxManage storageattach floppy-first --storagectl SATA --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/floppy-first/floppy-first_disk_SATA_0_0.vdi
 VBoxManage modifyvm floppy-first --nic1 nat --nictype1 82540EM --cableconnected1 on --macaddress1 080027FE5704

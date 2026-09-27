@@ -169,8 +169,8 @@ def test_removable_extensions_do_not_collide_with_disk_formats(caps):
 
 def test_creating_a_minimal_vm_produces_a_plan(backend, vm_minimal, caps):
     """Whatever the hypervisor, the answer is a Plan."""
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     plan = backend.create_vm(vm_minimal, execute=False)
     assert isinstance(plan, Plan)
     assert plan.provider == backend.name
@@ -179,16 +179,16 @@ def test_creating_a_minimal_vm_produces_a_plan(backend, vm_minimal, caps):
 
 def test_every_step_carries_a_description(backend, vm_minimal, caps):
     """Dry-run output and progress reporting both rely on it."""
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     for step in backend.create_vm(vm_minimal, execute=False):
         assert step.description, step
 
 
 def test_every_step_is_a_kind_the_provider_can_run(backend, vm_minimal, caps):
     """A plan a provider cannot execute is a plan it should not emit."""
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     for step in backend.create_vm(vm_minimal, execute=False):
         assert step.kind in (StepKind.EXEC, StepKind.WRITE_FILE), step.kind
         if step.kind is StepKind.EXEC:
@@ -198,16 +198,16 @@ def test_every_step_is_a_kind_the_provider_can_run(backend, vm_minimal, caps):
 
 
 def test_creating_a_vm_is_not_marked_destructive(backend, vm_minimal, caps):
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     assert not backend.create_vm(vm_minimal, execute=False).destructive
 
 
 def test_emission_is_deterministic(backend, vm_minimal, caps):
     """The same configuration must produce the same plan every time, or `diff`
     and `apply` report changes that are only re-derivation."""
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     first = backend.create_vm(vm_minimal, execute=False).render()
     for _ in range(5):
         assert backend.create_vm(vm_minimal, execute=False).render() == first
@@ -215,20 +215,20 @@ def test_emission_is_deterministic(backend, vm_minimal, caps):
 
 def test_a_device_kind_the_provider_supports_can_actually_be_emitted(backend, vm_minimal, caps):
     """Every claim in the attach matrix has to survive being acted on."""
-    from vmctl.core.vmconfig import DiskConfig
+    from vmctl.core.vmconfig import StorageDevice
 
     for kind in (DeviceKind.DISK, DeviceKind.CDROM, DeviceKind.FLOPPY):
         buses = caps.buses_for(kind)
         if not buses:
             continue
         removable = kind in (DeviceKind.CDROM, DeviceKind.FLOPPY)
-        vm_minimal.disks = [
-            DiskConfig(
+        vm_minimal.storage = [
+            StorageDevice(
                 name="d",
-                type=kind,
-                size_mb=0 if removable else 1024,
+                kind=kind,
+                size_mb=None if removable else 1024,
                 format=caps.native_format,
-                controller=buses[0],
+                bus=buses[0],
             )
         ]
         plan = backend.create_vm(vm_minimal, execute=False)
@@ -266,8 +266,8 @@ def test_a_hostile_vm_name_stays_data(backend, vm_minimal, caps, hostile):
     from vmctl.core.exceptions import VMToolError
 
     vm_minimal.name = f"vm{hostile}"
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     try:
         plan = backend.create_vm(vm_minimal, execute=False)
     except VMToolError:
@@ -302,8 +302,8 @@ def test_a_vm_name_cannot_escape_the_directory_it_writes_into(backend, vm_minima
     from vmctl.core.exceptions import VMToolError
 
     vm_minimal.name = hostile
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     try:
         plan = backend.create_vm(vm_minimal, execute=False)
     except VMToolError:
@@ -354,8 +354,8 @@ def test_an_unusable_name_is_refused_by_the_emitter_not_only_the_validator(
     from vmctl.core.exceptions import ValidationError
 
     vm_minimal.name = "../escaped"
-    vm_minimal.disks[0].controller = caps.buses_for(DeviceKind.DISK)[0]
-    vm_minimal.disks[0].format = caps.native_format
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
     with pytest.raises(ValidationError):
         backend.create_vm(vm_minimal, execute=False)
 

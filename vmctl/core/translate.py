@@ -31,7 +31,8 @@ from typing import Any, List, Optional
 
 from .capabilities import Capabilities
 from .exceptions import ValidationError
-from .vmconfig import DiskConfig, DiskFormat, Allocation, FirmwareType, VMConfig
+from .devices import Allocation, DiskFormat
+from .vmconfig import FirmwareType, StorageDevice, VMConfig
 
 
 class Policy(Enum):
@@ -235,12 +236,12 @@ class Translator:
 
     # -- resolution ----------------------------------------------------------
 
-    def format_for(self, disk: DiskConfig, where: str) -> DiskFormat:
+    def format_for(self, disk: StorageDevice, where: str) -> DiskFormat:
         """Return the image format to use for a device.
 
         Args:
             disk: The device.
-            where: Field path for messages, e.g. ``"disks[1].format"``.
+            where: Field path for messages, e.g. ``"storage[1].format"``.
 
         Returns:
             The format to create the medium in.
@@ -250,6 +251,11 @@ class Translator:
                 requested format.
         """
         requested = disk.format
+        if requested is None:
+            # "Whichever this provider creates natively" -- the portable case,
+            # and nothing to report: no format was asked for, so none was
+            # substituted (M-04).
+            return self.capabilities.native_format
         spec = self.capabilities.format_spec(requested)
         if spec.support.creatable:
             return requested
@@ -290,7 +296,7 @@ class Translator:
             )
         return native
 
-    def allocation_for(self, disk: DiskConfig, fmt: DiskFormat, where: str) -> Allocation:
+    def allocation_for(self, disk: StorageDevice, fmt: DiskFormat, where: str) -> Allocation:
         """Return the allocation to create a medium with.
 
         A format may be creatable in only one allocation -- VirtualBox can make a
@@ -306,14 +312,14 @@ class Translator:
         Returns:
             The allocation to use.
         """
-        wanted = "thick" if disk.variant == Allocation.THICK else "thin"
+        wanted = "thick" if disk.allocation == Allocation.THICK else "thin"
         allowed = self.capabilities.format_spec(fmt).allocations
         if not allowed or wanted in allowed:
-            return disk.variant
+            return disk.allocation
         used = allowed[0]
         self.report.substitutions.append(
             Substitution(
-                f"{where}.variant",
+                f"{where}.allocation",
                 wanted,
                 used,
                 f"{fmt.value} media can only be created {used}",
@@ -321,7 +327,7 @@ class Translator:
         )
         return Allocation.THICK if used == "thick" else Allocation.THIN
 
-    def bus_for(self, disk: DiskConfig, where: str):
+    def bus_for(self, disk: StorageDevice, where: str):
         """Return the bus to attach a device to.
 
         Args:
@@ -335,11 +341,11 @@ class Translator:
             ValidationError: Under ``strict``, if the provider will not carry
                 this device kind on the requested bus.
         """
-        requested = disk.controller
-        if self.capabilities.can_attach(disk.type, requested):
+        requested = disk.bus
+        if self.capabilities.can_attach(disk.kind, requested):
             return requested
 
-        options = self.capabilities.buses_for(disk.type)
+        options = self.capabilities.buses_for(disk.kind)
         readable = " | ".join(sorted(b.value for b in options)) or "(none)"
 
         if not options:
@@ -347,19 +353,19 @@ class Translator:
             # makes a device attachable to a bus that does not exist.
             raise ValidationError(
                 f"{where}: {self.capabilities.provider} has no bus that carries "
-                f"a {disk.type.value} device",
+                f"a {disk.kind.value} device",
                 field=where,
                 value=requested.value,
                 expected=readable,
             )
 
-        preferred_now = self.capabilities.native_bus(disk.type)
+        preferred_now = self.capabilities.native_bus(disk.kind)
         fallback = preferred_now or sorted(options, key=lambda b: b.value)[0]
         if not self.policy.may_substitute:
             self._refuse(
                 where,
                 requested.value,
-                f"a {disk.type.value} device cannot go on that bus",
+                f"a {disk.kind.value} device cannot go on that bus",
                 fallback.value,
             )
             return fallback
@@ -367,14 +373,14 @@ class Translator:
         # Prefer the provider's own idiomatic bus, so a substitution lands
         # somewhere a user of that hypervisor would expect rather than merely
         # somewhere valid.
-        preferred = self.capabilities.native_bus(disk.type)
+        preferred = self.capabilities.native_bus(disk.kind)
         used = preferred or sorted(options, key=lambda b: b.value)[0]
         self.report.substitutions.append(
             Substitution(
                 where,
                 requested.value,
                 used.value,
-                f"a {disk.type.value} device cannot go on {requested.value}",
+                f"a {disk.kind.value} device cannot go on {requested.value}",
             )
         )
         return used

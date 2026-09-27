@@ -227,7 +227,7 @@ def test_reading_a_real_vm_then_writing_it_is_stable(label):
         cpu=type(vm.cpu)(),
         memory=type(vm.memory)(),
         firmware=type(vm.firmware)(),
-        disks=list(vm.disks),
+        disks=list(vm.storage),
         networks=list(vm.networks),
         boot=type(vm.boot)(order=list(vm.boot.order)),
         storage_controllers=list(vm.storage_controllers),

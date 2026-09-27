@@ -63,6 +63,10 @@ class BusSpec:
         units_per_port: Devices per port; 2 for IDE (master/slave), 1 elsewhere.
         default_ports: What vmctl uses when the config does not say.
         bootable: Whether a VM can boot from this bus.
+        hotplug: Whether a device on this bus can be marked hot-pluggable. Not a
+            property of the device: VirtualBox accepts the flag on SATA and USB
+            and refuses it on every other bus, with "Controller 'x' does not
+            support changing the hot-pluggable device flag" (M-02, measured).
         controller_name: The name to give a controller on this bus when the
             configuration does not declare one.
     """
@@ -74,6 +78,7 @@ class BusSpec:
     units_per_port: int = 1
     default_ports: int = 1
     bootable: bool = True
+    hotplug: bool = False
     controller_name: str = "Controller"
 
     @property

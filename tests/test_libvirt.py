@@ -16,7 +16,7 @@ from vmctl.core.storage import directory
 from vmctl.core.vmconfig import (
     BootConfig,
     CPUConfig,
-    DiskConfig,
+    StorageDevice,
     DiskFormat,
     DeviceKind,
     FirmwareConfig,
@@ -56,15 +56,15 @@ def vm():
         cpu=CPUConfig(count=2, nested_virt=True),
         memory=MemoryConfig(mb=512),
         firmware=FirmwareConfig(type=FirmwareType.EFI64, tpm=True),
-        disks=[
-            DiskConfig(
+        storage=[
+            StorageDevice(
                 name="root",
                 size_mb=64,
                 format=DiskFormat.QCOW2,
-                controller=BusType.VIRTIO_SCSI,
+                bus=BusType.VIRTIO_SCSI,
                 bootable=True,
             ),
-            DiskConfig(name="cd", type=DeviceKind.CDROM, controller=BusType.SATA, port=1),
+            StorageDevice(name="cd", kind=DeviceKind.CDROM, bus=BusType.SATA, slot=1),
         ],
         networks=[
             NetworkConfig(network_type=NetworkType.NAT, adapter_type="virtio"),
@@ -234,7 +234,7 @@ def test_a_format_the_provider_cannot_create_is_refused(emitter, vm):
     """Under the default strict policy, an impossible format is an error."""
     from vmctl.core.exceptions import ValidationError
 
-    vm.disks[0].format = DiskFormat.VHDX
+    vm.storage[0].format = DiskFormat.VHDX
     with pytest.raises(ValidationError) as excinfo:
         emitter.emit_create_vm(vm)
 
@@ -252,7 +252,7 @@ def test_nearest_substitutes_a_format_and_reports_it(vm):
     from vmctl.core.translate import Policy
     from vmctl.providers.libvirt.emitter import LibvirtEmitter
 
-    vm.disks[0].format = DiskFormat.VHDX
+    vm.storage[0].format = DiskFormat.VHDX
     emitter = LibvirtEmitter("demo", location=directory("/images"), policy=Policy.NEAREST)
     plan = emitter.emit_create_vm(vm)
     assert any("vhdx" in w and "qcow2" in w for w in plan.warnings)
@@ -289,16 +289,16 @@ def test_the_domains_identity_is_kept_as_a_native_hint(parser, real_domain):
 
 def test_devices_and_buses_are_recovered(parser, real_domain):
     vm = parser.parse_text("lv-fixture", real_domain)
-    kinds = sorted(d.type.value for d in vm.disks)
+    kinds = sorted(d.kind.value for d in vm.storage)
     assert kinds == ["cdrom", "disk", "disk"]
-    buses = {d.controller for d in vm.disks}
+    buses = {d.bus for d in vm.storage}
     assert BusType.VIRTIO_SCSI in buses
     assert BusType.SATA in buses
 
 
 def test_formats_are_recovered_from_the_driver(parser, real_domain):
     vm = parser.parse_text("lv-fixture", real_domain)
-    formats = {d.format for d in vm.disks if not d.is_removable}
+    formats = {d.format for d in vm.storage if not d.is_removable}
     assert formats == {DiskFormat.QCOW2, DiskFormat.RAW}
 
 
@@ -316,7 +316,7 @@ def test_a_disk_size_needs_a_probe(parser, real_domain):
     (the MediumProbe seam from T-04, reused by a second provider).
     """
     vm = parser.parse_text("lv-fixture", real_domain)
-    assert all(d.size_mb == 0 for d in vm.disks if not d.is_removable)
+    assert all(d.size_mb == 0 for d in vm.storage if not d.is_removable)
 
     sizes = {"qcow2": 64, "raw": 32}
 
@@ -325,7 +325,7 @@ def test_a_disk_size_needs_a_probe(parser, real_domain):
         return {"size_mb": sizes.get(ext, 0), "format": DiskFormat.QCOW2, "variant": None}
 
     vm = parser.parse_text("lv-fixture", real_domain, probe=probe)
-    assert sorted(d.size_mb for d in vm.disks if not d.is_removable) == [32, 64]
+    assert sorted(d.size_mb for d in vm.storage if not d.is_removable) == [32, 64]
 
 
 def test_a_document_that_is_not_a_domain_is_rejected(parser):
@@ -430,7 +430,7 @@ def _target(xml, dev_prefix):
 
 def test_solid_state_is_stated_as_a_rotation_rate(emitter, vm):
     """libvirt has no "ssd" flag: a disk that does not rotate has rate 1."""
-    vm.disks[0].nonrotational = True
+    vm.storage[0].nonrotational = True
     target = _target(emitter.build_domain_xml(vm), "sd")
     assert target.get("rotation_rate") == "1"
 
@@ -448,8 +448,8 @@ def test_a_bus_that_cannot_say_solid_state_reports_it_rather_than_lying(emitter,
     """
     from vmctl.core.translate import Policy, Translator
 
-    vm.disks[0].controller = BusType.VIRTIO_BLK
-    vm.disks[0].nonrotational = True
+    vm.storage[0].bus = BusType.VIRTIO_BLK
+    vm.storage[0].nonrotational = True
     translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
     xml = emitter.build_domain_xml(vm, translator)
     assert _target(xml, "vd").get("rotation_rate") is None
@@ -463,18 +463,18 @@ def test_a_virtio_blk_disk_is_not_read_back_as_virtio_scsi(parser, emitter, vm):
     name. Re-emitting that gave `bus='scsi'`, so a round trip moved the guest's
     disk from /dev/vda to /dev/sda -- enough to leave it unbootable.
     """
-    vm.disks = [vm.disks[0]]
-    vm.disks[0].controller = BusType.VIRTIO_BLK
+    vm.storage = [vm.storage[0]]
+    vm.storage[0].bus = BusType.VIRTIO_BLK
     once = parser.parse_text("demo", emitter.build_domain_xml(vm))
-    assert once.disks[0].controller is BusType.VIRTIO_BLK
+    assert once.storage[0].bus is BusType.VIRTIO_BLK
     assert _target(emitter.build_domain_xml(once), "vd") is not None
 
 
 def test_a_rotation_rate_is_read_back(parser, emitter, vm):
-    vm.disks[0].nonrotational = True
+    vm.storage[0].nonrotational = True
     once = parser.parse_text("demo", emitter.build_domain_xml(vm))
-    assert once.disks[0].nonrotational is True
-    assert not once.disks[1].nonrotational
+    assert once.storage[0].nonrotational is True
+    assert not once.storage[1].nonrotational
 
 
 def test_a_report_names_the_disk_it_is_about(emitter, vm):
@@ -488,11 +488,120 @@ def test_a_report_names_the_disk_it_is_about(emitter, vm):
     """
     from vmctl.core.translate import Policy, Translator
 
-    vm.disks[1].controller = BusType.VIRTIO_BLK
-    vm.disks[1].type = DeviceKind.DISK
-    vm.disks[1].nonrotational = True
+    vm.storage[1].bus = BusType.VIRTIO_BLK
+    vm.storage[1].kind = DeviceKind.DISK
+    vm.storage[1].nonrotational = True
     translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
     emitter.build_domain_xml(vm, translator)
     assert [d.field for d in translator.report.drops if "nonrotational" in d.field] == [
         "disks[1].nonrotational"
     ]
+
+
+def test_trim_passthrough_is_a_driver_attribute(emitter, vm):
+    """libvirt says discard on the driver, not on the device (measured: accepted
+    on sata, virtio and scsi on 11.10.0, and echoed back by dumpxml)."""
+    vm.storage[0].discard = True
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    driver = root.find("devices/disk/driver")
+    assert driver.get("discard") == "unmap"
+
+
+def test_trim_passthrough_is_read_back(parser, emitter, vm):
+    vm.storage[0].discard = True
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert once.storage[0].discard is True
+
+
+def test_hotplug_has_no_libvirt_equivalent_and_says_so(emitter, vm):
+    """libvirt has no per-device hot-plug flag: it follows from the bus, and
+    `virsh detach-device` is how a device is removed. Nothing to emit, so the
+    setting is reported rather than left looking applied."""
+    from vmctl.core.translate import Policy, Translator
+
+    vm.storage[0].hotpluggable = True
+    translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
+    emitter.build_domain_xml(vm, translator)
+    assert any("hot-plug" in d.reason for d in translator.report.drops)
+
+
+def test_a_device_with_no_format_gets_the_providers_native_one(emitter, vm):
+    """An unset format is what keeps a config portable: the same file makes a
+    qcow2 here and a VDI on VirtualBox (M-04)."""
+    vm.storage[0].format = None
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.find("devices/disk/driver").get("type") == "qcow2"
+
+
+def test_the_boot_disk_survives_a_round_trip(parser, emitter, vm):
+    """libvirt refuses per-device <boot> alongside a VM-level boot order, so which
+    disk is the boot disk is not stated in the document at all.
+
+    Read it the way the VirtualBox parser does -- the first non-removable device,
+    and only when the VM boots from disk (L-03) -- rather than losing the flag.
+    """
+    assert vm.storage[0].bootable
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert once.storage[0].bootable
+    assert not once.storage[1].bootable, "an optical drive is not the boot disk"
+
+
+def test_a_read_only_disk_round_trips_and_a_drive_does_not_claim_to(parser, emitter, vm):
+    """`<readonly/>` on an optical drive is implied by the kind, not a request."""
+    vm.storage[0].readonly = True
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert once.storage[0].readonly is True
+    assert once.storage[1].readonly is False
+
+
+# ---------------------------------------------------------------------------
+# Deleting a domain (F-28)
+# ---------------------------------------------------------------------------
+
+
+def test_delete_removes_the_images_we_made_and_leaves_the_rest(tmp_path, monkeypatch):
+    """F-28 -- `virsh undefine --remove-all-storage` only removes volumes libvirt
+    can resolve inside a storage *pool*, and vmctl writes images into a plain
+    directory. So it reported success and left every image on disk.
+
+    Only images in our own directory are removed: one the user attached from
+    elsewhere was not vmctl's to create, so it is not vmctl's to delete.
+    """
+    from vmctl.core.storage import directory as storage_directory
+    from vmctl.providers.libvirt.backend import LibvirtBackend
+
+    images = tmp_path / "images"
+    images.mkdir()
+    ours = images / "d_root.qcow2"
+    ours.write_bytes(b"")
+    theirs = tmp_path / "elsewhere" / "base.qcow2"
+    theirs.parent.mkdir()
+    theirs.write_bytes(b"")
+
+    backend = LibvirtBackend()
+    monkeypatch.setattr(
+        LibvirtBackend, "storage_location", lambda self: storage_directory(str(images))
+    )
+    monkeypatch.setattr(LibvirtBackend, "vm_exists", lambda self, name: True)
+    monkeypatch.setattr(LibvirtBackend, "get_vm_status", lambda self, name: "stopped")
+    monkeypatch.setattr(LibvirtBackend, "list_vms", lambda self: [])
+    monkeypatch.setattr(LibvirtBackend, "_virsh", lambda self, *a, **k: "")
+
+    vm = VMConfig(
+        name="d",
+        cpu=CPUConfig(),
+        memory=MemoryConfig(),
+        firmware=FirmwareConfig(),
+        storage=[
+            StorageDevice(name="root", size_mb=32, disk_path=str(ours)),
+            StorageDevice(name="shared", size_mb=32, disk_path=str(theirs)),
+        ],
+        networks=[],
+        boot=BootConfig(),
+        storage_controllers=[],
+    )
+    monkeypatch.setattr(LibvirtBackend, "read_vm", lambda self, name: vm)
+
+    assert backend.delete_vm("d") is True
+    assert not ours.exists(), "the image vmctl created should be gone"
+    assert theirs.exists(), "an image from elsewhere is not ours to delete"

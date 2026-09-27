@@ -13,8 +13,9 @@ from ...core.vmconfig import (
     FirmwareType,
     NetworkConfig,
     NetworkType,
-    StorageControllerConfig,
+    StorageController,
     BusType,
+    default_controller_id,
     resolve_controller,
 )
 from ...core.exceptions import ProviderError
@@ -158,23 +159,26 @@ class VirtualBoxEmitter:
         # Where each device sits, decided once and shared with the validator and
         # every other provider (A-06).
         placements = place(vm, self.capabilities)
-        by_bus: Dict[BusType, StorageControllerConfig] = {}
+        by_bus: Dict[BusType, StorageController] = {}
         for sc in controllers.values():
-            by_bus.setdefault(sc.controller_type, sc)
+            by_bus.setdefault(sc.bus, sc)
             commands.append(self._create_storage_controller(sc))
 
         # Create and attach media.
-        for index, (disk, placement) in enumerate(zip(vm.disks, placements)):
+        for index, (disk, placement) in enumerate(zip(vm.storage, placements)):
             controller = self._match_controller(disk, controllers, by_bus)
             if controller is None:
                 raise ProviderError(
-                    f"Disk {disk.name!r} references controller "
-                    f"{disk.controller_name or disk.controller.value!r}, which is "
+                    f"Device {disk.name!r} references controller "
+                    f"{disk.controller or disk.bus.value!r}, which is "
                     f"not defined and could not be synthesised. Declared "
                     f"controllers: {', '.join(controllers) or '(none)'}."
                 )
 
-            attach_type = self.ATTACH_TYPES.get(disk.type, "hdd")
+            attach_type = self.ATTACH_TYPES.get(disk.kind, "hdd")
+            # The bus it really lands on: the controller it matched, which is not
+            # always the bus the device asked for.
+            placement_bus = controller.bus
 
             if disk.is_removable:
                 # A DVD or floppy drive is *inserted*, never created. The old
@@ -187,13 +191,13 @@ class VirtualBoxEmitter:
                 # of a blank one.
                 medium = disk.source
             else:
-                chosen_format = translator.format_for(disk, f"disks[{index}].format")
+                chosen_format = translator.format_for(disk, f"storage[{index}].format")
                 fmt = self.capabilities.format_spec(chosen_format)
                 medium = self.location.image_path(
                     vm.name, f"{vm.name}_{safe_filename(disk.name)}.{fmt.extension}"
                 )
 
-                allocation = translator.allocation_for(disk, chosen_format, f"disks[{index}]")
+                allocation = translator.allocation_for(disk, chosen_format, f"storage[{index}]")
                 vbox_variant = "Fixed" if allocation == Allocation.THICK else "Standard"
 
                 commands.append(
@@ -217,7 +221,7 @@ class VirtualBoxEmitter:
                 "storageattach",
                 vm.name,
                 "--storagectl",
-                controller.name,
+                self._storagectl_name(controller),
                 "--port",
                 str(placement.port),
                 "--device",
@@ -227,11 +231,28 @@ class VirtualBoxEmitter:
                 "--medium",
                 medium,
             ]
-            if disk.nonrotational and not disk.is_removable:
-                # Solid state is a property of the attachment, not of the medium,
-                # which is why it was never a disk *type* (M-01). Only hard disks
-                # have it: VirtualBox rejects it on a dvddrive.
-                attach += ["--nonrotational", "on"]
+            if not disk.is_removable:
+                # These three are properties of the *attachment*, not of the
+                # medium -- which is why solid state was never a disk type
+                # (M-01) -- and VirtualBox rejects all of them on a dvddrive.
+                if disk.nonrotational:
+                    attach += ["--nonrotational", "on"]
+                if disk.discard:
+                    attach += ["--discard", "on"]
+                if disk.hotpluggable:
+                    spec = self.capabilities.bus(placement_bus)
+                    if spec is not None and spec.hotplug:
+                        attach += ["--hotpluggable", "on"]
+                    else:
+                        # Measured: only SATA and USB accept the flag. Saying
+                        # nothing would hand back a device the guest cannot
+                        # detach under a config that asked for one.
+                        translator.drop(
+                            f"storage[{index}].hotpluggable",
+                            True,
+                            f"a {placement_bus.value} controller does not accept "
+                            f"the hot-pluggable flag",
+                        )
             commands.append(attach)
 
         # Configure network adapters
@@ -312,69 +333,77 @@ class VirtualBoxEmitter:
         DeviceKind.FLOPPY: "fdd",
     }
 
-    def _resolve_controllers(self, vm: VMConfig) -> Dict[str, StorageControllerConfig]:
-        """Return the controllers to create, keyed by the name disks will use.
+    def _resolve_controllers(self, vm: VMConfig) -> Dict[str, StorageController]:
+        """Return the controllers to create, keyed by logical id.
 
-        A hand-written config names a bus (``controller: sata``) without
-        declaring a controller, and the old code emitted no ``storagectl`` at
-        all while still emitting ``storageattach --storagectl SATA`` -- which
-        fails, because nothing by that name exists. Every bus a disk references
-        therefore gets a controller synthesised if the config did not declare
-        one (F-01).
+        A hand-written config names a bus (``bus: sata``) without declaring a
+        controller, and the old code emitted no ``storagectl`` at all while still
+        emitting ``storageattach --storagectl SATA`` -- which fails, because
+        nothing by that name exists. Every bus a device references therefore gets
+        a controller synthesised if the config did not declare one (F-01).
 
         Args:
             vm: The configuration being emitted.
 
         Returns:
-            dict: controller name -> controller configuration, in creation
-            order (declared controllers first, then synthesised ones).
+            dict: controller id -> controller, in creation order (declared
+            controllers first, then synthesised ones).
         """
-        resolved = OrderedDict()
-        for sc in vm.storage_controllers:
-            resolved[sc.name] = sc
+        resolved: Dict[str, StorageController] = OrderedDict(
+            (sc.id, sc) for sc in vm.storage_controllers
+        )
 
-        by_bus: Dict[BusType, StorageControllerConfig] = {}
+        by_bus: Dict[BusType, StorageController] = {}
         for sc in vm.storage_controllers:
-            by_bus.setdefault(sc.controller_type, sc)
+            by_bus.setdefault(sc.bus, sc)
 
-        for disk in vm.disks:
+        for disk in vm.storage:
             if self._match_controller(disk, resolved, by_bus) is not None:
                 continue
-            spec = self.capabilities.bus(disk.controller)
+            spec = self.capabilities.bus(disk.bus)
             if spec is None:
                 raise ProviderError(
                     f"disk {disk.name!r} asks for the "
-                    f"{disk.controller.value!r} bus, which this provider does "
+                    f"{disk.bus.value!r} bus, which this provider does "
                     f"not support"
                 )
-            name = spec.controller_name
-            if name not in resolved:
-                synthesized = StorageControllerConfig(
-                    name=name,
-                    controller_type=disk.controller,
+            identity = default_controller_id(disk.bus)
+            if identity not in resolved:
+                synthesized = StorageController(
+                    id=identity,
+                    bus=disk.bus,
+                    native_name=spec.controller_name,
                     port_count=spec.default_ports,
                     bootable=spec.bootable,
                 )
-                resolved[name] = synthesized
-                by_bus.setdefault(disk.controller, synthesized)
+                resolved[identity] = synthesized
+                by_bus.setdefault(disk.bus, synthesized)
         return resolved
 
     @staticmethod
     def _match_controller(disk, resolved, by_bus):
-        """Find the controller a disk should attach to, or None.
+        """Find the controller a device should attach to, or None.
 
         Delegates to :func:`~vmctl.core.vmconfig.resolve_controller` so the
-        emitter and the validator place devices identically (F-01/F-15).
+        emitter and the validator place devices identically (F-01/F-15). A device
+        may name a controller by its logical id or by VirtualBox's own name for
+        it -- a 1.1.x config did the latter, and still does.
         """
-        return resolve_controller(disk, resolved, by_bus)
+        by_native = {sc.native_name: sc for sc in resolved.values() if sc.native_name}
+        return resolve_controller(disk, resolved, by_bus, by_native)
 
-    def _create_storage_controller(self, controller: StorageControllerConfig) -> List[str]:
+    @staticmethod
+    def _storagectl_name(controller: StorageController) -> str:
+        """Return the name VBoxManage addresses this controller by."""
+        return controller.native_name or controller.id
+
+    def _create_storage_controller(self, controller: StorageController) -> List[str]:
         """Generate the command that creates one storage controller."""
-        spec = self.capabilities.bus(controller.controller_type)
+        spec = self.capabilities.bus(controller.bus)
         if spec is None:
             raise ProviderError(
-                f"controller {controller.name!r} uses the "
-                f"{controller.controller_type.value!r} bus, which this provider "
+                f"controller {self._storagectl_name(controller)!r} uses the "
+                f"{controller.bus.value!r} bus, which this provider "
                 f"does not support"
             )
         # Several buses accept exactly one port count -- IDE 2, SCSI 16, USB 8,
@@ -387,7 +416,7 @@ class VirtualBoxEmitter:
             "storagectl",
             self.vm_name,
             "--name",
-            controller.name,
+            self._storagectl_name(controller),
             "--add",
             spec.add,
             "--controller",
@@ -402,7 +431,7 @@ class VirtualBoxEmitter:
 
     #: Changes vmctl cannot apply in place, reported rather than silently ignored.
     UNSUPPORTED_EDITS = (
-        ("disks", "storage layout"),
+        ("storage", "storage layout"),
         ("storage_controllers", "storage controllers"),
         ("networks", "network adapters"),
         ("ostype", "guest OS type"),

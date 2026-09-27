@@ -96,6 +96,33 @@ things prevented that:
 
 ### Added
 
+- **Storage is described as devices on a bus**, so a disk, a CD-ROM and a floppy
+  drive are one list (`storage:`) rather than a list of "disks" that had to
+  pretend. A device says what `kind` it is, which `bus` it hangs off and which
+  `controller` it attaches to -- previously one field meant "bus" and another
+  meant "controller", which is why `"SATA"` used to be a magic value.
+- A controller now has both a portable `id` that devices reference and the
+  `native_name` its own hypervisor uses, so the same file describes the same
+  layout on another hypervisor.
+- New device settings: `readonly`, `discard` (pass the guest's TRIM through),
+  `hotpluggable`, and `provider_options` for a native detail with no neutral
+  equivalent yet. Where a bus cannot carry one -- VirtualBox accepts hot-plug on
+  SATA and USB only, and libvirt has no per-device flag at all -- vmctl reports
+  it instead of leaving the setting looking applied.
+- **Leaving `format` out now means "whichever this provider creates natively"**,
+  so one file makes a VDI on VirtualBox and a qcow2 on libvirt. Settings that are
+  not set are left out of an export rather than written as `null`.
+- Fixed: a VM exported and re-imported had `--bootable off` on its storage
+  controllers, so it could fail to boot. VirtualBox reports that setting and vmctl
+  was not reading it.
+- Fixed: `vmctl delete` on libvirt reported success but left every disk image on
+  disk, because `virsh undefine --remove-all-storage` only removes volumes inside
+  a storage pool. Images vmctl created are now removed; images attached from
+  elsewhere are left alone.
+- Configuration files and code written for 1.1.x keep working: `disks:`, `type:`,
+  `variant:`, `controller_name:`, `port:`, `device:`, `DiskConfig` and
+  `StorageControllerConfig` are all still accepted, and saving a file writes the
+  current names.
 - **A disk's kind, its bus, its format and its allocation are now four separate
   things.** `hdd` and `ssd` were never two kinds of device -- solid state is a
   flag on a disk (`nonrotational`), which is how both VirtualBox and libvirt

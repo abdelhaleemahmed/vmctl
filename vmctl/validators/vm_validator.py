@@ -21,13 +21,13 @@ from ..core.exceptions import ValidationError
 from ..core.naming import check_name
 from ..core.slots import place
 from ..core.translate import Policy, Translator
-from ..core.vmconfig import DeviceKind, FirmwareType, VMConfig
+from ..core.vmconfig import BusType, DeviceKind, FirmwareType, VMConfig
 
 
 class VMValidator:
     """Validate VM configurations against schema and provider constraints."""
 
-    # Note on DiskConfig.bootable: VirtualBox has no per-disk bootable flag --
+    # Note on StorageDevice.bootable: VirtualBox has no per-disk bootable flag --
     # boot selection is the VM's boot order plus the controller's --bootable
     # setting. The field is therefore decorative, nothing emits it, and warning
     # about it would be warning about our own artefact. M-02 should either give
@@ -101,21 +101,21 @@ class VMValidator:
                 "VRAM must be at least 1 MB", field="memory.vram_mb", value=vm.memory.vram_mb
             )
 
-        for i, disk in enumerate(vm.disks):
-            where = f"disks[{i}] ({disk.name})"
-            if disk.is_removable:
+        for i, disk in enumerate(vm.storage):
+            where = f"storage[{i}] ({disk.name})"
+            if disk.is_removable or disk.size_mb is None:
                 # A DVD or floppy drive has no size of its own.
                 continue
             if disk.size_mb < 10:
                 raise ValidationError(
                     f"{where}: size must be at least 10 MB",
-                    field=f"disks[{i}].size_mb",
+                    field=f"storage[{i}].size_mb",
                     value=disk.size_mb,
                 )
             if disk.size_mb > 1024 * 1024:
                 raise ValidationError(
                     f"{where}: size exceeds the 1 TB limit",
-                    field=f"disks[{i}].size_mb",
+                    field=f"storage[{i}].size_mb",
                     value=disk.size_mb,
                 )
 
@@ -191,23 +191,23 @@ class VMValidator:
                         expected=" | ".join(caps.supported_network_types),
                     )
 
-        if len(vm.disks) > caps.max_disks:
+        if len(vm.storage) > caps.max_disks:
             raise ValidationError(
-                f"{len(vm.disks)} disks configured, but the provider supports "
+                f"{len(vm.storage)} disks configured, but the provider supports "
                 f"at most {caps.max_disks}",
-                field="disks",
-                value=len(vm.disks),
+                field="storage",
+                value=len(vm.storage),
                 expected=f"<= {caps.max_disks}",
             )
 
         for i, sc in enumerate(vm.storage_controllers):
-            spec = caps.bus(sc.controller_type)
+            spec = caps.bus(sc.bus)
             if spec is None:
                 raise ValidationError(
-                    f"Storage controller type {sc.controller_type.value!r} is "
+                    f"Storage controller type {sc.bus.value!r} is "
                     f"not supported by this provider",
-                    field=f"storage_controllers[{i}].controller_type",
-                    value=sc.controller_type.value,
+                    field=f"storage_controllers[{i}].bus",
+                    value=sc.bus.value,
                     expected=" | ".join(sorted(b.value for b in caps.buses)),
                 )
             if sc.port_count is None:
@@ -215,7 +215,7 @@ class VMValidator:
             fixed = spec.fixed_port_count
             if fixed is not None and sc.port_count != fixed:
                 raise ValidationError(
-                    f"Controller {sc.name!r}: a {sc.controller_type.value} "
+                    f"Controller {sc.native_name or sc.id!r}: a {sc.bus.value} "
                     f"controller must have exactly {fixed} port(s), not "
                     f"{sc.port_count}",
                     field=f"storage_controllers[{i}].port_count",
@@ -224,8 +224,8 @@ class VMValidator:
                 )
             if not fixed and not spec.min_ports <= sc.port_count <= spec.max_ports:
                 raise ValidationError(
-                    f"Controller {sc.name!r}: port count {sc.port_count} is "
-                    f"outside the {sc.controller_type.value} range "
+                    f"Controller {sc.native_name or sc.id!r}: port count {sc.port_count} is "
+                    f"outside the {sc.bus.value} range "
                     f"{spec.min_ports}-{spec.max_ports}",
                     field=f"storage_controllers[{i}].port_count",
                     value=sc.port_count,
@@ -237,10 +237,10 @@ class VMValidator:
         # every problem before reporting them together. Checking here as well
         # meant refusing on the first one, and made --policy nearest impossible.
         translator = Translator(caps, policy)
-        for i, disk in enumerate(vm.disks):
-            translator.bus_for(disk, f"disks[{i}].controller")
+        for i, disk in enumerate(vm.storage):
+            translator.bus_for(disk, f"storage[{i}].bus")
             if not disk.is_removable:
-                translator.format_for(disk, f"disks[{i}].format")
+                translator.format_for(disk, f"storage[{i}].format")
         translator.finish()
 
     def _validate_storage_topology(self, vm: VMConfig) -> None:
@@ -249,20 +249,29 @@ class VMValidator:
         A port/device clash used to pass validation and fail inside VBoxManage
         partway through a create, leaving a half-built VM.
         """
-        disk_names = [d.name for d in vm.disks]
+        disk_names = [d.name for d in vm.storage]
         if len(disk_names) != len(set(disk_names)):
             dupes = sorted({n for n in disk_names if disk_names.count(n) > 1})
             raise ValidationError(
-                f"Disk names must be unique; repeated: {', '.join(dupes)}", field="disks"
+                f"Disk names must be unique; repeated: {', '.join(dupes)}", field="storage"
             )
 
-        sc_names = [sc.name for sc in vm.storage_controllers]
-        if len(sc_names) != len(set(sc_names)):
-            dupes = sorted({n for n in sc_names if sc_names.count(n) > 1})
-            raise ValidationError(
-                f"Storage controller names must be unique; repeated: " f"{', '.join(dupes)}",
-                field="storage_controllers",
-            )
+        for key, label in (("id", "ids"), ("native_name", "names")):
+            values = [getattr(sc, key) for sc in vm.storage_controllers if getattr(sc, key)]
+            if len(values) != len(set(values)):
+                dupes = sorted({n for n in values if values.count(n) > 1})
+                raise ValidationError(
+                    f"Storage controller {label} must be unique; repeated: " f"{', '.join(dupes)}",
+                    field="storage_controllers",
+                    recovery_hint=(
+                        (
+                            "Two controllers on the same bus get the same default id; "
+                            "give one of them an explicit 'id'."
+                        )
+                        if key == "id"
+                        else None
+                    ),
+                )
 
         # Placement -- collisions, ports a bus does not have, and devices per
         # port -- is resolved by the shared allocator, so the validator and the
@@ -304,7 +313,7 @@ class VMValidator:
         # E-05 in PLAN.md. A warning that fires on correct input is worse than
         # no warning.
 
-        if "disk" in vm.boot.order and not vm.disks:
+        if "disk" in vm.boot.order and not vm.storage:
             raise ValidationError(
                 "Boot order includes 'disk' but no disks are defined", field="boot.order"
             )
@@ -313,9 +322,9 @@ class VMValidator:
         # per-device would fire constantly: VirtualBox's default order is
         # floppy, dvd, disk, and most VMs have neither a floppy nor a DVD.
         available = {
-            "disk": any(not d.is_removable for d in vm.disks),
-            "dvd": any(d.type == DeviceKind.CDROM for d in vm.disks),
-            "floppy": any(d.type == DeviceKind.FLOPPY for d in vm.disks),
+            "disk": any(not d.is_removable for d in vm.storage),
+            "dvd": any(d.kind == DeviceKind.CDROM for d in vm.storage),
+            "floppy": any(d.kind == DeviceKind.FLOPPY for d in vm.storage),
             "network": True,
         }
         wanted = [d for d in vm.boot.order if d != "none"]
@@ -325,11 +334,40 @@ class VMValidator:
                 f"those devices; it will not boot"
             )
 
-        for i, disk in enumerate(vm.disks):
+        for i, disk in enumerate(vm.storage):
             if disk.is_removable and disk.size_mb:
                 warnings.append(
-                    f"disks[{i}] ({disk.name}) is a {disk.type.value} drive, so "
+                    f"storage[{i}] ({disk.name}) is a {disk.kind.value} drive, so "
                     f"size_mb={disk.size_mb} is ignored"
+                )
+
+        # A device may name a controller that nothing declares. That is
+        # deliberate -- "controller: SATA" means "whichever controller serves
+        # SATA", which is what made the old magic default work (F-01) -- but it
+        # is also what a typo looks like, so it is said out loud. The two
+        # readings are named in the message because `controller` meant a bus
+        # before M-02 and means a controller now.
+        declared = {sc.id for sc in vm.storage_controllers}
+        declared |= {sc.native_name for sc in vm.storage_controllers if sc.native_name}
+        buses = {b.value for b in BusType}
+        for i, disk in enumerate(vm.storage):
+            named = disk.controller
+            if not named or named in declared:
+                continue
+            landing = disk.bus.value
+            if named.strip().lower() in buses:
+                warnings.append(
+                    f"storage[{i}] ({disk.name}) names controller {named!r}, "
+                    f"which nothing declares; it will go on the first "
+                    f"{landing} controller"
+                )
+            else:
+                warnings.append(
+                    f"storage[{i}] ({disk.name}) names controller {named!r}, "
+                    f"which is neither a declared controller nor a bus, so it "
+                    f"will go on the first {landing} controller. Declared: "
+                    f"{', '.join(sorted(declared)) or '(none)'}; buses: "
+                    f"{', '.join(sorted(buses))}"
                 )
 
         for i, net in enumerate(vm.networks):

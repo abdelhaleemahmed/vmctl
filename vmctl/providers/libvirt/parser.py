@@ -18,22 +18,23 @@ from ...core.capabilities import Capabilities
 from ...core.exceptions import ProviderError
 from ...core.mapping import read_into
 from ..base import MediumProbe
+from ...core.devices import BusType, DeviceKind
 from ...core.vmconfig import (
     BootConfig,
     CPUConfig,
-    DiskConfig,
-    DeviceKind,
     FirmwareConfig,
     MemoryConfig,
     NetworkConfig,
     NetworkType,
-    StorageControllerConfig,
-    BusType,
+    StorageController,
+    StorageDevice,
     VMConfig,
+    default_controller_id,
 )
 from .capabilities import LibvirtCapabilities
 from .tables import (
     BOOT_DEVICE,
+    DISCARD_ON,
     DRIVER_TO_FORMAT,
     FIELDS,
     NETWORK_TO_LIBVIRT,
@@ -183,12 +184,23 @@ class LibvirtParser:
         networks = self._parse_networks(root)
         boot = self._parse_boot(root)
 
+        # With a VM-level boot order, libvirt refuses per-device <boot> elements
+        # in the same domain, so "which disk is the boot disk" is not stated
+        # anywhere. Read it the way the VirtualBox parser does -- the first
+        # non-removable device, and only when the VM boots from disk at all
+        # (L-03) -- so the flag survives a round trip instead of being lost.
+        if "disk" in boot.order and not any(d.bootable for d in disks):
+            for device in disks:
+                if not device.is_removable:
+                    device.bootable = True
+                    break
+
         vm = VMConfig(
             name=flat.get("name") or vm_name,
             cpu=CPUConfig(nested_virt=_nested(root)),
             memory=MemoryConfig(),
             firmware=FirmwareConfig(secure_boot=_secure_boot(root)),
-            disks=disks,
+            storage=disks,
             networks=networks,
             boot=boot,
             storage_controllers=controllers,
@@ -208,7 +220,7 @@ class LibvirtParser:
 
     def _parse_storage(
         self, root: ET.Element, probe: Optional[MediumProbe] = None
-    ) -> Tuple[List[StorageControllerConfig], List[DiskConfig]]:
+    ) -> Tuple[List[StorageController], List[StorageDevice]]:
         """Build controllers and devices from the document."""
         models: Dict[str, str] = {}
         for controller in root.findall("devices/controller"):
@@ -217,8 +229,8 @@ class LibvirtParser:
             if ctype and model:
                 models.setdefault(ctype, model)
 
-        disks: List[DiskConfig] = []
-        buses_seen: Dict[BusType, str] = {}
+        disks: List[StorageDevice] = []
+        buses_seen: Dict[BusType, StorageController] = {}
 
         for index, disk_el in enumerate(root.findall("devices/disk")):
             target = disk_el.find("target")
@@ -240,40 +252,46 @@ class LibvirtParser:
             nonrotational = target.get("rotation_rate") == SSD_ROTATION_RATE
 
             removable = kind in (DeviceKind.CDROM, DeviceKind.FLOPPY)
-            controller_name = buses_seen.setdefault(bus, self._controller_name(bus))
+            carrier = buses_seen.setdefault(bus, self._controller_for(bus))
             disks.append(
-                DiskConfig(
+                StorageDevice(
                     name=target.get("dev") or f"disk{index}",
-                    size_mb=0 if removable else _image_size_mb(source, probe),
-                    type=kind,
+                    # A drive has no capacity; only a disk does.
+                    size_mb=None if removable else _image_size_mb(source, probe),
+                    kind=kind,
                     format=fmt,
                     nonrotational=nonrotational,
-                    controller=bus,
-                    controller_name=controller_name,
-                    port=index,
-                    device=0,
+                    # libvirt spells TRIM passthrough as a driver attribute.
+                    discard=(driver.get("discard") if driver is not None else None) == DISCARD_ON,
+                    bus=bus,
+                    controller=carrier.id,
+                    slot=index,
+                    unit=0,
                     bootable=disk_el.find("boot") is not None,
+                    # `<readonly/>` on an optical drive says nothing: it is
+                    # implied by the kind. On a disk it is a request.
+                    readonly=disk_el.find("readonly") is not None and not removable,
                     disk_path=None if removable else source,
                     source=source if removable else None,
                 )
             )
 
-        controllers = []
-        for bus, name in buses_seen.items():
-            spec = self.capabilities.bus(bus)
-            controllers.append(
-                StorageControllerConfig(
-                    name=name,
-                    controller_type=bus,
-                    port_count=spec.default_ports if spec else 1,
-                    bootable=bus is not BusType.USB,
-                )
-            )
-        return controllers, disks
+        return list(buses_seen.values()), disks
 
-    def _controller_name(self, bus: BusType) -> str:
+    def _controller_for(self, bus: BusType) -> StorageController:
+        """Build the controller that carries devices on *bus*.
+
+        libvirt declares a controller per bus at most, so the index is always 0
+        and the logical id follows from the bus alone.
+        """
         spec = self.capabilities.bus(bus)
-        return spec.controller_name if spec else bus.value
+        return StorageController(
+            id=default_controller_id(bus),
+            bus=bus,
+            native_name=spec.controller_name if spec else bus.value,
+            port_count=spec.default_ports if spec else 1,
+            bootable=bus is not BusType.USB,
+        )
 
     @staticmethod
     def _resolve_bus(libvirt_bus: str, scsi_model: Optional[str]) -> BusType:

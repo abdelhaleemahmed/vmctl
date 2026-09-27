@@ -149,11 +149,10 @@ memory:
   mb: 8192
 boot:
   ioapic: true      # VirtualBox needs I/O APIC for more than one CPU
-disks:
+storage:
   - name: system
     size_mb: 51200
-    type: hdd
-    controller: sata
+    bus: sata
     bootable: true
 networks:
   - network_type: bridged
@@ -196,7 +195,7 @@ instances:
   - name: db-01
     cpu: 8
     memory: 16384
-    disks:
+    storage:
       - size_mb: 102400
 ```
 

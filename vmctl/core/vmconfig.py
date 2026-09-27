@@ -41,14 +41,18 @@ from .exceptions import ValidationError
 __all__ = [
     "BootConfig",
     "CPUConfig",
+    "DEFAULT_DISK_MB",
     "DiskConfig",
     "FirmwareConfig",
     "FirmwareType",
     "MemoryConfig",
     "NetworkConfig",
     "NetworkType",
+    "StorageController",
     "StorageControllerConfig",
+    "StorageDevice",
     "VMConfig",
+    "default_controller_id",
     "resolve_controller",
 ]
 
@@ -162,63 +166,94 @@ class FirmwareConfig:
         return result
 
 
+#: Capacity given to a disk that does not state one. 1.1.x kept this in the field
+#: default, where it also reached optical and floppy drives -- which have no
+#: capacity at all, so the number was noise the validator then had to warn about.
+DEFAULT_DISK_MB = 20480
+
+
 @dataclass
-class DiskConfig:
-    """Disk configuration.
+class StorageDevice:
+    """A device on a storage bus: a disk, an optical drive or a floppy drive.
+
+    Was ``DiskConfig``, which could only really describe a disk. Five of its
+    fields have clearer names here, and all five keep working -- see
+    :data:`LEGACY_DEVICE_FIELDS`.
 
     Attributes:
-        name: Unique identifier for this disk within the VM (e.g. ``"system"``, ``"data"``).
-        size_mb: Disk capacity in megabytes (10–1,048,576).
-        type: What the guest sees — a disk, a CD-ROM or a floppy drive.
-        format: Image file format — VDI, VMDK, VHD, QCOW2, RAW and so on.
-        variant: Allocation strategy — THIN (dynamic) or THICK (fixed).
-        controller: Storage bus type the disk is attached to.
-        nonrotational: Present the disk to the guest as solid-state. This was
-            ``type: ssd``, which made a performance hint look like a kind of
-            device; no hypervisor's attach matrix has a row for it (M-01).
-        controller_name: Exact controller name (e.g. ``"SATA Controller"``), or
-            None to use whichever controller serves ``controller``.
-        port: Controller port number (0-based), or None to be assigned.
-        device: Device number on the port (0 or 1 on IDE), or None to be
-            assigned.
-        bootable: Mark this disk as a boot device.
-        disk_path: Original image path on the source system (not exported).
-        source: An existing image to attach instead of creating a new one -- an
-            ISO for a DVD drive, or a disk image that already exists. This is
-            what lets a migration attach the converted copy of a disk rather
-            than a blank one.
+        name: Identifier for this device within the VM (e.g. ``"system"``).
+        kind: What the guest sees: a disk, a CD-ROM or a floppy drive. Was
+            ``type``.
+        bus: The interface it hangs off. Was ``controller`` -- which named a
+            *bus* while ``controller_name`` named a *controller*, one word doing
+            two jobs (M-02).
+        controller: Which controller to attach to: a
+            :attr:`StorageController.id`, or a provider's own name for one, or
+            None to take whichever controller serves ``bus``. Was
+            ``controller_name``.
+        slot: Port on the controller (0-based), or None to be assigned. Was
+            ``port``.
+        unit: Device on that slot (0 or 1 on IDE), or None to be assigned. Was
+            ``device``.
+        size_mb: Capacity in megabytes. None on a removable drive, which has
+            none; a disk that does not say gets :data:`DEFAULT_DISK_MB`.
+        format: Image format, or None for whichever format the provider creates
+            natively. None is what keeps a config portable: it is the difference
+            between "a disk" and "a VirtualBox disk" (M-04).
+        allocation: THIN (dynamic) or THICK (preallocated). Was ``variant``.
+        source: An existing medium to attach instead of creating one -- an ISO
+            for an optical drive, or an image that already exists, which is how a
+            migration attaches the converted copy of a disk.
+        readonly: Attach without write access.
+        nonrotational: Present the disk to the guest as solid-state. Was
+            ``type: ssd`` (M-01).
+        discard: Pass the guest's TRIM/UNMAP through to the host, so freeing
+            space in the guest frees it on the host.
+        hotpluggable: Let the guest detach the device while it is running.
+        bootable: Mark this device as a boot device.
+        disk_path: Where the image is on the source host. Never exported: it
+            describes a host, not the VM.
+        provider_options: Settings only one hypervisor has, carried verbatim.
+            vmctl does not interpret them; they exist so that a native detail can
+            survive a round trip on its own provider instead of being dropped,
+            without every such detail having to become a neutral field first.
     """
 
     name: str
-    size_mb: int = 20480  # 20GB default
-    type: DeviceKind = DeviceKind.DISK
-    format: DiskFormat = DiskFormat.VDI  # Disk image format
-    variant: Allocation = Allocation.THIN  # Thin provisioned by default
-    controller: BusType = BusType.SATA
-    # None means "whichever controller serves `controller`". It used to default
-    # to the literal "SATA", which claimed a specific controller name even for a
-    # disk on another bus, and forced consumers to special-case that string
-    # (F-01). A config that names "SATA" still works: it is matched as a real
-    # name first, and falls back to bus matching if nothing has that name.
-    controller_name: Optional[str] = None
-    # None means "put it somewhere sensible": vmctl assigns the lowest free
-    # position on the controller, deterministically (A-06). Defaulting both to 0
-    # made "unset" indistinguishable from "explicitly the first slot", so two
-    # devices that simply did not care where they went collided.
-    port: Optional[int] = None
-    device: Optional[int] = None
+    kind: DeviceKind = DeviceKind.DISK
+    bus: BusType = BusType.SATA
+    controller: Optional[str] = None
+    slot: Optional[int] = None
+    unit: Optional[int] = None
+    size_mb: Optional[int] = None
+    format: Optional[DiskFormat] = None
+    allocation: Allocation = Allocation.THIN
+    source: Optional[str] = None
+    readonly: bool = False
+    nonrotational: bool = False
+    discard: bool = False
+    hotpluggable: bool = False
     bootable: bool = False
-    nonrotational: bool = False  # Was `type: ssd` -- a flag, not a kind (M-01)
-    disk_path: Optional[str] = None  # Original disk path (for reference)
-    source: Optional[str] = None  # Existing medium to attach (ISO for DVD, etc.)
+    disk_path: Optional[str] = None
+    provider_options: Dict[str, Any] = field(default_factory=dict)
 
-    #: 1.1.x spellings of ``type:`` and what they mean now. ``ssd`` was never a
+    def __post_init__(self) -> None:
+        """Give a disk that states no capacity the default one.
+
+        A removable drive is left exactly as it was given, including a capacity
+        it cannot have: quietly dropping what someone wrote is how a config comes
+        back different from the file, so the validator says so instead.
+        """
+        if self.size_mb is None and not self.kind.is_removable:
+            self.size_mb = DEFAULT_DISK_MB
+
+    #: 1.1.x spellings of ``type:``, and what they mean now. ``ssd`` was never a
     #: kind of device -- it also sets ``nonrotational`` (M-01/M-06).
     _LEGACY_KINDS = {"hdd": "disk", "ssd": "disk", "dvd": "cdrom"}
 
     @classmethod
     def _from_legacy(cls, data: dict, path: str) -> dict:
-        """Translate a 1.1.x disk mapping into current field names and values.
+        """Translate a 1.1.x device mapping into current field names and values.
 
         Called by the loader before anything is validated, so an export from an
         older vmctl keeps loading unchanged (ground rule 2, M-06).
@@ -229,6 +264,10 @@ class DiskConfig:
 
         Returns:
             The same mapping, with legacy spellings replaced.
+
+        Raises:
+            ValidationError: If a field is given under both its old and its new
+                name, since only one of the two can be honoured.
         """
         raw = data.get("type")
         if isinstance(raw, str):
@@ -237,7 +276,22 @@ class DiskConfig:
                 if raw.strip().lower() == "ssd" and "nonrotational" not in data:
                     data["nonrotational"] = True
                 data["type"] = legacy
-        return data
+
+        # `controller` is the one key whose *meaning* changed: in 1.1.x it named
+        # a bus, and now it names a controller. The two are told apart by the
+        # value, because a bus is spelled exactly like the enum ("sata") while an
+        # id carries an index ("sata0"). A file that says `bus:` is current by
+        # definition, so nothing is guessed there.
+        wanted = data.get("controller")
+        if "bus" not in data and isinstance(wanted, str):
+            try:
+                BusType(wanted.strip().lower())
+            except ValueError:
+                pass
+            else:
+                data["bus"] = data.pop("controller")
+
+        return _rename_keys(data, LEGACY_DEVICE_FIELDS, path)
 
     @property
     def is_removable(self) -> bool:
@@ -246,29 +300,235 @@ class DiskConfig:
         A DVD or floppy drive is attached either empty or pointing at an
         existing image; vmctl must never create a medium for one.
         """
-        return self.type.is_removable
+        return self.kind.is_removable
 
     def to_dict(self) -> dict:
-        """Return disk configuration as a plain dictionary.
+        """Return the device as a plain dictionary.
 
-        Enum values are serialised to their string representations.
-        ``disk_path`` is excluded because it is host-specific.
+        Enum values become their string form. ``disk_path`` is left out because
+        it describes the host the device was read from, and anything unset is
+        left out rather than written as ``null``: an absent ``format`` means
+        "whatever this provider creates natively", which is a portable statement,
+        and ``format: null`` only looks like a mistake.
 
         Returns:
-            dict: Exportable fields with enum values as strings.
+            dict: Exportable fields, with enum values as strings.
         """
         result = asdict(self)
-        result["type"] = self.type.value
-        result["format"] = self.format.value
-        result["variant"] = self.variant.value
-        result["controller"] = self.controller.value
-        # Don't include disk_path in export (it's system-specific)
+        for key in ("kind", "format", "allocation", "bus"):
+            value = getattr(self, key)
+            if value is not None:
+                result[key] = value.value
         result.pop("disk_path", None)
-        # Omit `source` when there is none, so exports of ordinary disks keep
-        # their 1.1.x shape.
-        if self.source is None:
-            result.pop("source", None)
+        for key, value in list(result.items()):
+            if value is None or (key == "provider_options" and not value):
+                del result[key]
         return result
+
+
+@dataclass
+class StorageController:
+    """A storage controller: one bus, some number of ports, a name on each side.
+
+    Was ``StorageControllerConfig``, whose ``name`` was simultaneously the key a
+    device referenced *and* the literal string VirtualBox uses. Those are two
+    different things, and conflating them is what made ``"SATA"`` a magic value
+    (F-01): a config saying ``controller_name: "SATA"`` could not be told apart
+    from one that meant "the SATA bus, I don't care which controller".
+
+    Attributes:
+        id: Stable logical key, e.g. ``"sata0"``. What devices reference, and
+            what stays the same when the same VM is expressed on another
+            hypervisor.
+        bus: The bus this controller implements. Was ``controller_type``, which
+            was documented as a chipset and valued as a bus.
+        model: Neutral model name, when the bus offers a choice. The chipset a
+            provider uses to implement it is that provider's business, resolved
+            through its tables.
+        port_count: How many ports to give it, or None for the provider's own
+            default -- which is the only safe answer, since a bus may accept
+            exactly one number (IDE takes 2, USB takes 8) and it differs per
+            provider.
+        bootable: Whether the firmware may boot from this controller.
+        native_name: What the provider calls it (``"SATA Controller"``). Kept so
+            a same-provider round trip is faithful; meaningless anywhere else,
+            which is why it is separate from ``id``.
+    """
+
+    id: str = ""
+    bus: BusType = BusType.SATA
+    model: Optional[str] = None
+    port_count: Optional[int] = None
+    bootable: bool = False
+    native_name: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        """Give an unnamed controller the conventional id for its bus."""
+        if not self.id:
+            self.id = default_controller_id(self.bus)
+
+    @classmethod
+    def _from_legacy(cls, data: dict, path: str) -> dict:
+        """Translate a 1.1.x controller mapping: ``name`` was a native name."""
+        return _rename_keys(data, LEGACY_CONTROLLER_FIELDS, path)
+
+    def to_dict(self) -> dict:
+        """Return the controller as a plain dictionary, without unset fields."""
+        result = asdict(self)
+        result["bus"] = self.bus.value
+        return {k: v for k, v in result.items() if v is not None}
+
+
+def default_controller_id(bus: BusType, index: int = 0) -> str:
+    """Return the conventional logical id for a controller on *bus*.
+
+    One rule, used by every provider's parser, so that the same VM read through
+    two hypervisors names its controllers the same way.
+
+    Args:
+        bus: The bus the controller implements.
+        index: Which controller on that bus, 0-based.
+
+    Returns:
+        An id such as ``"sata0"`` or ``"virtio-scsi1"``.
+    """
+    return f"{bus.value}{index}"
+
+
+# ---------------------------------------------------------------------------
+# 1.1.x names
+#
+# Both halves of compatibility, in one table each: the loader renames these keys
+# in a config file, and the classes accept them as attributes and as constructor
+# keywords. Nothing else in vmctl reads the old names, so the aliases are a
+# boundary rather than a second vocabulary running in parallel.
+# ---------------------------------------------------------------------------
+
+#: Old name -> new name, for a device.
+LEGACY_DEVICE_FIELDS = {
+    "type": "kind",
+    "variant": "allocation",
+    "controller_name": "controller",
+    "port": "slot",
+    "device": "unit",
+}
+
+#: Old name -> new name, for a controller. ``name`` was the provider's own string
+#: for it, which is now ``native_name``; the logical ``id`` is derived.
+LEGACY_CONTROLLER_FIELDS = {"name": "native_name", "controller_type": "bus"}
+
+#: Old name -> new name, on the VM itself.
+LEGACY_VM_FIELDS = {"disks": "storage"}
+
+
+def _rename_keys(data: dict, mapping: Dict[str, str], path: str) -> dict:
+    """Rename old keys in a loaded mapping, refusing to guess between two.
+
+    Args:
+        data: Mapping straight from the config file. Modified in place.
+        mapping: Old name -> new name.
+        path: Dotted path, for error messages.
+
+    Returns:
+        The same mapping.
+
+    Raises:
+        ValidationError: If both names are present, since only one can be used.
+    """
+    for old, new in mapping.items():
+        if old not in data:
+            continue
+        if new in data:
+            raise ValidationError(
+                f"{_label(path)} sets both {old!r} and {new!r}",
+                field=_join(path, old),
+                recovery_hint=f"{old!r} is the older name for {new!r}; keep one.",
+            )
+        data[new] = data.pop(old)
+    return data
+
+
+def _alias(old: str, new: str) -> property:
+    """Return a read/write property forwarding *old* to *new*."""
+
+    def read(self):
+        return getattr(self, new)
+
+    def write(self, value):
+        setattr(self, new, value)
+
+    return property(read, write, doc=f"Deprecated alias for :attr:`{new}`.")
+
+
+def _bus_given_as_controller(kwargs: Dict[str, Any]) -> None:
+    """Read ``controller=<a bus>`` as the bus it must have meant.
+
+    ``controller`` is the one keyword whose *meaning* changed rather than its
+    name: in 1.1.x it named a bus, and now it names a controller. The value tells
+    the two apart with certainty, since a :class:`BusType` was never a controller
+    id. (An attribute *assignment* cannot be intercepted this way, so the
+    validator reports that case rather than acting on a guess.)
+    """
+    if isinstance(kwargs.get("controller"), BusType):
+        kwargs.setdefault("bus", kwargs.pop("controller"))
+
+
+def _accept_legacy_keywords(
+    cls: type,
+    mapping: Dict[str, str],
+    fixup: Optional[Any] = None,
+) -> None:
+    """Let a class's constructor take the old keyword names too.
+
+    Applied after the dataclass is built, because the old names must not become
+    fields: they would then be compared, copied and serialised alongside the ones
+    they alias.
+
+    Args:
+        cls: The dataclass to patch.
+        mapping: Old keyword -> new keyword.
+        fixup: Called with the keyword dict first, for a keyword whose meaning
+            changed rather than its name.
+    """
+    original = cls.__init__  # type: ignore[misc]
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        if fixup is not None:
+            fixup(kwargs)
+        for old, new in mapping.items():
+            if old in kwargs:
+                value = kwargs.pop(old)
+                # An explicit new name wins, so mixing the two is not silently
+                # order-dependent.
+                kwargs.setdefault(new, value)
+        original(self, *args, **kwargs)
+
+    setattr(cls, "__init__", __init__)
+
+
+for _old, _new in LEGACY_DEVICE_FIELDS.items():
+    setattr(StorageDevice, _old, _alias(_old, _new))
+_accept_legacy_keywords(StorageDevice, LEGACY_DEVICE_FIELDS, _bus_given_as_controller)
+
+# `name` reads back as whatever the provider calls it, falling back to the
+# logical id -- which is what 1.1.x code expects to find there.
+setattr(
+    StorageController,
+    "name",
+    property(
+        lambda self: self.native_name or self.id,
+        lambda self, value: setattr(self, "native_name", value),
+        doc="Deprecated alias for :attr:`native_name`, falling back to :attr:`id`.",
+    ),
+)
+setattr(StorageController, "controller_type", _alias("controller_type", "bus"))
+_accept_legacy_keywords(StorageController, LEGACY_CONTROLLER_FIELDS)
+
+#: Deprecated alias for :class:`StorageDevice`.
+DiskConfig = StorageDevice
+
+#: Deprecated alias for :class:`StorageController`.
+StorageControllerConfig = StorageController
 
 
 @dataclass
@@ -345,58 +605,39 @@ class BootConfig:
         return asdict(self)
 
 
-@dataclass
-class StorageControllerConfig:
-    """Storage controller configuration.
-
-    Attributes:
-        name: Unique controller name as it appears in VirtualBox
-            (e.g. ``"SATA Controller"``).
-        controller_type: Bus/chipset type (IDE, SATA, SCSI, SAS).
-        port_count: Number of available device ports.
-        bootable: Mark this controller as capable of booting.
-    """
-
-    name: str
-    controller_type: BusType
-    port_count: int = 30
-    bootable: bool = False
-
-    def to_dict(self) -> dict:
-        """Return storage controller configuration as a plain dictionary.
-
-        Returns:
-            dict: Fields with ``controller_type`` as a string value.
-        """
-        result = asdict(self)
-        result["controller_type"] = self.controller_type.value
-        return result
-
-
 def resolve_controller(
-    disk: "DiskConfig",
-    by_name: Dict[str, "StorageControllerConfig"],
-    by_bus: Dict[Any, "StorageControllerConfig"],
-) -> Optional["StorageControllerConfig"]:
+    device: "StorageDevice",
+    by_id: Dict[str, "StorageController"],
+    by_bus: Dict[Any, "StorageController"],
+    by_native: Optional[Dict[str, "StorageController"]] = None,
+) -> Optional["StorageController"]:
     """Find the controller a device attaches to.
 
-    An explicit name wins if something actually has that name; otherwise the
-    device goes to whichever controller serves its bus. Kept here, in the model,
-    so the validator and the emitter cannot disagree about where a disk lands --
-    they did, and the disagreement was how a system disk ended up on a floppy
-    controller.
+    Three lookups, in the order of how specific they are: the logical id a device
+    names, then the provider's own name for a controller -- because a 1.1.x
+    config referenced that string and must keep working -- then whichever
+    controller serves the device's bus.
+
+    Kept here, in the model, so the validator and the emitter cannot disagree
+    about where a device lands. They did, and the disagreement is how a system
+    disk ended up on a floppy controller (F-15).
 
     Args:
-        disk: The device to place.
-        by_name: Controllers keyed by name.
-        by_bus: One controller per bus type.
+        device: The device to place.
+        by_id: Controllers keyed by logical id.
+        by_bus: One controller per bus.
+        by_native: Controllers keyed by the provider's own name.
 
     Returns:
-        The matching controller, or None if neither lookup succeeds.
+        The matching controller, or None if no lookup succeeds.
     """
-    if disk.controller_name and disk.controller_name in by_name:
-        return by_name[disk.controller_name]
-    return by_bus.get(disk.controller)
+    wanted = device.controller
+    if wanted:
+        if wanted in by_id:
+            return by_id[wanted]
+        if by_native and wanted in by_native:
+            return by_native[wanted]
+    return by_bus.get(device.bus)
 
 
 @dataclass
@@ -407,7 +648,7 @@ class VMConfig:
     cpu: CPUConfig
     memory: MemoryConfig
     firmware: FirmwareConfig
-    disks: List[DiskConfig]
+    storage: List[StorageDevice]
     networks: List[NetworkConfig]
     boot: BootConfig
     storage_controllers: List[StorageControllerConfig]
@@ -423,14 +664,22 @@ class VMConfig:
     def __post_init__(self):
         """Ensure the VM has at least one disk after construction.
 
-        If ``disks`` is empty a default system disk named ``<vm_name>_system``
-        is created automatically with all default ``DiskConfig`` values.
+        If ``storage`` is empty a default system disk named ``<vm_name>_system``
+        is created with all default :class:`StorageDevice` values.
         """
-        # Ensure at least one disk exists
-        if not self.disks:
-            self.disks = [DiskConfig(name=f"{self.name}_system")]
+        if not self.storage:
+            self.storage = [StorageDevice(name=f"{self.name}_system")]
 
-    def controller_for(self, disk: DiskConfig) -> Optional[StorageControllerConfig]:
+    @classmethod
+    def _from_legacy(cls, data: dict, path: str) -> dict:
+        """Accept ``disks:`` for ``storage:``.
+
+        The list holds optical and floppy drives too, so it was never a list of
+        disks (M-02). Old files keep using the old key indefinitely.
+        """
+        return _rename_keys(data, LEGACY_VM_FIELDS, path)
+
+    def controller_for(self, disk: StorageDevice) -> Optional[StorageController]:
         """Return the declared controller this device attaches to, if any.
 
         Args:
@@ -440,11 +689,12 @@ class VMConfig:
             The controller, or None when the VM declares nothing suitable (the
             provider is then expected to supply one).
         """
-        by_name = {sc.name: sc for sc in self.storage_controllers}
-        by_bus: Dict[Any, StorageControllerConfig] = {}
+        by_id = {sc.id: sc for sc in self.storage_controllers}
+        by_native = {sc.native_name: sc for sc in self.storage_controllers if sc.native_name}
+        by_bus: Dict[Any, StorageController] = {}
         for sc in self.storage_controllers:
-            by_bus.setdefault(sc.controller_type, sc)
-        return resolve_controller(disk, by_name, by_bus)
+            by_bus.setdefault(sc.bus, sc)
+        return resolve_controller(disk, by_id, by_bus, by_native)
 
     def to_dict(self) -> dict:
         """Convert VMConfig to dictionary for serialization"""
@@ -455,7 +705,7 @@ class VMConfig:
             "cpu": self.cpu.to_dict(),
             "memory": self.memory.to_dict(),
             "firmware": self.firmware.to_dict(),
-            "disks": [disk.to_dict() for disk in self.disks],
+            "storage": [device.to_dict() for device in self.storage],
             "networks": [net.to_dict() for net in self.networks],
             "boot": self.boot.to_dict(),
             "storage_controllers": [sc.to_dict() for sc in self.storage_controllers],
@@ -501,6 +751,10 @@ class VMConfig:
             )
         vm: "VMConfig" = _build(cls, copy.deepcopy(data))
         return vm
+
+
+setattr(VMConfig, "disks", _alias("disks", "storage"))
+_accept_legacy_keywords(VMConfig, LEGACY_VM_FIELDS)
 
 
 # ---------------------------------------------------------------------------

@@ -25,7 +25,7 @@ import pytest
 from vmctl.core.vmconfig import (
     BootConfig,
     CPUConfig,
-    DiskConfig,
+    StorageDevice,
     DiskFormat,
     DeviceKind,
     Allocation,
@@ -34,7 +34,7 @@ from vmctl.core.vmconfig import (
     MemoryConfig,
     NetworkConfig,
     NetworkType,
-    StorageControllerConfig,
+    StorageController,
     BusType,
     VMConfig,
 )
@@ -190,7 +190,7 @@ def vm_minimal() -> VMConfig:
         cpu=CPUConfig(count=1),
         memory=MemoryConfig(mb=2048),
         firmware=FirmwareConfig(),
-        disks=[DiskConfig(name="system", size_mb=20480, bootable=True)],
+        storage=[StorageDevice(name="system", size_mb=20480, bootable=True)],
         networks=[NetworkConfig()],
         boot=BootConfig(),
         storage_controllers=[],
@@ -205,39 +205,39 @@ def vm_full() -> VMConfig:
         cpu=CPUConfig(count=8, hotplug=True, execution_cap=90, pae=True, nested_virt=True),
         memory=MemoryConfig(mb=16384, vram_mb=128, page_fusion=True, ballooning=True),
         firmware=FirmwareConfig(type=FirmwareType.EFI64, secure_boot=True, tpm=True),
-        disks=[
-            DiskConfig(
+        storage=[
+            StorageDevice(
                 name="system",
                 size_mb=51200,
-                type=DeviceKind.DISK,
+                kind=DeviceKind.DISK,
                 format=DiskFormat.VDI,
-                variant=Allocation.THIN,
-                controller=BusType.SATA,
-                controller_name="SATA Controller",
-                port=0,
-                device=0,
+                allocation=Allocation.THIN,
+                bus=BusType.SATA,
+                controller="SATA Controller",
+                slot=0,
+                unit=0,
                 bootable=True,
             ),
-            DiskConfig(
+            StorageDevice(
                 name="data",
                 size_mb=102400,
-                type=DeviceKind.DISK,
+                kind=DeviceKind.DISK,
                 nonrotational=True,
                 format=DiskFormat.VMDK,
-                variant=Allocation.THICK,
-                controller=BusType.SAS,
-                controller_name="SAS Controller",
-                port=1,
-                device=0,
+                allocation=Allocation.THICK,
+                bus=BusType.SAS,
+                controller="SAS Controller",
+                slot=1,
+                unit=0,
             ),
-            DiskConfig(
+            StorageDevice(
                 name="cd",
                 size_mb=700,
-                type=DeviceKind.CDROM,
-                controller=BusType.IDE,
-                controller_name="IDE Controller",
-                port=1,
-                device=0,
+                kind=DeviceKind.CDROM,
+                bus=BusType.IDE,
+                controller="IDE Controller",
+                slot=1,
+                unit=0,
             ),
         ],
         networks=[
@@ -254,18 +254,14 @@ def vm_full() -> VMConfig:
             order=["disk", "dvd", "network", "none"], acpi=True, ioapic=True, hpet=True
         ),
         storage_controllers=[
-            StorageControllerConfig(
+            StorageController(
                 name="SATA Controller",
-                controller_type=BusType.SATA,
+                bus=BusType.SATA,
                 port_count=2,
                 bootable=True,
             ),
-            StorageControllerConfig(
-                name="SAS Controller", controller_type=BusType.SAS, port_count=16
-            ),
-            StorageControllerConfig(
-                name="IDE Controller", controller_type=BusType.IDE, port_count=2
-            ),
+            StorageController(name="SAS Controller", bus=BusType.SAS, port_count=16),
+            StorageController(name="IDE Controller", bus=BusType.IDE, port_count=2),
         ],
         ostype="Ubuntu_64",
         description="every field set",

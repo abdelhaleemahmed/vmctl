@@ -31,7 +31,10 @@ _BUS = BusType
 _ALL_ALLOC = ("thin", "thick")
 
 #: Bus rules. ``min_ports``/``max_ports`` are the ranges VirtualBox reported when
-#: asked for an impossible port count.
+#: asked for an impossible port count. ``hotplug`` is measured the same way: a
+#: scratch VM was given a controller on every bus and a disk attached to each with
+#: ``--hotpluggable on``. SATA and USB accept it; the rest answer "Controller 'x'
+#: does not support changing the hot-pluggable device flag".
 BUSES = {
     _BUS.IDE: BusSpec(
         "ide",
@@ -48,6 +51,7 @@ BUSES = {
         1,
         30,
         default_ports=30,
+        hotplug=True,
         controller_name="SATA Controller",
     ),
     _BUS.SCSI: BusSpec(
@@ -89,6 +93,7 @@ BUSES = {
         8,
         default_ports=8,
         bootable=False,
+        hotplug=True,
         controller_name="USB Controller",
     ),
     _BUS.FLOPPY: BusSpec(

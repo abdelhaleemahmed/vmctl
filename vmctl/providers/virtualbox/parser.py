@@ -5,20 +5,18 @@ Parse VirtualBox VM configuration into VMConfig
 import subprocess
 import re
 from typing import Any, Callable, Dict, Optional
+from ...core.devices import Allocation, BusType, DeviceKind, DiskFormat
 from ...core.vmconfig import (
-    VMConfig,
+    BootConfig,
     CPUConfig,
-    MemoryConfig,
     FirmwareConfig,
-    DiskConfig,
-    DeviceKind,
-    DiskFormat,
-    Allocation,
+    MemoryConfig,
     NetworkConfig,
     NetworkType,
-    BootConfig,
-    StorageControllerConfig,
-    BusType,
+    StorageController,
+    StorageDevice,
+    VMConfig,
+    default_controller_id,
 )
 from ...core.exceptions import DependencyError, ProviderError
 from ...core.capabilities import Capabilities
@@ -338,6 +336,7 @@ class VirtualBoxParser:
 
         controller_indices = sorted(set(controller_indices), key=int)
 
+        per_bus: Dict[BusType, int] = {}
         for idx in controller_indices:
             name = config.get(f"storagecontrollername{idx}", f"Controller{idx}")
             controller_type = config.get(f"storagecontrollertype{idx}", "PIIX4")
@@ -353,10 +352,23 @@ class VirtualBoxParser:
                     f"{', '.join(sorted(CONTROLLER_CHIPSETS))}."
                 )
 
-            sc = StorageControllerConfig(
-                name=name,
-                controller_type=sc_type,
+            # The logical id is derived from the bus and how many controllers on
+            # that bus came before, by the same rule every provider uses -- so
+            # the same VM read through two hypervisors names its controllers
+            # alike. VirtualBox's own string is kept separately, because that is
+            # what `--storagectl` takes and it means nothing anywhere else (M-02).
+            index = per_bus.get(sc_type, 0)
+            per_bus[sc_type] = index + 1
+            sc = StorageController(
+                id=default_controller_id(sc_type, index),
+                bus=sc_type,
+                native_name=name,
                 port_count=int(config.get(f"storagecontrollerportcount{idx}", 30)),
+                # Reported all along and never read, so every re-created VM got
+                # `--bootable off` and could not boot from the controller its
+                # source booted from (F-27).
+                bootable=config.get(f"storagecontrollerbootable{idx}", "off").strip().lower()
+                == "on",
             )
             storage_controllers.append(sc)
 
@@ -382,16 +394,17 @@ class VirtualBoxParser:
                     # supports now, so dropping it would lose it on export.
                     disk_attachments[f"{controller_name}-{port}-{device}"] = value
 
-        # Build controller name to type mapping
-        controller_name_to_type = {sc.name: sc.controller_type for sc in storage_controllers}
+        # VirtualBox addresses an attachment by the controller's own name, so
+        # that is the key here; the device stores the logical id it maps to.
+        by_native = {sc.native_name: sc for sc in storage_controllers}
 
         # Create disk configurations
         for attachment, disk_path in disk_attachments.items():
             # Use rsplit to handle controller names with dashes (e.g., "SATA-II Controller-0-0")
             ctrl_name, port, device = attachment.rsplit("-", 2)
 
-            # Find controller type by name
-            ctrl_type = controller_name_to_type.get(ctrl_name, BusType.SATA)
+            controller = by_native.get(ctrl_name)
+            ctrl_type = controller.bus if controller else BusType.SATA
 
             # "none" means the slot exists but holds nothing at all.
             if not disk_path or disk_path == "none":
@@ -418,37 +431,43 @@ class VirtualBoxParser:
                 # probe them either: `showmediuminfo <path>` defaults to a HDD
                 # device type and fails outright for an ISO, which silently
                 # yielded a bogus 20 GB VDI (F-18, feeding F-04).
-                disk = DiskConfig(
+                disk = StorageDevice(
                     name=f"disk_{ctrl_name}_{port}_{device}",
-                    size_mb=0,
-                    type=disk_type,
+                    # A drive has no capacity of its own; 0 read as a number that
+                    # then had to be explained away (M-02).
+                    size_mb=None,
+                    kind=disk_type,
                     format=self.default_format_for(disk_path),
-                    controller=ctrl_type,
-                    controller_name=ctrl_name,
-                    port=int(port),
-                    device=int(device),
+                    bus=ctrl_type,
+                    controller=controller.id if controller else ctrl_name,
+                    slot=int(port),
+                    unit=int(device),
                     bootable=False,
                     disk_path=None if empty else disk_path,
                     source=None if empty else disk_path,
                 )
             else:
                 disk_info = lookup(disk_path)
-                disk = DiskConfig(
+                disk = StorageDevice(
                     name=f"disk_{ctrl_name}_{port}_{device}",
                     size_mb=disk_info["size_mb"],
-                    type=disk_type,
+                    kind=disk_type,
                     # Reported per attachment as "<controller>-nonrotational-<port>-<device>".
                     # This is what `type: ssd` used to stand in for (M-01).
                     nonrotational=config.get(f"{ctrl_name}-nonrotational-{port}-{device}", "off")
                     .strip()
                     .lower()
                     == "on",
+                    discard=config.get(f"{ctrl_name}-discard-{port}-{device}", "off")
+                    .strip()
+                    .lower()
+                    == "on",
                     format=disk_info["format"],
-                    variant=disk_info["variant"],
-                    controller=ctrl_type,
-                    controller_name=ctrl_name,
-                    port=int(port),
-                    device=int(device),
+                    allocation=disk_info["variant"],
+                    bus=ctrl_type,
+                    controller=controller.id if controller else ctrl_name,
+                    slot=int(port),
+                    unit=int(device),
                     bootable=False,  # set below for the first disk only
                     disk_path=disk_path,
                 )
@@ -511,7 +530,7 @@ class VirtualBoxParser:
             cpu=cpu,
             memory=memory,
             firmware=firmware,
-            disks=disks,
+            storage=disks,
             networks=networks,
             boot=boot,
             storage_controllers=storage_controllers,

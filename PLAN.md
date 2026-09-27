@@ -368,6 +368,33 @@ declared *second* was reported as `disks[0]`. The device loop reused its
 that line named the wrong device. A report that points at the wrong device is
 worse than no report, since acting on it edits the wrong thing.
 
+### F-27 — A round trip turned off booting from the controller · M *(fixed)*
+`vmctl/providers/virtualbox/parser.py`
+
+Found by reading a real capture field by field while writing `M-02`.
+`storagecontrollerbootable<n>` has been in every `showvminfo` capture since the
+first one, and nothing read it. So every parsed controller was "not bootable",
+and the emitter faithfully re-created it with `--bootable off`: export a VM,
+import it, and it can no longer boot from the controller its original booted
+from. The golden files had `--bootable off` in them all along, which is what a
+missing parse looks like once it reaches the output.
+
+### F-28 — `delete` reported success and left every disk image behind · M *(fixed)*
+`vmctl/providers/libvirt/backend.py`
+
+Found by listing the image directory after a session's verification runs: fifteen
+orphaned images, one per VM vmctl had deleted.
+
+`virsh undefine --remove-all-storage` only removes volumes libvirt can resolve
+inside a storage **pool**, and vmctl writes images into a plain directory. libvirt
+skips what it cannot resolve without failing, so vmctl's check -- is the domain
+gone? -- passed, and `delete`, which promises to "delete all associated disk
+files", quietly did not.
+
+Fixed by removing the images in the connection's own image directory after the
+domain is undefined. Images from anywhere else are left alone and were never
+vmctl's to create, so they are not vmctl's to delete.
+
 ### F-22 — An empty removable drive is not represented at all · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py` (disk attachment filter)
 
@@ -1147,8 +1174,72 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > and `off` respectively, and a libvirt domain round-trips virtio-blk as
 > virtio-blk with `rotation_rate='1'` on its virtio-scsi disk.
 >
-> Remaining: `M-02`, `M-06` (the device and controller shapes, and the rest of
-> the alias table), `A-05`, `A-10`.
+> **Eleventh step done: `M-02` + `M-06` (the shapes, and every old name).**
+> `DiskConfig` could only really describe a disk, and its `controller` named a
+> *bus* while `controller_name` named a *controller* -- one word doing two jobs,
+> which is exactly why `"SATA"` had to be a magic value (F-01): a config saying
+> `controller_name: "SATA"` could not be told from one meaning "the SATA bus, I
+> don't mind which controller".
+>
+> So `StorageDevice` and `StorageController` replace them. A device has `kind`,
+> `bus`, `controller`, `slot`, `unit`, `allocation`, and now `readonly`,
+> `discard`, `hotpluggable` and `provider_options`; a controller has an `id`
+> devices reference and a `native_name` the hypervisor uses. `VMConfig.storage`
+> replaces `disks`, because the list has held optical and floppy drives since
+> F-22.
+>
+> Three of the new fields are real rather than declarative, and their limits were
+> measured, not assumed. `discard` is `--discard on` for VirtualBox on every disk
+> bus and `<driver discard='unmap'>` for libvirt; `hotpluggable` is accepted by
+> VirtualBox on SATA and USB only ("Controller 'x' does not support changing the
+> hot-pluggable device flag") and has no libvirt equivalent at all, so on any
+> other bus it is reported as dropped rather than left looking applied.
+> `readonly` round-trips on a disk, and is not invented for an optical drive
+> where the document implies it.
+>
+> `format: None` now means "whichever format this provider creates natively",
+> which finishes the half of `M-04` that was still VirtualBox-shaped: a config
+> with no format stated makes a VDI on VirtualBox and a qcow2 on libvirt, instead
+> of asking libvirt for a VDI and being told it was substituted. Unset fields are
+> left out of an export entirely, because `format: null` reads as a mistake.
+> `size_mb` is likewise absent on a drive that cannot have one -- it was 0, a
+> number the validator then had to explain away.
+>
+> Compatibility is the larger half of the work (`M-06`). Every 1.1.x name works
+> as a config key, as an attribute and as a constructor keyword: `disks:`,
+> `type:` (including `ssd`), `variant:`, `controller_name:`, `port:`, `device:`,
+> `DiskConfig`, `StorageControllerConfig`. Two of them cannot be renamed
+> mechanically and are handled by value. `controller` changed *meaning*, so a
+> value that spells a bus (`sata`) is read as one while `sata0` is read as a
+> controller; and a `BusType` passed to the `controller=` keyword can only ever
+> have meant the bus. A value that is neither -- a typo -- lands as a controller
+> nothing declares, which is legal (that is how F-01's case is written) and is
+> therefore a warning naming both readings rather than silence. Giving a field
+> both its old and new name is refused, because only one can be honoured.
+>
+> The compatibility test was strengthened rather than loosened: it applies the
+> rename table from this plan **by hand** and requires vmctl's own upgrade to
+> match it, so the two are independent statements that can disagree.
+>
+> Two findings came out of verifying it on real hardware. `F-27`: VirtualBox has
+> always reported `storagecontrollerbootable<n>` and vmctl never read it, so every
+> re-created VM got `--bootable off` and could not boot from its controller --
+> visible in the golden files all along. `F-28`: `virsh undefine
+> --remove-all-storage` only removes volumes inside a storage *pool*, so `delete`
+> reported success and left every image on disk; a session's worth of verification
+> runs had left fifteen.
+>
+> Verified end to end both ways. On the Windows host, a 128 MB VM with a named
+> controller (`id: sata0`, `native_name: Quick SATA`), a solid-state disk with
+> TRIM and hot-plug, a SAS disk and an empty DVD drive: read back, the id/native
+> name split, `nonrotational`, `discard`, the empty drive and the boot disk all
+> came back intact. On libvirt, the same shape with virtio-blk and virtio-scsi
+> round-tripped including `discard` on both disks and the rotation rate on the one
+> bus that can carry it. A VirtualBox capture migrated to real libvirt carries
+> 10/10 checked settings.
+>
+> Remaining in Phase 5: `A-05` (the guest-OS catalogue) and `A-10`
+> (arch/machine/CPU topology/NicModel).
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1896,8 +1987,10 @@ Configs exported by 1.1.x must keep loading through 2.x. Concretely:
 | Unknown keys now error (F-06) | only *unknown* keys error; every 1.1.x-emitted key stays valid. Run the T-02 fixtures' exports through the new loader as a test |
 | DVD disks gain `iso_path` / `source` (F-04, M-02) | optional field, defaults to `None` |
 | `DiskType{hdd,ssd,dvd}` → `DeviceKind` + `nonrotational` (M-01) | mapped on load per the M-06 table; `type:` stays an accepted alias |
-| `disks:` → `storage:` (M-02) | `disks:` accepted indefinitely; save re-emits whichever key the file used |
+| `disks:` → `storage:` (M-02) | `disks:` accepted indefinitely. **Save writes `storage:`, not the key the file used** -- remembering that would mean storing provenance per file to avoid one line of diff, and the compatibility test states the narrower promise instead: an upgrade renames only what the table above says |
 | `variant` → `allocation` (M-01) | `variant` stays an accepted alias |
+| `controller` (a bus) → `bus`; `controller_name` → `controller` (M-02) | the one key whose *meaning* changed. Told apart by value: `sata` is a bus, `sata0` a controller id; a `BusType` passed as `controller=` is the bus. A value that is neither lands as a controller nothing declares -- legal, and warned about |
+| `StorageController.name` → `id` + `native_name` (M-02) | `name=` sets `native_name` and reads back `native_name or id`; the id is derived from bus + index |
 | `ostype` → neutral `guest_os` (A-05) | raw provider strings accepted as passthrough forever |
 | `adapter_type: "82540EM"` → `NicModel` (A-10) | raw native strings accepted as passthrough |
 | `List[List[str]]` → `Plan` (A-01) | internal API; `Plan.as_argv_lists()` shim if anything external depends on it |
@@ -1990,6 +2083,8 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-24 formats vmctl could create but not read back (fixed by M-03/A-02)
          [x] F-25 virtio-blk read back as virtio-scsi (found by M-01)
          [x] F-26 a translation report named the wrong disk
+         [x] F-27 bootable controllers re-created as --bootable off
+         [x] F-28 libvirt delete left every disk image behind
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2001,10 +2096,10 @@ Phase 4  [x] H-01 .gitignore              [x] H-02 drop _build from git
          [x] H-05 CHANGELOG + release.sh  [x] H-06 docs truth pass
          [x] H-07 VBox version floor      [x] H-08 prune exceptions
 Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
-         [ ] M-02 StorageDevice + StorageController (id vs native_name)
+         [x] M-02 StorageDevice + StorageController (id vs native_name)
          [x] M-03 support matrix incl. (kind x bus) attach table  + PROBE it
          [x] M-04 --disk-format option, provider-filtered choices
-         [x] M-05 shared medium conversion      [ ] M-06 config back-compat mapping
+         [x] M-05 shared medium conversion      [x] M-06 config back-compat mapping
          [x] A-01 Plan/Step replaces List[List[str]]   <-- land alone
          [x] A-11 field-table mapping engine + codecs + decoders (with A-01)
          [x] A-02 typed Capabilities, matrix-driven validator

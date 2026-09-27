@@ -15,7 +15,7 @@ from vmctl.core.convert import (
 )
 from vmctl.core.exceptions import ProviderError
 from vmctl.core.plan import StepKind
-from vmctl.core.vmconfig import DiskConfig, DiskFormat, DeviceKind
+from vmctl.core.vmconfig import StorageDevice, DiskFormat, DeviceKind
 from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
 from vmctl.providers.libvirt.convert import QemuImgConverter
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
@@ -67,14 +67,14 @@ def test_a_different_path_is_still_a_copy():
 def test_a_disk_with_no_image_yet_is_not_converted(vm_minimal):
     """A configuration that merely describes a disk has nothing to convert from."""
     caps = LibvirtCapabilities.get()
-    vm_minimal.disks = [DiskConfig(name="d", size_mb=1024, format=DiskFormat.VHDX)]
+    vm_minimal.storage = [StorageDevice(name="d", size_mb=1024, format=DiskFormat.VHDX)]
     assert conversions_for(vm_minimal, caps, lambda vm, d, ext: "/out/x") == []
 
 
 def test_an_existing_image_the_target_cannot_create_is_converted(vm_minimal):
     caps = LibvirtCapabilities.get()
-    vm_minimal.disks = [
-        DiskConfig(name="d", size_mb=1024, format=DiskFormat.VHDX, disk_path="/in/d.vhdx")
+    vm_minimal.storage = [
+        StorageDevice(name="d", size_mb=1024, format=DiskFormat.VHDX, disk_path="/in/d.vhdx")
     ]
     requests = conversions_for(vm_minimal, caps, lambda vm, disk, ext: f"/out/{disk.name}.{ext}")
     assert len(requests) == 1
@@ -85,8 +85,8 @@ def test_an_existing_image_the_target_cannot_create_is_converted(vm_minimal):
 
 def test_an_image_the_target_can_create_is_left_alone(vm_minimal):
     caps = LibvirtCapabilities.get()
-    vm_minimal.disks = [
-        DiskConfig(name="d", size_mb=1024, format=DiskFormat.QCOW2, disk_path="/in/d.qcow2")
+    vm_minimal.storage = [
+        StorageDevice(name="d", size_mb=1024, format=DiskFormat.QCOW2, disk_path="/in/d.qcow2")
     ]
     assert conversions_for(vm_minimal, caps, lambda vm, d, ext: "/out/x") == []
 
@@ -94,7 +94,9 @@ def test_an_image_the_target_can_create_is_left_alone(vm_minimal):
 def test_removable_media_are_never_converted(vm_minimal):
     """An ISO is inserted, not created, so its format is not ours to change."""
     caps = LibvirtCapabilities.get()
-    vm_minimal.disks = [DiskConfig(name="cd", type=DeviceKind.CDROM, source="/iso/install.iso")]
+    vm_minimal.storage = [
+        StorageDevice(name="cd", kind=DeviceKind.CDROM, source="/iso/install.iso")
+    ]
     assert conversions_for(vm_minimal, caps, lambda vm, d, ext: "/out/x") == []
 
 

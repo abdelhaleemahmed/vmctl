@@ -126,5 +126,5 @@ def test_loading_the_batch_file_does_not_consume_the_base_definition(tmp_path):
     vms = BatchCreator(FakeEngine()).create_from_file(path)
     # Both instances must inherit the base disk; the second used to come up
     # empty because building the first emptied the shared mapping.
-    assert all(len(vm.disks) == 1 for vm in vms)
-    assert all(vm.disks[0].size_mb == 1024 for vm in vms)
+    assert all(len(vm.storage) == 1 for vm in vms)
+    assert all(vm.storage[0].size_mb == 1024 for vm in vms)

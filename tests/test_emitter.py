@@ -10,7 +10,7 @@ import pytest
 from vmctl.core.vmconfig import (
     BootConfig,
     CPUConfig,
-    DiskConfig,
+    StorageDevice,
     DiskFormat,
     DeviceKind,
     Allocation,
@@ -19,7 +19,7 @@ from vmctl.core.vmconfig import (
     MemoryConfig,
     NetworkConfig,
     NetworkType,
-    StorageControllerConfig,
+    StorageController,
     BusType,
     VMConfig,
 )
@@ -39,7 +39,7 @@ def build_minimal() -> VMConfig:
         cpu=CPUConfig(count=2),
         memory=MemoryConfig(mb=2048),
         firmware=FirmwareConfig(),
-        disks=[DiskConfig(name="system", size_mb=20480, bootable=True)],
+        storage=[StorageDevice(name="system", size_mb=20480, bootable=True)],
         networks=[NetworkConfig()],
         boot=BootConfig(),
         storage_controllers=[],
@@ -52,32 +52,32 @@ def build_full() -> VMConfig:
         cpu=CPUConfig(count=8, hotplug=True, execution_cap=90, pae=True, nested_virt=True),
         memory=MemoryConfig(mb=16384, vram_mb=128, page_fusion=True),
         firmware=FirmwareConfig(type=FirmwareType.EFI64, secure_boot=True, tpm=True),
-        disks=[
-            DiskConfig(
+        storage=[
+            StorageDevice(
                 name="system",
                 size_mb=51200,
                 bootable=True,
-                controller=BusType.SATA,
-                controller_name="SATA Controller",
+                bus=BusType.SATA,
+                controller="SATA Controller",
             ),
-            DiskConfig(
+            StorageDevice(
                 name="data",
                 size_mb=102400,
-                type=DeviceKind.DISK,
+                kind=DeviceKind.DISK,
                 nonrotational=True,
                 format=DiskFormat.VMDK,
-                variant=Allocation.THICK,
-                controller=BusType.SAS,
-                controller_name="SAS Controller",
-                port=1,
+                allocation=Allocation.THICK,
+                bus=BusType.SAS,
+                controller="SAS Controller",
+                slot=1,
             ),
-            DiskConfig(
+            StorageDevice(
                 name="cd",
-                type=DeviceKind.CDROM,
+                kind=DeviceKind.CDROM,
                 size_mb=700,
-                controller=BusType.IDE,
-                controller_name="IDE Controller",
-                port=1,
+                bus=BusType.IDE,
+                controller="IDE Controller",
+                slot=1,
             ),
         ],
         networks=[
@@ -92,18 +92,14 @@ def build_full() -> VMConfig:
         ],
         boot=BootConfig(order=["disk", "dvd", "network", "none"], ioapic=True, hpet=True),
         storage_controllers=[
-            StorageControllerConfig(
+            StorageController(
                 name="SATA Controller",
-                controller_type=BusType.SATA,
+                bus=BusType.SATA,
                 port_count=2,
                 bootable=True,
             ),
-            StorageControllerConfig(
-                name="SAS Controller", controller_type=BusType.SAS, port_count=16
-            ),
-            StorageControllerConfig(
-                name="IDE Controller", controller_type=BusType.IDE, port_count=2
-            ),
+            StorageController(name="SAS Controller", bus=BusType.SAS, port_count=16),
+            StorageController(name="IDE Controller", bus=BusType.IDE, port_count=2),
         ],
         description="every field set",
         audio_enabled=True,
@@ -177,8 +173,8 @@ def test_internal_ostype_ids_pass_through(vm_minimal):
 
 def test_raw_format_is_forced_to_fixed_allocation():
     vm = build_minimal()
-    vm.disks[0].format = DiskFormat.RAW
-    vm.disks[0].variant = Allocation.THIN
+    vm.storage[0].format = DiskFormat.RAW
+    vm.storage[0].allocation = Allocation.THIN
     create = [
         c
         for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
@@ -324,10 +320,10 @@ def test_solid_state_is_an_attachment_flag_not_a_medium_format():
         cpu=CPUConfig(),
         memory=MemoryConfig(),
         firmware=FirmwareConfig(),
-        disks=[
-            DiskConfig(name="fast", size_mb=1024, nonrotational=True),
-            DiskConfig(name="slow", size_mb=1024, port=1),
-            DiskConfig(name="cd", type=DeviceKind.CDROM, nonrotational=True, port=2),
+        storage=[
+            StorageDevice(name="fast", size_mb=1024, nonrotational=True),
+            StorageDevice(name="slow", size_mb=1024, slot=1),
+            StorageDevice(name="cd", kind=DeviceKind.CDROM, nonrotational=True, slot=2),
         ],
         networks=[],
         boot=BootConfig(),
@@ -346,3 +342,54 @@ def test_solid_state_is_an_attachment_flag_not_a_medium_format():
         if c[1] == "createmedium"
     ]
     assert not any("--nonrotational" in c for c in creates)
+
+
+def test_trim_passthrough_and_hotplug_ride_on_the_attachment():
+    """`discard` and `hotpluggable` are attachment properties, like nonrotational.
+
+    Measured on VirtualBox 7.1.18: every disk bus accepts `--discard`, and only
+    SATA and USB accept `--hotpluggable` -- the rest answer "Controller 'x' does
+    not support changing the hot-pluggable device flag" (M-02).
+    """
+    from vmctl.core.translate import Policy
+
+    vm = VMConfig(
+        name="flags-vm",
+        cpu=CPUConfig(),
+        memory=MemoryConfig(),
+        firmware=FirmwareConfig(),
+        storage=[
+            StorageDevice(name="sata", size_mb=1024, discard=True, hotpluggable=True),
+            StorageDevice(name="sas", size_mb=1024, bus=BusType.SAS, hotpluggable=True),
+        ],
+        networks=[],
+        boot=BootConfig(),
+        storage_controllers=[],
+    )
+    emitter = VirtualBoxEmitter(vm.name, policy=Policy.NEAREST)
+    attaches = [c for c in emitter.emit_create_vm(vm).as_argv_lists() if c[1] == "storageattach"]
+    assert "--discard" in attaches[0] and "--hotpluggable" in attaches[0]
+    # The SAS bus cannot carry the flag, so it is reported rather than emitted.
+    assert "--hotpluggable" not in attaches[1]
+    assert any("hot-pluggable" in d.reason for d in emitter.report.drops)
+
+
+def test_a_device_can_name_its_controller_by_logical_id():
+    """The id is what makes a config portable: `sata0` means the same everywhere,
+    while "SATA Controller" is a VirtualBox string (M-02)."""
+    vm = VMConfig(
+        name="id-vm",
+        cpu=CPUConfig(),
+        memory=MemoryConfig(),
+        firmware=FirmwareConfig(),
+        storage=[StorageDevice(name="root", size_mb=1024, controller="sata0")],
+        networks=[],
+        boot=BootConfig(),
+        storage_controllers=[
+            StorageController(id="sata0", bus=BusType.SATA, native_name="Fast Controller")
+        ],
+    )
+    commands = VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+    attach = [c for c in commands if c[1] == "storageattach"][0]
+    # The plan uses the provider's own name, because that is what VBoxManage takes.
+    assert attach[attach.index("--storagectl") + 1] == "Fast Controller"

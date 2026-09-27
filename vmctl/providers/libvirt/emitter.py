@@ -29,7 +29,7 @@ from ...core.naming import check_name
 from ...core.plan import Plan, Step, StepKind
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy, Translator
-from ...core.vmconfig import DeviceKind, VMConfig
+from ...core.vmconfig import DEFAULT_DISK_MB, DeviceKind, VMConfig
 from .capabilities import LibvirtCapabilities
 from .tables import (
     BOOT_DEVICE,
@@ -40,6 +40,7 @@ from .tables import (
     KIND_TO_DEVICE,
     NETWORK_TO_LIBVIRT,
     NIC_MODEL_FROM_NATIVE,
+    DISCARD_ON,
     ROTATION_RATE_BUSES,
     SSD_ROTATION_RATE,
     TARGET_PREFIX,
@@ -211,15 +212,15 @@ class LibvirtEmitter:
         # not expressed here at all -- but the *order* devices are declared in
         # decides their target names, so it must be stable. Configuration order
         # already is, and is what a reader expects, so it is used directly.
-        for index, disk in enumerate(vm.disks):
+        for index, disk in enumerate(vm.storage):
             # Resolve the bus through the translator, not directly: a config from
             # VirtualBox routinely names IDE, which q35 has no controller for at
             # all. Mapping it straight through produced a domain libvirt would
             # reject, with nothing said about it (A-04).
             model_bus = (
-                translator.bus_for(disk, f"disks[{index}].controller")
+                translator.bus_for(disk, f"storage[{index}].bus")
                 if translator is not None
-                else disk.controller
+                else disk.bus
             )
             bus = self._libvirt_bus_for(model_bus, disk)
             model = BUS_CONTROLLER_MODEL.get(model_bus)
@@ -235,18 +236,18 @@ class LibvirtEmitter:
             counters[prefix] = position + 1
             target_dev = f"{prefix}{chr(ord('a') + position)}"
 
-            device_kind = KIND_TO_DEVICE.get(disk.type, "disk")
+            device_kind = KIND_TO_DEVICE.get(disk.kind, "disk")
             source: Optional[str] = None
             if disk.is_removable or disk.source:
                 # Removable media are inserted; an image that already exists is
                 # attached rather than created, which is what a migration needs.
                 source = disk.source
-                chosen = disk.format
+                chosen = disk.format or self.capabilities.native_format
             else:
                 chosen = (
-                    translator.format_for(disk, f"disks[{index}].format")
+                    translator.format_for(disk, f"storage[{index}].format")
                     if translator is not None
-                    else disk.format
+                    else disk.format or self.capabilities.native_format
                 )
                 spec = self.capabilities.format_spec(chosen)
                 source = self.location.image_path(
@@ -255,8 +256,10 @@ class LibvirtEmitter:
 
             disk_el = ET.SubElement(devices, "disk", type="file", device=device_kind)
             if not disk.is_removable:
-                driver_type = FORMAT_TO_DRIVER.get(chosen, "qcow2")
-                ET.SubElement(disk_el, "driver", name="qemu", type=driver_type)
+                driver = {"name": "qemu", "type": FORMAT_TO_DRIVER.get(chosen, "qcow2")}
+                if disk.discard:
+                    driver["discard"] = DISCARD_ON
+                ET.SubElement(disk_el, "driver", driver)
             if source:
                 ET.SubElement(disk_el, "source", file=source)
             target_attrs = {"dev": target_dev, "bus": bus}
@@ -273,8 +276,23 @@ class LibvirtEmitter:
                         f"{'/'.join(ROTATION_RATE_BUSES)}, not {bus}",
                     )
             ET.SubElement(disk_el, "target", target_attrs)
-            if disk.readonly if hasattr(disk, "readonly") else disk.type == DeviceKind.CDROM:
+            # An optical drive is read-only whether or not the config says so;
+            # a disk only when it asks.
+            if disk.readonly or disk.kind is DeviceKind.CDROM:
                 ET.SubElement(disk_el, "readonly")
+            if disk.hotpluggable:
+                # libvirt has no per-device hot-plug flag: whether a device can be
+                # detached follows from its bus, and `virsh detach-device` is how
+                # it is done. Nothing to emit, so say so rather than let the
+                # setting look applied.
+                translator_drop = translator.drop if translator is not None else None
+                if translator_drop is not None:
+                    translator_drop(
+                        f"storage[{index}].hotpluggable",
+                        True,
+                        "libvirt has no per-device hot-plug flag; use "
+                        "`virsh detach-device` on a bus that supports it",
+                    )
 
         # Controllers come after the disks in document order only because
         # ElementTree appends; libvirt does not care, and re-emits them sorted.
@@ -328,7 +346,7 @@ class LibvirtEmitter:
         translator = Translator(self.capabilities, self.policy)
 
         # A disk that already has an image is attached, not created.
-        creatable = [d for d in vm.disks if not d.is_removable and not d.source]
+        creatable = [d for d in vm.storage if not d.is_removable and not d.source]
         if creatable:
             # A session connection's image store does not exist until something
             # makes it, and `qemu-img create` will not. Doing it as a visible
@@ -345,7 +363,7 @@ class LibvirtEmitter:
             )
 
         for index, disk in enumerate(creatable):
-            chosen = translator.format_for(disk, f"disks[{index}].format")
+            chosen = translator.format_for(disk, f"storage[{index}].format")
             spec = self.capabilities.format_spec(chosen)
             path = self.location.image_path(vm.name, f"{vm.name}_{disk.name}.{spec.extension}")
             argv = [
@@ -354,7 +372,7 @@ class LibvirtEmitter:
                 "-f",
                 FORMAT_TO_DRIVER.get(chosen, "qcow2"),
                 path,
-                f"{disk.size_mb}M",
+                f"{disk.size_mb or DEFAULT_DISK_MB}M",
             ]
             plan.add(
                 Step(

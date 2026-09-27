@@ -10,11 +10,10 @@ memory:
 boot:
   # VirtualBox requires I/O APIC for more than one CPU.
   ioapic: true
-disks:
+storage:
   - name: system
     size_mb: 51200
-    type: hdd
-    controller: sata
+    bus: sata
     bootable: true
 networks:
   - network_type: bridged

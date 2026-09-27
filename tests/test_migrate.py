@@ -19,7 +19,7 @@ from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import (
     BootConfig,
     CPUConfig,
-    DiskConfig,
+    StorageDevice,
     DiskFormat,
     DeviceKind,
     FirmwareConfig,
@@ -111,12 +111,12 @@ def source_vm(tmp_path):
         cpu=CPUConfig(count=2),
         memory=MemoryConfig(mb=512),
         firmware=FirmwareConfig(),
-        disks=[
-            DiskConfig(
+        storage=[
+            StorageDevice(
                 name="root",
                 size_mb=1024,
                 format=DiskFormat.VDI,
-                controller=BusType.SATA,
+                bus=BusType.SATA,
                 disk_path=str(image),
             )
         ],
@@ -203,7 +203,7 @@ def test_by_default_the_data_does_not_move(source_vm):
     )
     assert migration.disks_included is False
     assert not any("fake-convert" in (s.argv or []) for s in migration.plan)
-    assert migration.vm.disks[0].source is None
+    assert migration.vm.storage[0].source is None
 
 
 def test_with_disks_converts_and_attaches_the_copy(source_vm):
@@ -219,7 +219,7 @@ def test_with_disks_converts_and_attaches_the_copy(source_vm):
     convert_steps = [s for s in migration.plan if s.argv and s.argv[0] == "fake-convert"]
     assert len(convert_steps) == 1
     # The target attaches the converted copy rather than creating a blank disk.
-    attached = target.created.disks[0]
+    attached = target.created.storage[0]
     assert attached.source == "/libvirt/images/moved_root.qcow2"
     assert attached.format is DiskFormat.QCOW2
 
@@ -236,7 +236,7 @@ def test_conversions_run_before_the_vm_is_created(source_vm):
 
 
 def test_a_format_the_target_can_create_is_not_converted(source_vm):
-    source_vm.disks[0].format = DiskFormat.QCOW2
+    source_vm.storage[0].format = DiskFormat.QCOW2
     target = FakeProvider("libvirt")
     plan_migration(
         FakeProvider("virtualbox", source_vm),
@@ -245,12 +245,12 @@ def test_a_format_the_target_can_create_is_not_converted(source_vm):
         with_disks=True,
     )
     # Still copied to the target's storage, but not reformatted.
-    assert target.created.disks[0].format is DiskFormat.QCOW2
+    assert target.created.storage[0].format is DiskFormat.QCOW2
 
 
 def test_an_unreachable_image_is_reported_not_pretended_away(source_vm):
     """The images live on the source hypervisor's host, which may be elsewhere."""
-    source_vm.disks[0].disk_path = r"C:\vms\src\root.vdi"
+    source_vm.storage[0].disk_path = r"C:\vms\src\root.vdi"
     migration = plan_migration(
         FakeProvider("virtualbox", source_vm),
         FakeProvider("libvirt"),
@@ -264,8 +264,8 @@ def test_an_unreachable_image_is_reported_not_pretended_away(source_vm):
 
 def test_removable_media_do_not_carry_their_path_over(source_vm):
     """An ISO path on the source host means nothing on the target."""
-    source_vm.disks.append(
-        DiskConfig(name="cd", type=DeviceKind.CDROM, source="/host/install.iso", port=1)
+    source_vm.storage.append(
+        StorageDevice(name="cd", kind=DeviceKind.CDROM, source="/host/install.iso", slot=1)
     )
     migration = plan_migration(
         FakeProvider("virtualbox", source_vm),
@@ -273,7 +273,7 @@ def test_removable_media_do_not_carry_their_path_over(source_vm):
         "src",
         with_disks=True,
     )
-    cd = [d for d in migration.vm.disks if d.type is DeviceKind.CDROM][0]
+    cd = [d for d in migration.vm.storage if d.kind is DeviceKind.CDROM][0]
     assert cd.source is None
 
 

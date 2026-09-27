@@ -68,11 +68,11 @@ def test_bios_minimal_shape():
     assert vm.boot.ioapic is True
     assert vm.rtc_utc is True
     assert [sc.name for sc in vm.storage_controllers] == ["SATA"]
-    assert vm.storage_controllers[0].controller_type == BusType.SATA
-    assert len(vm.disks) == 1
-    assert vm.disks[0].size_mb == 64
-    assert vm.disks[0].format == DiskFormat.VDI
-    assert vm.disks[0].variant == Allocation.THIN
+    assert vm.storage_controllers[0].bus == BusType.SATA
+    assert len(vm.storage) == 1
+    assert vm.storage[0].size_mb == 64
+    assert vm.storage[0].format == DiskFormat.VDI
+    assert vm.storage[0].allocation == Allocation.THIN
     assert len(vm.networks) == 1
     assert vm.networks[0].network_type == NetworkType.NAT
 
@@ -80,22 +80,29 @@ def test_bios_minimal_shape():
 def test_disk_metadata_keys_are_not_mistaken_for_disks():
     """ImageUUID / nonrotational / discard entries must not become disks."""
     vm = parse_label("bios_minimal")
-    assert len(vm.disks) == 1, [d.disk_path for d in vm.disks]
+    assert len(vm.storage) == 1, [d.disk_path for d in vm.storage]
 
 
 def test_controller_name_containing_dashes_is_split_correctly():
+    """The attachment key is `<controller name>-<port>-<device>`, and the name may
+    contain dashes of its own -- so it is split from the right.
+
+    Since M-02 the device references the controller by its logical id, and
+    VirtualBox's own string stays on the controller, where it is what
+    `--storagectl` takes and means nothing anywhere else.
+    """
     vm = parse_label("multidisk")
-    names = {sc.name for sc in vm.storage_controllers}
-    assert "SAS-II Controller" in names
-    archive = [d for d in vm.disks if d.disk_path.endswith("arch.vhd")][0]
-    assert archive.controller_name == "SAS-II Controller"
-    assert archive.controller == BusType.SAS
-    assert archive.port == 0 and archive.device == 0
+    by_id = {sc.id: sc for sc in vm.storage_controllers}
+    assert "SAS-II Controller" in {sc.native_name for sc in vm.storage_controllers}
+    archive = [d for d in vm.storage if d.disk_path.endswith("arch.vhd")][0]
+    assert by_id[archive.controller].native_name == "SAS-II Controller"
+    assert archive.bus == BusType.SAS
+    assert archive.slot == 0 and archive.unit == 0
 
 
 def test_multidisk_formats_come_from_the_medium_probe():
     vm = parse_label("multidisk")
-    by_name = {d.disk_path.replace("\\", "/").rsplit("/", 1)[-1]: d for d in vm.disks}
+    by_name = {d.disk_path.replace("\\", "/").rsplit("/", 1)[-1]: d for d in vm.storage}
     assert by_name["sys.vdi"].format == DiskFormat.VDI
     assert by_name["sys.vdi"].size_mb == 64
     assert by_name["data.vmdk"].format == DiskFormat.VMDK
@@ -103,18 +110,20 @@ def test_multidisk_formats_come_from_the_medium_probe():
     assert by_name["arch.vhd"].format == DiskFormat.VHD
     assert by_name["arch.vhd"].size_mb == 128
     # Created with --variant Fixed; the parser must say so (F-20).
-    assert by_name["arch.vhd"].variant == Allocation.THICK
+    assert by_name["arch.vhd"].allocation == Allocation.THICK
 
 
 def test_iso_is_identified_as_optical_media():
     vm = parse_label("iso_attached")
-    optical = [d for d in vm.disks if d.type == DeviceKind.CDROM]
+    optical = [d for d in vm.storage if d.kind == DeviceKind.CDROM]
     assert len(optical) == 1
     assert optical[0].disk_path.endswith(".iso")
-    assert optical[0].controller_name == "IDE Controller"
+    assert vm.controller_for(optical[0]).native_name == "IDE Controller"
     # Removable media are inserted, not created (F-04/F-18).
     assert optical[0].source == optical[0].disk_path
-    assert optical[0].size_mb == 0
+    # A drive has no capacity of its own. 0 was a number standing in for "not
+    # applicable", which the validator then had to explain away (M-02).
+    assert optical[0].size_mb is None
 
 
 def test_empty_and_absent_attachments_are_told_apart():
@@ -125,14 +134,14 @@ def test_empty_and_absent_attachments_are_told_apart():
     floppy controllers were skipped outright -- so a round trip lost it (F-22).
     """
     vm = parse_label("iso_attached")
-    paths = [d.disk_path for d in vm.disks]
+    paths = [d.disk_path for d in vm.storage]
     assert "none" not in paths
     assert "emptydrive" not in paths
 
-    kinds = sorted(d.type.value for d in vm.disks)
+    kinds = sorted(d.kind.value for d in vm.storage)
     assert kinds == ["cdrom", "disk", "floppy"]
 
-    floppy = [d for d in vm.disks if d.type == DeviceKind.FLOPPY][0]
+    floppy = [d for d in vm.storage if d.kind == DeviceKind.FLOPPY][0]
     assert floppy.source is None and floppy.disk_path is None
 
 
@@ -236,7 +245,7 @@ def test_parser_never_touches_the_hypervisor(parser):
         read_fixture("showvminfo_bios_minimal.txt"),
         probe=lambda p: {"size_mb": 1, "format": DiskFormat.VDI, "variant": Allocation.THIN},
     )
-    assert vm.disks[0].size_mb == 1
+    assert vm.storage[0].size_mb == 1
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +274,7 @@ def test_floppy_controller_is_not_typed_as_sata():
     """F-15 — an unmapped controller type silently becomes SATA."""
     vm = parse_label("floppy_first")
     floppy = [sc for sc in vm.storage_controllers if sc.name == "Floppy"][0]
-    assert floppy.controller_type != BusType.SATA
+    assert floppy.bus != BusType.SATA
 
 
 # ---------------------------------------------------------------------------
@@ -330,7 +339,7 @@ def test_every_controller_chipset_virtualbox_offers(parser, chipset, expected):
     """F-15 - the full chipset set from `storagectl --help` on 7.1.18."""
     raw = f'storagecontrollername0="C0"\nstoragecontrollertype0="{chipset}"\n'
     vm = parser.parse_text("x", raw)
-    assert vm.storage_controllers[0].controller_type == expected
+    assert vm.storage_controllers[0].bus == expected
 
 
 def test_unknown_controller_chipset_is_reported_not_guessed(parser):
@@ -364,8 +373,8 @@ def test_hostonly_adapter_name_read_from_either_key(parser, key):
 def test_empty_controller_slots_are_not_disks():
     """A 16-port SAS controller reports 15 "none" attachments."""
     vm = parse_label("multidisk")
-    assert len(vm.disks) == 3
-    assert all(d.disk_path and d.disk_path != "none" for d in vm.disks)
+    assert len(vm.storage) == 3
+    assert all(d.disk_path and d.disk_path != "none" for d in vm.storage)
 
 
 # ---------------------------------------------------------------------------
@@ -407,9 +416,9 @@ def test_a_disk_in_any_supported_format_is_recognised(parser, ext, expected):
             "variant": Allocation.THIN,
         },
     )
-    assert len(vm.disks) == 1, "the disk was filtered out and a default invented"
-    assert vm.disks[0].format == expected
-    assert vm.disks[0].size_mb == 64
+    assert len(vm.storage) == 1, "the disk was filtered out and a default invented"
+    assert vm.storage[0].format == expected
+    assert vm.storage[0].size_mb == 64
 
 
 @pytest.mark.parametrize(
@@ -440,7 +449,7 @@ def test_an_empty_optical_drive_is_kept(parser):
         '"IDE-1-0"="emptydrive"\n'
     )
     vm = parser.parse_text("x", raw)
-    optical = [d for d in vm.disks if d.type == DeviceKind.CDROM]
+    optical = [d for d in vm.storage if d.kind == DeviceKind.CDROM]
     assert len(optical) == 1
     assert optical[0].source is None
     assert optical[0].disk_path is None
@@ -454,7 +463,7 @@ def test_an_empty_floppy_drive_is_kept_as_a_floppy(parser):
         '"Floppy-0-0"="emptydrive"\n'
     )
     vm = parser.parse_text("x", raw)
-    assert [d.type for d in vm.disks] == [DeviceKind.FLOPPY]
+    assert [d.kind for d in vm.storage] == [DeviceKind.FLOPPY]
 
 
 def test_a_slot_holding_nothing_is_still_skipped(parser):
@@ -466,7 +475,7 @@ def test_a_slot_holding_nothing_is_still_skipped(parser):
     )
     vm = parser.parse_text("x", raw)
     # VMConfig supplies a default disk when a VM genuinely has none.
-    assert all(d.disk_path is None for d in vm.disks)
+    assert all(d.disk_path is None for d in vm.storage)
 
 
 def test_solid_state_is_read_from_the_attachment_not_invented():
@@ -486,8 +495,33 @@ def test_solid_state_is_read_from_the_attachment_not_invented():
         '"SATA Controller-nonrotational-0-0"="on"',
     )
     vm = VirtualBoxParser().parse_text("multidisk", flipped, probe=make_fixture_probe("multidisk"))
-    by_slot = {(d.controller_name, d.port, d.device): d for d in vm.disks}
+    by_slot = {(vm.controller_for(d).native_name, d.slot, d.unit): d for d in vm.storage}
     assert by_slot[("SATA Controller", 0, 0)].nonrotational is True
     assert all(
         not d.nonrotational for k, d in by_slot.items() if k != ("SATA Controller", 0, 0)
     ), "only the attachment that says so is solid state"
+
+
+def test_a_bootable_controller_is_read_as_bootable():
+    """F-27 -- found by reading a real capture field by field during M-02.
+
+    `storagecontrollerbootable<n>` has been in every capture all along and was
+    never read, so a parsed controller was always "not bootable" and the emitter
+    re-created it with `--bootable off`. An exported VM could therefore come back
+    unable to boot from the controller its original booted from.
+    """
+    vm = parse_label("bios_minimal")
+    assert all(sc.bootable for sc in vm.storage_controllers)
+
+
+def test_a_non_bootable_controller_stays_that_way():
+    raw = read_fixture("showvminfo_bios_minimal.txt").replace(
+        'storagecontrollerbootable0="on"', 'storagecontrollerbootable0="off"'
+    )
+    from vmctl.providers.virtualbox.parser import VirtualBoxParser
+    from conftest import make_fixture_probe
+
+    vm = VirtualBoxParser().parse_text(
+        "bios-minimal", raw, probe=make_fixture_probe("bios_minimal")
+    )
+    assert not vm.storage_controllers[0].bootable

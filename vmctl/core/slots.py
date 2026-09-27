@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .capabilities import Capabilities
 from .exceptions import ValidationError
-from .vmconfig import DiskConfig, VMConfig
+from .vmconfig import StorageDevice, VMConfig
 
 
 @dataclass(frozen=True)
@@ -30,7 +30,11 @@ class Placement:
     """Where one device ends up.
 
     Attributes:
-        controller: Name of the controller it attaches to.
+        controller: The name the *provider* uses for the controller -- what a
+            ``VBoxManage --storagectl`` takes -- not the logical
+            :attr:`~vmctl.core.vmconfig.StorageController.id`. Placement is a
+            provider-facing answer already: ports and units are addressed the way
+            that provider addresses them.
         port: Port number on that controller.
         unit: Device number on that port. Only IDE uses anything but 0.
         explicit: True when the configuration stated this position, so a
@@ -43,7 +47,7 @@ class Placement:
     explicit: bool = False
 
 
-def _controller_name(vm: VMConfig, disk: DiskConfig, caps: Capabilities) -> str:
+def _controller_name(vm: VMConfig, disk: StorageDevice, caps: Capabilities) -> str:
     """Return the name of the controller a device attaches to.
 
     Falls back to the canonical name for the device's bus, which is the name the
@@ -51,14 +55,14 @@ def _controller_name(vm: VMConfig, disk: DiskConfig, caps: Capabilities) -> str:
     """
     declared = vm.controller_for(disk)
     if declared is not None:
-        return declared.name
-    spec = caps.bus(disk.controller)
+        return declared.native_name or declared.id
+    spec = caps.bus(disk.bus)
     if spec is None:
         raise ValidationError(
-            f"disk {disk.name!r} uses the {disk.controller.value!r} bus, which "
+            f"disk {disk.name!r} uses the {disk.bus.value!r} bus, which "
             f"this provider does not support",
-            field="controller",
-            value=disk.controller.value,
+            field="bus",
+            value=disk.bus.value,
             expected=" | ".join(sorted(b.value for b in caps.buses)),
         )
     return spec.controller_name
@@ -80,45 +84,45 @@ def place(vm: VMConfig, caps: Capabilities) -> List[Placement]:
             and devices-per-port.
 
     Returns:
-        list[Placement]: one entry per device, in ``vm.disks`` order.
+        list[Placement]: one entry per device, in ``vm.storage`` order.
 
     Raises:
         ValidationError: If two devices are placed in the same position, a stated
             position is outside its bus's range, or a controller has no room
             left.
     """
-    placements: List[Optional[Placement]] = [None] * len(vm.disks)
+    placements: List[Optional[Placement]] = [None] * len(vm.storage)
     taken: Dict[str, Dict[Tuple[int, int], int]] = {}
     names: List[str] = []
 
-    for index, disk in enumerate(vm.disks):
+    for index, disk in enumerate(vm.storage):
         names.append(_controller_name(vm, disk, caps))
 
     # Stated positions first, so they cannot be taken by an allocated one.
-    for index, disk in enumerate(vm.disks):
-        if disk.port is None and disk.device is None:
+    for index, disk in enumerate(vm.storage):
+        if disk.slot is None and disk.unit is None:
             continue
         name = names[index]
-        port = disk.port or 0
-        unit = disk.device or 0
+        port = disk.slot or 0
+        unit = disk.unit or 0
         _check_bounds(vm, disk, index, name, port, unit, caps)
         slot = (port, unit)
         occupied = taken.setdefault(name, {})
         if slot in occupied:
-            other = vm.disks[occupied[slot]]
+            other = vm.storage[occupied[slot]]
             raise ValidationError(
-                f"disks[{index}] ({disk.name}) and disks[{occupied[slot]}] "
+                f"storage[{index}] ({disk.name}) and storage[{occupied[slot]}] "
                 f"({other.name}) are both attached to controller {name!r} "
                 f"port {port} device {unit}",
-                field=f"disks[{index}]",
-                recovery_hint="Give each device its own port or device number, "
+                field=f"storage[{index}]",
+                recovery_hint="Give each device its own slot or unit number, "
                 "or leave both unset and vmctl will place them.",
             )
         occupied[slot] = index
         placements[index] = Placement(name, port, unit, explicit=True)
 
     # Then fill the rest, lowest free position first.
-    for index, disk in enumerate(vm.disks):
+    for index, disk in enumerate(vm.storage):
         if placements[index] is not None:
             continue
         name = names[index]
@@ -130,9 +134,9 @@ def place(vm: VMConfig, caps: Capabilities) -> List[Placement]:
     return [p for p in placements if p is not None]
 
 
-def _limits(name: str, disk: DiskConfig, caps: Capabilities) -> Tuple[int, int]:
+def _limits(name: str, disk: StorageDevice, caps: Capabilities) -> Tuple[int, int]:
     """Return ``(max_ports, units_per_port)`` for a device's bus."""
-    spec = caps.bus(disk.controller)
+    spec = caps.bus(disk.bus)
     if spec is None:
         return (1, 1)
     return (spec.max_ports, spec.units_per_port)
@@ -140,7 +144,7 @@ def _limits(name: str, disk: DiskConfig, caps: Capabilities) -> Tuple[int, int]:
 
 def _check_bounds(
     vm: VMConfig,
-    disk: DiskConfig,
+    disk: StorageDevice,
     index: int,
     name: str,
     port: int,
@@ -156,18 +160,18 @@ def _check_bounds(
 
     if port < 0 or port >= max_ports:
         raise ValidationError(
-            f"disks[{index}] ({disk.name}) uses port {port} on controller "
+            f"storage[{index}] ({disk.name}) uses slot {port} on controller "
             f"{name!r}, which has {max_ports} port(s) (0-{max_ports - 1})",
-            field=f"disks[{index}].port",
+            field=f"storage[{index}].slot",
             value=port,
             expected=f"0-{max_ports - 1}",
         )
     if unit < 0 or unit >= units:
         raise ValidationError(
-            f"disks[{index}] ({disk.name}) uses device {unit} on a "
-            f"{disk.controller.value} controller, which allows {units} "
+            f"storage[{index}] ({disk.name}) uses unit {unit} on a "
+            f"{disk.bus.value} controller, which allows {units} "
             f"device(s) per port",
-            field=f"disks[{index}].device",
+            field=f"storage[{index}].unit",
             value=unit,
             expected=f"0-{units - 1}",
         )
@@ -175,7 +179,7 @@ def _check_bounds(
 
 def _next_free(
     vm: VMConfig,
-    disk: DiskConfig,
+    disk: StorageDevice,
     index: int,
     name: str,
     occupied: Dict[Tuple[int, int], int],
@@ -193,9 +197,9 @@ def _next_free(
                 return (port, unit)
 
     raise ValidationError(
-        f"disks[{index}] ({disk.name}) does not fit: controller {name!r} has "
+        f"storage[{index}] ({disk.name}) does not fit: controller {name!r} has "
         f"{max_ports} port(s) with {units} device(s) each, and all "
         f"{max_ports * units} position(s) are taken",
-        field=f"disks[{index}]",
+        field=f"storage[{index}]",
         recovery_hint="Add another controller, or raise this one's port count.",
     )

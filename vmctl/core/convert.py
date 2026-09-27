@@ -96,12 +96,14 @@ def conversions_for(vm: VMConfig, caps: Capabilities, image_path) -> List[Conver
         instead.
     """
     requests = []
-    for disk in vm.disks:
+    for disk in vm.storage:
         if disk.is_removable:
             continue
         source = disk.disk_path or disk.source
         if not source:
             continue  # nothing exists yet; this disk will be created
+        if disk.format is None:
+            continue  # no format asked for, so nothing to convert *to* (M-04)
         spec = caps.format_spec(disk.format)
         if spec.support.creatable:
             continue  # the target can make this format directly

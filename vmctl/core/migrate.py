@@ -143,7 +143,7 @@ def plan_migration(
         location = target.storage_location()
         if image_dir:
             location = location.with_value(image_dir)
-        for disk in vm.disks:
+        for disk in vm.storage:
             if disk.is_removable:
                 # An ISO is host-specific; carrying the path over would point at
                 # a file the target cannot see.

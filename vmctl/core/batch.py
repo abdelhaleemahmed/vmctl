@@ -168,13 +168,15 @@ class BatchCreator:
                     if hasattr(vm.memory, key):
                         setattr(vm.memory, key, value)
 
-        # Apply disk overrides
-        if "disks" in instance_def:
-            for i, disk_override in enumerate(instance_def["disks"]):
-                if i < len(vm.disks):
-                    for key, value in disk_override.items():
-                        if hasattr(vm.disks[i], key):
-                            setattr(vm.disks[i], key, value)
+        # Apply storage overrides. `disks:` is the 1.1.x name for the same list
+        # and keeps working (M-06).
+        overrides = instance_def.get("storage", instance_def.get("disks"))
+        if overrides:
+            for i, device_override in enumerate(overrides):
+                if i < len(vm.storage):
+                    for key, value in device_override.items():
+                        if hasattr(vm.storage[i], key):
+                            setattr(vm.storage[i], key, value)
 
         # Apply network overrides
         if "networks" in instance_def:
@@ -207,12 +209,12 @@ class BatchCreator:
                 "cpu": {"count": 2},
                 "memory": {"mb": 2048},
                 "firmware": {"type": "bios"},
-                "disks": [
+                "storage": [
                     {
                         "name": "system",
                         "size_mb": 20480,
-                        "type": "hdd",
-                        "controller": "sata",
+                        "kind": "disk",
+                        "bus": "sata",
                         "bootable": True,
                     }
                 ],
@@ -231,7 +233,7 @@ class BatchCreator:
                     "name": "vm-03",
                     "memory": 8192,
                     "cpu": 8,
-                    "disks": [{"size_mb": 40960}],
+                    "storage": [{"size_mb": 40960}],
                     "metadata": {"role": "file-server"},
                 },
             ],

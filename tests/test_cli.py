@@ -310,8 +310,8 @@ def test_edit_refuses_a_running_vm(runner, monkeypatch, vbox):
         ("name: v\ncpu:\n  count: four\n", "must be a number"),
         ("disks: []\n", "missing required field 'name'"),
         (
-            "name: v\ndisks:\n  - name: d\n    controller: fibrechannel\n",
-            "not a valid value for disks[0].controller",
+            "name: v\nstorage:\n  - name: d\n    bus: fibrechannel\n",
+            "not a valid value for storage[0].bus",
         ),
     ],
 )

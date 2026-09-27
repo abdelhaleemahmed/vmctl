@@ -69,6 +69,11 @@ ROTATION_RATE_BUSES = ("scsi", "ide", "sata")
 #: convention for "not rotating at all".
 SSD_ROTATION_RATE = "1"
 
+#: libvirt's ``<driver discard='...'>`` value for passing TRIM/UNMAP through.
+#: Accepted on sata, virtio and scsi on libvirt 11.10.0 and echoed back by
+#: ``dumpxml``, so unlike the rotation rate it needs no per-bus table.
+DISCARD_ON = "unmap"
+
 #: Device kind -> libvirt ``<disk device='...'>``.
 KIND_TO_DEVICE = {
     DeviceKind.DISK: "disk",

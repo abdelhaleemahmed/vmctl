@@ -1,6 +1,6 @@
 VBoxManage createvm --name bios-minimal --ostype Ubuntu_64 --register
 VBoxManage modifyvm bios-minimal --memory 128 --vram 16 --cpus 1 --firmware bios --acpi on --ioapic on --rtcuseutc on --pae on --nested-hw-virt off --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
-VBoxManage storagectl bios-minimal --name SATA --add sata --controller IntelAhci --portcount 1 --bootable off
+VBoxManage storagectl bios-minimal --name SATA --add sata --controller IntelAhci --portcount 1 --bootable on
 VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/bios-minimal/bios-minimal_disk_SATA_0_0.vdi --size 64 --format VDI --variant Standard
 VBoxManage storageattach bios-minimal --storagectl SATA --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/bios-minimal/bios-minimal_disk_SATA_0_0.vdi
 VBoxManage modifyvm bios-minimal --nic1 nat --nictype1 82540EM --cableconnected1 on --macaddress1 0800279E667D

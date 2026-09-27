@@ -35,8 +35,8 @@ Batch file structure
      - name: dev-db-01
        cpu: 8
        memory: 16384
-       disks:
-         - size_mb: 204800      # Override first disk size
+       storage:
+         - size_mb: 204800      # Override the first device's size
        metadata:
          role: database
 
@@ -81,12 +81,10 @@ No existing VM required — define the base inline:
        count: 2
      memory:
        mb: 2048
-     disks:
+     storage:
        - name: system
          size_mb: 20480
-         type: HDD
-         controller: SATA
-         port: 0
+         bus: sata
          bootable: true
      networks:
        - network_type: NAT

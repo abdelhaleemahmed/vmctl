@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from vmctl.core.exceptions import ValidationError
 from vmctl.core.vmconfig import (
     DiskFormat,
     Allocation,
@@ -61,10 +62,65 @@ def test_saving_twice_produces_the_same_file(stem, tmp_path):
     assert second.read_text() == first.read_text()
 
 
-#: Values the 1.1.x vocabulary spelled differently, and what they became (M-01).
-#: `ssd` is the one that is not a rename: it splits into a kind and a flag, so the
-#: flag turns up as an added key, which the rule below already allows.
-RENAMED_VALUES = {"type": {"hdd": "disk", "ssd": "disk", "dvd": "cdrom"}}
+#: The whole M-06 rename table, applied below by hand. If vmctl's own upgrade and
+#: this literal ever disagree, one of them is wrong -- which is the point.
+RENAMED_KINDS = {"hdd": "disk", "ssd": "disk", "dvd": "cdrom"}
+RENAMED_DEVICE_KEYS = {
+    "type": "kind",
+    "variant": "allocation",
+    "controller": "bus",  # 1.1.x `controller` named a bus
+    "controller_name": "controller",  # ... and `controller_name` named a controller
+    "port": "slot",
+    "device": "unit",
+}
+RENAMED_CONTROLLER_KEYS = {"name": "native_name", "controller_type": "bus"}
+
+
+def _upgrade(before):
+    """Return the 1.1.9 mapping rewritten by hand into today's vocabulary.
+
+    Deliberately literal: it is the rename table from PLAN.md written out, so the
+    test compares vmctl's upgrade against an independent statement of it rather
+    than against itself.
+    """
+    after = dict(before)
+    devices = after.pop("disks", None)
+    if devices is not None:
+        after["storage"] = [_upgrade_device(d) for d in devices]
+    if after.get("storage_controllers"):
+        upgraded = []
+        seen = {}
+        for sc in after["storage_controllers"]:
+            renamed = {RENAMED_CONTROLLER_KEYS.get(k, k): v for k, v in sc.items()}
+            # The logical id is new information rather than a rename: bus plus how
+            # many controllers on that bus came before. Spelled out here instead of
+            # calling vmctl's own helper, so the two are independent statements.
+            bus = renamed.get("bus", "sata")
+            index = seen.get(bus, 0)
+            seen[bus] = index + 1
+            renamed["id"] = f"{bus}{index}"
+            upgraded.append(renamed)
+        after["storage_controllers"] = upgraded
+    return after
+
+
+def _upgrade_device(device):
+    """Rewrite one 1.1.x disk mapping."""
+    out = {}
+    for key, value in device.items():
+        if key == "type":
+            kind = RENAMED_KINDS[value]
+            out["kind"] = kind
+            if value == "ssd":
+                out["nonrotational"] = True
+            if kind != "disk":
+                continue
+        else:
+            out[RENAMED_DEVICE_KEYS.get(key, key)] = value
+    # A drive has no capacity, so the upgraded file does not claim one.
+    if out.get("kind") in ("cdrom", "floppy"):
+        out.pop("size_mb", None)
+    return out
 
 
 def _model_defaults():
@@ -111,14 +167,17 @@ _ABSENT = object()
 
 @pytest.mark.parametrize("stem", LEGACY)
 def test_upgrading_a_legacy_file_only_renames_what_the_plan_says(stem, tmp_path):
-    """Saving a 1.1.9 file with today's vmctl may rename vocabulary, nothing else.
+    """Saving a 1.1.9 file with today's vmctl renames vocabulary and nothing else.
 
     Ground rule 2 promises old files keep loading; it does not promise the words
-    never improve. `type: hdd` becomes `type: disk` because `hdd` and `ssd` were
-    never two kinds of device (M-01). So the test states the narrower promise:
-    every difference is either a documented rename, or a field the old version
-    did not have, written at the value the model defaults it to. Anything else --
-    a lost controller name, a changed size -- is data loss and fails here.
+    never improve. `type: hdd` became `kind: disk` because `hdd` and `ssd` were
+    never two kinds of device (M-01), and `disks:` became `storage:` because the
+    list holds optical and floppy drives too (M-02).
+
+    So the promise is stated narrowly: apply the documented rename table by hand,
+    and every remaining difference must be a field the old version did not have,
+    written at the value the model defaults it to. Anything else -- a lost
+    controller name, a changed size -- is data loss and fails here.
     """
     import yaml
 
@@ -128,13 +187,14 @@ def test_upgrading_a_legacy_file_only_renames_what_the_plan_says(stem, tmp_path)
     after = yaml.safe_load(out.read_text())
 
     defaults = _model_defaults()
-    for path, old, new in _differences(before, after):
+    for path, old, new in _differences(_upgrade(before), after):
         field = path[-1]
         if old is _ABSENT and new in defaults.get(field, ()):
             continue  # a field 1.1.9 did not have, at its default
-        if RENAMED_VALUES.get(field, {}).get(old) == new:
-            continue  # a documented rename
-        raise AssertionError(f"{'.'.join(path)}: {old!r} became {new!r}, which is not a rename")
+        raise AssertionError(
+            f"{'.'.join(path)}: {old!r} became {new!r}, which the rename table "
+            f"does not account for"
+        )
 
 
 def test_legacy_field_values_are_understood():
@@ -142,13 +202,13 @@ def test_legacy_field_values_are_understood():
     vm = YAMLSerializer().load(CONFIGS / "v1_1_9_multidisk.yaml")
     assert vm.cpu.count == 8
     assert vm.memory.mb == 16384
-    assert len(vm.disks) == 3
-    formats = {d.format for d in vm.disks}
+    assert len(vm.storage) == 3
+    formats = {d.format for d in vm.storage}
     assert formats == {DiskFormat.VDI, DiskFormat.VMDK, DiskFormat.VHD}
-    assert Allocation.THICK in {d.variant for d in vm.disks}
-    assert BusType.SAS in {sc.controller_type for sc in vm.storage_controllers}
+    assert Allocation.THICK in {d.allocation for d in vm.storage}
+    assert BusType.SAS in {sc.bus for sc in vm.storage_controllers}
     # The 1.1.9 default that later phases must treat as "unset" (F-01/M-06).
-    assert all(d.controller_name for d in vm.disks)
+    assert all(d.controller for d in vm.storage)
 
 
 def test_legacy_network_vocabulary_is_understood():
@@ -160,3 +220,127 @@ def test_legacy_network_vocabulary_is_understood():
         NetworkType.NATNETWORK,
     }
     assert any(n.adapter_type == "virtio" for n in vm.networks)
+
+
+# ---------------------------------------------------------------------------
+# The other half of compatibility: code, not files
+#
+# Ground rule 2 covers what people wrote against vmctl as well as what they
+# exported from it, so the 1.1.x names keep working as attributes and as
+# constructor keywords. Tested on purpose here rather than incidentally.
+# ---------------------------------------------------------------------------
+
+
+def test_the_old_class_names_still_import():
+    from vmctl.core.vmconfig import DiskConfig, StorageController, StorageControllerConfig
+    from vmctl.core.vmconfig import StorageDevice
+
+    assert DiskConfig is StorageDevice
+    assert StorageControllerConfig is StorageController
+
+
+def test_the_old_enum_names_are_the_new_ones():
+    """Pure renames, so the members are the same objects and comparisons hold."""
+    from vmctl.core.devices import Allocation, BusType, DeviceKind, DiskType, DiskVariant
+    from vmctl.core.devices import StorageControllerType
+
+    assert DiskVariant.THIN is Allocation.THIN
+    assert StorageControllerType.SATA is BusType.SATA
+    # DiskType is the enum that was split, so it is a shim onto DeviceKind.
+    assert DiskType.DVD is DeviceKind.CDROM
+    assert DiskType.HDD is DeviceKind.DISK
+    assert DiskType("ssd") is DeviceKind.DISK
+
+
+def test_the_old_device_keywords_still_construct():
+    from vmctl.core.devices import Allocation, BusType, DeviceKind
+    from vmctl.core.vmconfig import StorageDevice
+
+    device = StorageDevice(
+        name="d",
+        type=DeviceKind.CDROM,
+        variant=Allocation.THICK,
+        controller=BusType.IDE,
+        controller_name="IDE Controller",
+        port=1,
+        device=1,
+    )
+    assert device.kind is DeviceKind.CDROM
+    assert device.allocation is Allocation.THICK
+    # `controller` is the one keyword whose meaning changed rather than its name:
+    # a BusType can only ever have meant the bus.
+    assert device.bus is BusType.IDE
+    assert device.controller == "IDE Controller"
+    assert (device.slot, device.unit) == (1, 1)
+
+
+def test_the_old_device_attributes_still_read_and_write():
+    from vmctl.core.devices import DeviceKind
+    from vmctl.core.vmconfig import StorageDevice
+
+    device = StorageDevice(name="d")
+    device.port = 3
+    device.type = DeviceKind.FLOPPY
+    assert (device.slot, device.kind) == (3, DeviceKind.FLOPPY)
+    assert device.port == 3 and device.type is DeviceKind.FLOPPY
+
+
+def test_a_controllers_old_name_keyword_is_its_native_name():
+    from vmctl.core.devices import BusType
+    from vmctl.core.vmconfig import StorageController
+
+    controller = StorageController(name="SATA Controller", controller_type=BusType.SATA)
+    assert controller.native_name == "SATA Controller"
+    assert controller.bus is BusType.SATA
+    # The logical id is derived, and `name` still reads back what a provider calls it.
+    assert controller.id == "sata0"
+    assert controller.name == "SATA Controller"
+
+
+def test_a_controller_with_no_native_name_reads_back_its_id():
+    from vmctl.core.vmconfig import StorageController
+
+    assert StorageController(id="nvme0").name == "nvme0"
+
+
+def test_the_vm_still_takes_and_exposes_disks():
+    from vmctl.core.vmconfig import BootConfig, CPUConfig, FirmwareConfig, MemoryConfig
+    from vmctl.core.vmconfig import StorageDevice, VMConfig
+
+    vm = VMConfig(
+        name="v",
+        cpu=CPUConfig(),
+        memory=MemoryConfig(),
+        firmware=FirmwareConfig(),
+        disks=[StorageDevice(name="root")],
+        networks=[],
+        boot=BootConfig(),
+        storage_controllers=[],
+    )
+    assert vm.storage[0].name == "root"
+    assert vm.disks is vm.storage
+    vm.disks = [StorageDevice(name="other")]
+    assert vm.storage[0].name == "other"
+
+
+def test_giving_a_field_both_names_is_refused_rather_than_guessed():
+    """Only one of the two can be honoured, so the file is wrong, not ambiguous."""
+    with pytest.raises(ValidationError, match="both 'port' and 'slot'"):
+        VMConfig.from_dict({"name": "v", "storage": [{"name": "d", "port": 0, "slot": 1}]})
+
+
+def test_a_legacy_controller_value_that_is_not_a_bus_is_reported():
+    """`controller:` named a bus in 1.1.x and names a controller now.
+
+    The value tells them apart -- a bus is spelled like the enum -- so a typo in
+    the old position reads as a controller nothing declares. That cannot be an
+    error, because naming an undeclared controller is how "just put it on SATA"
+    has always been written (F-01), so it is a warning that names both readings.
+    """
+    from vmctl.validators.vm_validator import VMValidator
+    from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+
+    vm = VMConfig.from_dict({"name": "v", "disks": [{"name": "d", "controller": "fibrechannel"}]})
+    assert vm.storage[0].controller == "fibrechannel"
+    warnings = VMValidator(VirtualBoxCapabilities.get()).validate(vm)
+    assert any("fibrechannel" in w and "nor a bus" in w for w in warnings)

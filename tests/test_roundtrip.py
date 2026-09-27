@@ -52,11 +52,11 @@ def test_roundtrip_preserves_core_hardware_fields(label):
     assert again.memory.mb == vm.memory.mb
     assert again.memory.vram_mb == vm.memory.vram_mb
     assert again.ostype == vm.ostype
-    assert len(again.disks) == len(vm.disks)
+    assert len(again.storage) == len(vm.storage)
     assert len(again.networks) == len(vm.networks)
     assert len(again.storage_controllers) == len(vm.storage_controllers)
-    assert [d.size_mb for d in again.disks] == [d.size_mb for d in vm.disks]
-    assert [d.format for d in again.disks] == [d.format for d in vm.disks]
+    assert [d.size_mb for d in again.storage] == [d.size_mb for d in vm.storage]
+    assert [d.format for d in again.storage] == [d.format for d in vm.storage]
     assert [n.network_type for n in again.networks] == [n.network_type for n in vm.networks]
     assert [n.adapter_name for n in again.networks] == [n.adapter_name for n in vm.networks]
 
@@ -64,9 +64,9 @@ def test_roundtrip_preserves_core_hardware_fields(label):
 def test_disk_path_is_intentionally_dropped_on_export():
     """disk_path is host-specific, so export omits it by design."""
     vm = parse_label("bios_minimal")
-    assert vm.disks[0].disk_path is not None
-    assert "disk_path" not in YAMLSerializer().to_dict(vm)["disks"][0]
-    assert reload_through(YAMLSerializer(), vm).disks[0].disk_path is None
+    assert vm.storage[0].disk_path is not None
+    assert "disk_path" not in YAMLSerializer().to_dict(vm)["storage"][0]
+    assert reload_through(YAMLSerializer(), vm).storage[0].disk_path is None
 
 
 def test_from_dict_does_not_mutate_its_input():
@@ -85,3 +85,26 @@ def test_full_roundtrip_reaches_the_hypervisor(label):
         tok for cmd in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists() for tok in cmd
     }
     assert "efi64" in flat or "efi" in flat
+
+
+def test_a_devices_provider_options_survive_a_round_trip():
+    """A native detail with no neutral field yet rides in provider_options.
+
+    It exists so that a provider can keep something it read without every such
+    detail having to become a model field first -- and so that nothing has to be
+    dropped silently in the meantime (M-02).
+    """
+    vm = parse_label("bios_minimal")
+    vm.storage[0].provider_options = {"virtualbox": {"ImageUUID": "abc-123"}}
+    again = VMConfig.from_dict(YAMLSerializer().to_dict(vm))
+    assert again.storage[0].provider_options == {"virtualbox": {"ImageUUID": "abc-123"}}
+
+
+def test_unset_fields_are_left_out_of_an_export():
+    """`format: null` reads as a mistake; an absent format reads as "the
+    provider's own", which is what it means (M-04)."""
+    vm = parse_label("bios_minimal")
+    vm.storage[0].format = None
+    device = YAMLSerializer().to_dict(vm)["storage"][0]
+    assert "format" not in device
+    assert "provider_options" not in device

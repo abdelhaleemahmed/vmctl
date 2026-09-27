@@ -44,12 +44,12 @@ def test_saved_json_is_plain_data(tmp_path):
 def test_enums_are_serialised_as_strings(vm_full):
     data = YAMLSerializer().to_dict(vm_full)
     assert data["firmware"]["type"] == "efi64"
-    assert data["disks"][0]["type"] == "disk"
-    assert data["disks"][0]["format"] == "vdi"
-    assert data["disks"][0]["variant"] == "thin"
-    assert data["disks"][0]["controller"] == "sata"
+    assert data["storage"][0]["kind"] == "disk"
+    assert data["storage"][0]["format"] == "vdi"
+    assert data["storage"][0]["allocation"] == "thin"
+    assert data["storage"][0]["bus"] == "sata"
     assert data["networks"][0]["network_type"] == "nat"
-    assert data["storage_controllers"][0]["controller_type"] == "sata"
+    assert data["storage_controllers"][0]["bus"] == "sata"
 
 
 def test_missing_file_raises_serialization_error(tmp_path):
@@ -77,10 +77,10 @@ def test_unknown_key_is_reported_as_a_config_error(tmp_path):
 def test_bad_enum_value_names_the_field(tmp_path):
     """F-06 - used to raise a bare enum ValueError with no field context."""
     path = tmp_path / "bad.yaml"
-    path.write_text("name: v\ndisks:\n  - name: d\n    controller: fibrechannel\n")
+    path.write_text("name: v\nstorage:\n  - name: d\n    bus: fibrechannel\n")
     with pytest.raises(ValidationError) as excinfo:
         YAMLSerializer().load(path)
-    assert "disks[0].controller" in str(excinfo.value)
+    assert "storage[0].bus" in str(excinfo.value)
     # nvme is now a real bus, so it must load rather than fail
     path.write_text("name: v\ndisks:\n  - name: d\n    controller: nvme\n")
     YAMLSerializer().load(path)

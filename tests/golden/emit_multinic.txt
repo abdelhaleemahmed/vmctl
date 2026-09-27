@@ -1,6 +1,6 @@
 VBoxManage createvm --name multinic --ostype Linux_64 --register
 VBoxManage modifyvm multinic --memory 128 --vram 16 --cpus 1 --firmware bios --acpi on --ioapic on --rtcuseutc off --pae on --nested-hw-virt off --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
-VBoxManage storagectl multinic --name SATA --add sata --controller IntelAhci --portcount 1 --bootable off
+VBoxManage storagectl multinic --name SATA --add sata --controller IntelAhci --portcount 1 --bootable on
 VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/multinic/multinic_disk_SATA_0_0.vdi --size 64 --format VDI --variant Standard
 VBoxManage storageattach multinic --storagectl SATA --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multinic/multinic_disk_SATA_0_0.vdi
 VBoxManage modifyvm multinic --nic1 bridged --nictype1 82540EM --cableconnected1 on --bridgeadapter1 Intel(R) Dual Band Wireless-AC 7265 --macaddress1 080027F484CA

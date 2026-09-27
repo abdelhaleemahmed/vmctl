@@ -75,7 +75,7 @@ def _apply_disk_format(vm, disk_format: Optional[str]) -> None:
     if not disk_format:
         return
     chosen = DiskFormat(disk_format)
-    for disk in vm.disks:
+    for disk in vm.storage:
         if not disk.is_removable:
             disk.format = chosen
 
@@ -660,7 +660,7 @@ def cmd_validate(ctx, config_file):
         click.echo(f"  VM Name: {vm.name}")
         click.echo(f"  CPU:     {vm.cpu.count} cores")
         click.echo(f"  Memory:  {vm.memory.mb} MB")
-        click.echo(f"  Disks:   {len(vm.disks)}")
+        click.echo(f"  Disks:   {len(vm.storage)}")
     except VMToolError as e:
         _fail(e)
 
@@ -724,7 +724,7 @@ def batch_create(ctx, batch_file, execute, continue_on_error):
             for vm in vms:
                 click.echo(
                     f"  {vm.name}  ({vm.cpu.count} CPUs, {vm.memory.mb} MB RAM, "
-                    f"{len(vm.disks)} disk(s))"
+                    f"{len(vm.storage)} disk(s))"
                 )
             click.echo("\nRun with --execute to apply.")
             return

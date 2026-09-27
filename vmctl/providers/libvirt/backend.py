@@ -321,17 +321,59 @@ class LibvirtBackend(BaseProvider):
         return plan
 
     def delete_vm(self, vm_name: str) -> bool:
-        """Undefine a domain and remove the storage it owns."""
+        """Undefine a domain and remove the images vmctl created for it.
+
+        ``virsh undefine --remove-all-storage`` only removes volumes libvirt can
+        resolve inside a storage *pool*, and vmctl writes images into a plain
+        directory. So it silently left every image behind while reporting success
+        (F-28), which `vmctl delete` promises not to do.
+
+        Only images inside this connection's own image directory are removed.
+        An image the user attached from somewhere else was not vmctl's to create,
+        so it is not vmctl's to delete either.
+
+        Returns:
+            True when the domain is gone.
+
+        Raises:
+            VMNotFoundError: If no such domain exists.
+            ProviderError: If the domain could not be undefined.
+        """
         if not self.vm_exists(vm_name):
             raise VMNotFoundError(vm_name)
+        ours = self._images_under_our_directory(vm_name)
         if self.get_vm_status(vm_name) == "running":
             self._virsh("destroy", vm_name)
-        # --remove-all-storage deletes the volumes the domain references, which
-        # matches what `unregistervm --delete` does for VirtualBox.
         out = self._virsh("undefine", vm_name, "--remove-all-storage", "--nvram")
         if vm_name in self.list_vms():
             raise ProviderError(f"failed to undefine {vm_name!r}: {out.strip()}")
+        for path in ours:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass  # --remove-all-storage got there first, which is fine
+            except OSError as exc:
+                raise ProviderError(
+                    f"domain {vm_name!r} was removed, but its image {path} "
+                    f"could not be deleted: {exc}"
+                )
         return True
+
+    def _images_under_our_directory(self, vm_name: str) -> List[str]:
+        """Return the domain's disk images that live in our image directory.
+
+        Read before the domain is undefined, since afterwards there is nothing
+        left to ask.
+        """
+        directory_ = os.path.realpath(self.storage_location().directory_for(vm_name))
+        found = []
+        for device in self.read_vm(vm_name).storage:
+            path = device.disk_path or device.source
+            if not path or device.is_removable:
+                continue
+            if os.path.dirname(os.path.realpath(path)) == directory_:
+                found.append(path)
+        return found
 
     def start_vm(self, vm_name: str) -> bool:
         """Start a domain."""
