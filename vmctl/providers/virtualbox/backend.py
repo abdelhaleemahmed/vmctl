@@ -20,6 +20,7 @@ from ..base import BaseProvider
 from .parser import VirtualBoxParser
 from .emitter import VirtualBoxEmitter
 from .capabilities import VirtualBoxCapabilities
+from .convert import CloneMediumConverter
 
 
 class VirtualBoxBackend(BaseProvider):
@@ -77,6 +78,10 @@ class VirtualBoxBackend(BaseProvider):
         except (FileNotFoundError, OSError):
             pass
         return ""
+
+    def converter(self) -> CloneMediumConverter:
+        """Return the ``VBoxManage clonemedium`` converter."""
+        return CloneMediumConverter()
 
     def version(self) -> str:
         """Return the VirtualBox version, e.g. ``"7.1.18"``.

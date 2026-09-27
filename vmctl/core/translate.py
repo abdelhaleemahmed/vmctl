@@ -217,7 +217,11 @@ class Translator:
                 " | ".join(creatable),
             )
 
-        if self.policy.may_convert and spec.support.usable:
+        # Converting needs something to convert *from*. A configuration that
+        # merely describes a disk to create has no image yet, so calling that a
+        # conversion would be a promise nothing can keep -- it is a substitution.
+        has_source = bool(disk.disk_path or disk.source)
+        if self.policy.may_convert and spec.support.usable and has_source:
             # The medium exists and can be read, so converting it keeps the data.
             self.report.conversions.append(
                 Conversion(

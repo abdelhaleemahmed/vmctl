@@ -73,6 +73,17 @@ VirtualBox is driven with `VBoxManage` calls; libvirt gets a domain XML document
 and one `virsh define`. Both are described by the same plan, so `--execute` and
 dry-run behave identically whichever you use.
 
+### Disk Image Conversion
+
+```bash
+vmctl convert disk.vdi disk.qcow2 --execute              # via qemu-img
+vmctl -p virtualbox convert disk.vdi disk.vmdk --execute # via VBoxManage clonemedium
+```
+
+The formats on offer are the ones the selected provider can actually write, so
+`--to vhdx` is not offered under VirtualBox — it can attach a VHDX but never
+create one. Dry-run by default, like everything else that changes state.
+
 ### Nothing Changes Silently
 
 When a configuration asks for something the target hypervisor cannot do, vmctl
@@ -231,6 +242,7 @@ VM — set it in the config file.
 | Command | Description |
 |---------|-------------|
 | `vmctl providers` | List hypervisors and whether they work here |
+| `vmctl convert <src> <dst> [--to FMT] [--execute]` | Convert a disk image between formats |
 | `vmctl list [--format table\|simple]` | List all VMs with status |
 | `vmctl status <vm>` | Show current VM state |
 | `vmctl start <vm>` | Start VM in headless mode |

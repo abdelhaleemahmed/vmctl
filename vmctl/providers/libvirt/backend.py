@@ -31,6 +31,7 @@ from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
 from ..base import BaseProvider
 from .capabilities import LibvirtCapabilities
+from .convert import QemuImgConverter
 from .emitter import LibvirtEmitter
 from .parser import LibvirtParser
 
@@ -74,6 +75,10 @@ class LibvirtBackend(BaseProvider):
     def capabilities(self) -> Capabilities:
         """Return provider capabilities."""
         return self._capabilities
+
+    def converter(self) -> QemuImgConverter:
+        """Return the ``qemu-img`` converter."""
+        return QemuImgConverter()
 
     def version(self) -> str:
         """Return the libvirt version, e.g. ``"11.10.0"``.

@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover
     from typing_extensions import Protocol, runtime_checkable  # type: ignore
 
 from ..core.capabilities import Capabilities
+from ..core.convert import MediumConverter
 from ..core.plan import Plan
 from ..core.translate import Policy
 from ..core.vmconfig import VMConfig
@@ -44,6 +45,17 @@ class BaseProvider(ABC):
     #: Executable this provider needs on PATH. Used by the default
     #: :meth:`is_available`; override that method for anything more involved.
     REQUIRED_BINARY: Optional[str] = None
+
+    def converter(self) -> Optional[MediumConverter]:
+        """Return this provider's image converter, if it has one.
+
+        Deciding *whether* an image needs converting is provider-neutral and
+        lives in :mod:`vmctl.core.convert`; this supplies the mechanism.
+
+        Returns:
+            A converter, or None when the provider cannot convert images.
+        """
+        return None
 
     def version(self) -> str:
         """Return the hypervisor's version, e.g. ``"7.1.18"``.

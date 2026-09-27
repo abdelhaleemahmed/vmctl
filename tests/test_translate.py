@@ -62,12 +62,24 @@ def test_nearest_substitutes_and_records(vbox):
     assert t.report.substitutions[0].used == "vdi"
 
 
-def test_convert_records_a_conversion_rather_than_a_substitution(vbox):
+def test_convert_records_a_conversion_when_there_is_an_image(vbox):
     """The data is kept: an existing VHDX can be read, so it can be converted."""
+    t = Translator(vbox, Policy.CONVERT)
+    disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.VHDX, disk_path="/images/d.vhdx")
+    assert t.format_for(disk, "disks[0].format") is DiskFormat.VDI
+    assert t.report.conversions and not t.report.substitutions
+
+
+def test_convert_falls_back_to_substitution_with_nothing_to_convert(vbox):
+    """A config that only *describes* a disk has no image yet.
+
+    Calling that a conversion would promise something nothing can do, so it is a
+    substitution: the disk is simply created in a format the provider supports.
+    """
     t = Translator(vbox, Policy.CONVERT)
     disk = DiskConfig(name="d", size_mb=1024, format=DiskFormat.VHDX)
     assert t.format_for(disk, "disks[0].format") is DiskFormat.VDI
-    assert t.report.conversions and not t.report.substitutions
+    assert t.report.substitutions and not t.report.conversions
 
 
 def test_a_format_the_provider_cannot_even_read_is_substituted_not_converted(libvirt):

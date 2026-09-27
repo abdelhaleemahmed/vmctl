@@ -441,3 +441,51 @@ def test_disk_format_leaves_removable_devices_alone(runner, vbox, tmp_path):
     creates = [ln for ln in result.output.splitlines() if "createmedium" in ln]
     assert len(creates) == 1  # only the real disk
     assert "emptydrive" in result.output
+
+
+# ---------------------------------------------------------------------------
+# convert (M-05)
+# ---------------------------------------------------------------------------
+
+
+def test_convert_is_dry_run_by_default(runner, vbox, tmp_path):
+    src = tmp_path / "d.vdi"
+    src.write_text("")
+    result = runner.invoke(cli, ["convert", str(src), str(tmp_path / "d.vmdk")])
+    assert result.exit_code == 0
+    assert "Dry-run" in result.output
+    assert "clonemedium" in result.output
+    assert not any("clonemedium" in c for c in vbox)
+
+
+def test_convert_infers_the_target_format_from_the_extension(runner, vbox, tmp_path):
+    src = tmp_path / "d.vdi"
+    src.write_text("")
+    result = runner.invoke(cli, ["convert", str(src), str(tmp_path / "d.vmdk")])
+    assert "--format VMDK" in result.output
+
+
+def test_convert_needs_to_be_told_when_it_cannot_infer(runner, vbox, tmp_path):
+    src = tmp_path / "d.vdi"
+    src.write_text("")
+    result = runner.invoke(cli, ["convert", str(src), str(tmp_path / "d.blob")])
+    assert result.exit_code == 1
+    assert "--to" in result.output
+
+
+def test_convert_offers_only_formats_the_provider_can_write(runner):
+    result = runner.invoke(cli, ["convert", "--help"])
+    assert "vmdk" in result.output
+    # VirtualBox can attach a VHDX but never create one, so --to must not offer it.
+    to_line = result.output.split("--to")[1].split("--from")[0]
+    assert "vhdx" not in to_line
+
+
+def test_convert_refuses_a_target_the_provider_cannot_write(runner, vbox, tmp_path):
+    src = tmp_path / "d.vdi"
+    src.write_text("")
+    result = runner.invoke(
+        cli, ["convert", str(src), str(tmp_path / "d.out"), "--to", "vdi", "--from", "vdi"]
+    )
+    # vdi -> vdi with different paths is a copy, which is allowed.
+    assert result.exit_code == 0

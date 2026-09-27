@@ -930,8 +930,33 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > had been mapping `ide` straight through, producing a domain libvirt rejects,
 > with nothing said.
 >
-> Remaining: `M-01`, `M-02`, `M-05`, `M-06` (the three-axis storage model and
-> medium conversion), `A-05`, `A-07`…`A-10`.
+> **Sixth step done:** `M-05` (medium conversion).
+>
+> `core/convert.py` decides *whether* an image needs converting -- a neutral
+> question the capability declaration already answers -- and each provider
+> supplies *how*: `qemu-img convert` for libvirt, `VBoxManage clonemedium` for
+> VirtualBox. A conversion comes back as `Plan` steps, so it inherits dry-run and
+> carries an `undo`, and it is the single code path `E-03 --clone-disks` and
+> `P-06 migrate` should use -- copying and converting differ only in whether the
+> formats match.
+>
+> Both mechanisms were verified against the real tools before being written up:
+> `qemu-img convert -f vdi -O qcow2` locally, and
+> `VBoxManage clonemedium disk … --format VMDK` on the Windows host.
+>
+> Delivered with a `vmctl convert` command (recorded as **E-20**), because
+> otherwise M-05 would have no surface until P-06 exists, and a service nothing
+> calls is a service nothing has tested. It offers only formats the provider can
+> write, so `--to vhdx` is absent under VirtualBox.
+>
+> Integrating it corrected `A-04`: the translator recorded a *conversion* whenever
+> a format was readable, but converting needs something to convert **from**. A
+> configuration that merely describes a disk to create has no image yet, so that
+> is a substitution. A conversion is now only recorded when `disk_path` or
+> `source` names an existing image.
+>
+> Remaining: `M-01`, `M-02`, `M-06` (the three-axis storage model), `A-05`,
+> `A-07`…`A-10`. **`P-06 migrate` has no blockers left.**
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1572,6 +1597,9 @@ the model (E-03, E-05) want Phase 5 first.
   what would run — a shell script, a libvirt domain XML, a `.vmx`, a PowerShell
   script — instead of only printing it. Reviewable, committable, and the natural
   bridge for anyone who wants to hand the artifact to their own tooling.
+- **E-20 `vmctl convert <src> <dst>` · done.** Delivered with `M-05`: the
+  conversion service needed a surface before `P-06` existed, and a service
+  nothing calls is a service nothing has tested.
 - **E-17 `vmctl capabilities [-p provider]` · S.** Print the support matrix:
   formats, buses, which device kinds attach to which bus, limits, detected
   version. Answers "can this hypervisor do NVMe CD-ROM?" without reading source,
@@ -1782,7 +1810,7 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [ ] M-02 StorageDevice + StorageController (id vs native_name)
          [x] M-03 support matrix incl. (kind x bus) attach table  + PROBE it
          [x] M-04 --disk-format option, provider-filtered choices
-         [ ] M-05 shared medium conversion      [ ] M-06 config back-compat mapping
+         [x] M-05 shared medium conversion      [ ] M-06 config back-compat mapping
          [x] A-01 Plan/Step replaces List[List[str]]   <-- land alone
          [x] A-11 field-table mapping engine + codecs + decoders (with A-01)
          [x] A-02 typed Capabilities, matrix-driven validator

@@ -11,6 +11,7 @@ from typing import List, Optional
 from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
+from vmctl.core.convert import convert as plan_convert
 from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import DiskFormat
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
@@ -807,6 +808,110 @@ def batch_template(ctx, output, fmt):
         click.echo(f"Generated batch template → {output}")
     except VMToolError as e:
         _fail(e)
+
+
+# ---------------------------------------------------------------------------
+# convert
+# ---------------------------------------------------------------------------
+
+
+@cli.command("convert")
+@click.argument("source", type=click.Path(path_type=Path))
+@click.argument("target", type=click.Path(path_type=Path))
+@click.option(
+    "--to",
+    "target_format",
+    type=click.Choice(DISK_FORMATS),
+    default=None,
+    help="Format to write. Inferred from TARGET's extension when omitted.",
+)
+@click.option(
+    "--from",
+    "source_format",
+    type=click.Choice([f.value for f in DiskFormat]),
+    default=None,
+    help="Format of SOURCE. Detected by the conversion tool when omitted.",
+)
+@click.option(
+    "--execute",
+    is_flag=True,
+    help="Actually convert (dry-run by default).",
+)
+@click.pass_context
+def cmd_convert(ctx, source, target, target_format, source_format, execute):
+    """Convert a disk image from one format to another.
+
+    Uses whatever the selected provider converts with -- ``qemu-img`` for
+    libvirt, ``VBoxManage clonemedium`` for VirtualBox -- so the formats on offer
+    are the ones that provider can actually write.
+
+    \b
+    Examples:
+      vmctl convert disk.vdi disk.qcow2 --execute
+      vmctl -p virtualbox convert disk.vdi disk.vmdk --execute
+      vmctl convert disk.img disk.qcow2 --from raw --to qcow2
+    """
+    try:
+        engine = _engine(ctx)
+        converter = engine.backend.converter()
+        if converter is None:
+            _fail(
+                ValidationError(
+                    f"the {engine.provider_name} provider cannot convert images",
+                    field="provider",
+                    value=engine.provider_name,
+                )
+            )
+
+        chosen = _format_from(target_format, target)
+        plan = plan_convert(
+            source=str(source),
+            target=str(target),
+            target_format=chosen,
+            converter=converter,
+            provider=engine.provider_name,
+            source_format=DiskFormat(source_format) if source_format else None,
+            label=source.name,
+        )
+        if not plan:
+            click.echo("Nothing to do: the source is already in that format.")
+            return
+        if execute:
+            engine.backend.run_plan(plan)
+        _show_plan(plan, execute, f"Converted {source} -> {target}")
+    except VMToolError as e:
+        _fail(e)
+
+
+def _format_from(explicit, target_path) -> DiskFormat:
+    """Decide the target format from the option, or the file extension.
+
+    Args:
+        explicit: The ``--to`` value, if given.
+        target_path: The destination path.
+
+    Returns:
+        The format to write.
+
+    Raises:
+        ValidationError: If neither says what the format should be.
+    """
+    if explicit:
+        return DiskFormat(explicit)
+    suffix = target_path.suffix.lstrip(".").lower()
+    for fmt in DiskFormat:
+        if fmt.value == suffix:
+            return fmt
+    # The extension a provider uses is not always the format's own name.
+    for fmt in DiskFormat:
+        if suffix in VirtualBoxCapabilities.get().format_spec(fmt).extensions:
+            return fmt
+    raise ValidationError(
+        f"cannot tell what format {target_path} should be",
+        field="target",
+        value=str(target_path),
+        recovery_hint="Name it with --to, or give the target a known extension.",
+    )
 
 
 # ---------------------------------------------------------------------------

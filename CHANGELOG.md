@@ -92,6 +92,10 @@ things prevented that:
   against either provider, and anything that does not translate is reported
   rather than dropped. Verified end to end on libvirt 11.10.0 / QEMU 10.1.0,
   including booting a domain.
+- **`vmctl convert <source> <target>`** converts a disk image between formats,
+  using whatever the selected provider converts with — `qemu-img` for libvirt,
+  `VBoxManage clonemedium` for VirtualBox. Only formats that provider can write
+  are offered. Dry-run by default.
 - **`--policy strict|nearest|convert`** decides what happens when a
   configuration asks for something the hypervisor cannot do. `strict` (the
   default) refuses and names what would have to change; `nearest` substitutes the
