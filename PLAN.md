@@ -1016,8 +1016,41 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > just removable media, so a migration can **attach the converted copy** instead
 > of a blank disk. Both emitters honour it.
 >
+> **Eighth step done: `A-07` (conformance suite), and `A-08` in substance.**
+>
+> `tests/conformance/` is one parameterised set of rules every registered provider
+> must satisfy: the contract's shape, the capability declaration's internal
+> consistency (an `attach` entry for a bus that is not declared, a native format
+> the provider cannot create, an idiomatic bus it will not attach to), that
+> emission is deterministic and every step is a kind the provider can run, and
+> that a name cannot become structure. It needs no hypervisor, so provider #3 can
+> be checked by someone with neither of the first two installed. CI runs it as a
+> named step.
+>
+> **It found a real bug on its first honest run.** A libvirt VM named `../escaped`
+> or `a/b` redirected where the domain definition was written, because the name is
+> interpolated into a path. That is exactly the `A-08` class of problem, found the
+> way A-07 was meant to find it.
+>
+> Two attempts at the test were wrong before it worked, which is worth recording:
+>
+> * asserting the name appears as a whole argv element — it legitimately appears
+>   *inside* a path, so the property was false;
+> * comparing a written path against its own parent — vacuously true, since the
+>   parent is derived from the path. It had to be compared against the directory a
+>   *benign* name writes into.
+>
+> The fix is `core/naming.py`, called **by the emitters** rather than only by the
+> validator: a provider's `create_vm` is reachable directly, so a check only the
+> engine's validator performs does not protect the files an emitter writes. That
+> realisation is the substance of `A-08`; the remaining part is per-provider
+> escaping helpers, which both providers already get structurally — argv lists for
+> VirtualBox, ElementTree for libvirt. `Capabilities.name_pattern` and
+> `name_max_length` are now declared, and the emitter's private slug helper moved
+> into the same module so there is one rule.
+>
 > Remaining: `M-01`, `M-02`, `M-06` (the three-axis storage model), `A-05`,
-> `A-07`…`A-10`.
+> `A-09`, `A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1878,7 +1911,7 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-03 provider registry + --provider + entry points
          [x] A-04 translation engine + policy + lossiness report
          [ ] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
-         [ ] A-07 provider conformance suite   [ ] A-08 escaping / injection safety
+         [x] A-07 provider conformance suite   [~] A-08 escaping / injection safety
          [ ] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)

@@ -25,6 +25,7 @@ from typing import Dict, Optional
 
 from ...core.capabilities import Capabilities
 from ...core.exceptions import ProviderError
+from ...core.naming import check_name
 from ...core.plan import Plan, Step, StepKind
 from ...core.translate import Policy, Translator
 from ...core.vmconfig import DiskType, VMConfig
@@ -300,6 +301,11 @@ class LibvirtEmitter:
             Plan: qemu-img steps, a WRITE_FILE step for the domain XML, and the
             ``virsh define`` that consumes it.
         """
+        # The name names the definition file and every image, so a separator in
+        # it would redirect those writes. Checked here rather than relying on the
+        # validator, which a direct create_vm() call never runs (A-08).
+        check_name(vm.name, self.capabilities)
+
         plan = Plan("libvirt")
         translator = Translator(self.capabilities, self.policy)
 

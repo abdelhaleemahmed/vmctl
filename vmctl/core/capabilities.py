@@ -154,6 +154,13 @@ class Capabilities:
     native_buses: Dict[DiskType, StorageControllerType] = field(default_factory=dict)
 
     firmware: Dict[FirmwareType, Support] = field(default_factory=dict)
+    #: What a VM name may contain. A name is interpolated into file paths and,
+    #: for some providers, into a document, so a path separator in one redirects
+    #: where files are written -- found by the conformance suite (A-07/A-08). The
+    #: default forbids separators, control characters and a bare traversal.
+    name_pattern: str = r"^(?!\.\.?$)[^/\\\x00-\x1f]+$"
+    name_max_length: int = 128
+
     supports_tpm: bool = True
     #: Secure boot can be switched on, but cannot be read back -- see F-17.
     secure_boot_readable: bool = False

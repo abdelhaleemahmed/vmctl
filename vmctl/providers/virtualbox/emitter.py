@@ -3,7 +3,6 @@
 Emit VirtualBox commands from VMConfig
 """
 import os
-import re
 import sys
 from collections import OrderedDict
 from typing import List, Dict, Optional
@@ -20,6 +19,7 @@ from ...core.vmconfig import (
 )
 from ...core.exceptions import ProviderError
 from ...core.mapping import changed_flags, emit_flags
+from ...core.naming import check_name, safe_filename
 from ...core.plan import Plan
 from ...core.slots import place
 from ...core.translate import Policy, Translator
@@ -84,6 +84,9 @@ class VirtualBoxEmitter:
         Returns:
             Plan: The steps to run, each with a human-readable description.
         """
+        # The name goes into medium paths, so check it before building any.
+        check_name(vm.name, self.capabilities)
+
         plan = Plan("virtualbox")
         # Anything that cannot be expressed exactly is recorded here and ends up
         # in the plan's warnings, rather than being changed quietly (A-04).
@@ -201,7 +204,7 @@ class VirtualBoxEmitter:
                 chosen_format = translator.format_for(disk, f"disks[{index}].format")
                 fmt = self.capabilities.format_spec(chosen_format)
                 medium = self._medium_path(
-                    vm.name, f"{vm.name}_{self._slug(disk.name)}.{fmt.extension}"
+                    vm.name, f"{vm.name}_{safe_filename(disk.name)}.{fmt.extension}"
                 )
 
                 allocation = translator.allocation_for(disk, chosen_format, f"disks[{index}]")
@@ -319,18 +322,6 @@ class VirtualBoxEmitter:
         DiskType.DVD: "dvddrive",
         DiskType.FLOPPY: "fdd",
     }
-
-    @staticmethod
-    def _slug(name: str) -> str:
-        """Make a device name safe to use inside a filename.
-
-        Parsed disk names carry the controller name, which routinely contains
-        spaces ("disk_SATA Controller_0_0"), so medium filenames inherited them.
-        The readable name stays in the config; only the filename is slugged
-        (L-04).
-        """
-        cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
-        return cleaned or "disk"
 
     def _resolve_controllers(self, vm: VMConfig) -> Dict[str, StorageControllerConfig]:
         """Return the controllers to create, keyed by the name disks will use.

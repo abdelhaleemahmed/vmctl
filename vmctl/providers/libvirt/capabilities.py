@@ -119,6 +119,10 @@ class LibvirtCapabilities:
                 # loader for the guest's architecture.
                 FirmwareType.EFI32: Support.UNSUPPORTED,
             },
+            # libvirt is permissive about domain names, but vmctl writes a
+            # definition file named after one, so separators are still out.
+            name_pattern=r"^(?!\.\.?$)[^/\\\x00-\x1f]+$",
+            name_max_length=253,
             supports_tpm=True,
             secure_boot_readable=True,
             supported_network_types=("nat", "bridged", "hostonly", "internal"),

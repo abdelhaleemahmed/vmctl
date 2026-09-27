@@ -37,6 +37,10 @@ jobs:
           python -m pip install -e ".[test]"
       - name: Run tests
         run: python -m pytest -q
+      # Named separately so a failure here is obvious: it means a provider does
+      # not satisfy the contract every provider must satisfy (A-07).
+      - name: Provider conformance
+        run: python -m pytest tests/conformance -q
 
   lint:
     name: lint and types

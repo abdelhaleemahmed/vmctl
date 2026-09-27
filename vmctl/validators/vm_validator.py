@@ -18,6 +18,7 @@ from typing import List, Optional
 
 from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
+from ..core.naming import check_name
 from ..core.slots import place
 from ..core.translate import Policy, Translator
 from ..core.vmconfig import DiskType, FirmwareType, VMConfig
@@ -74,8 +75,10 @@ class VMValidator:
 
     def _validate_schema(self, vm: VMConfig) -> None:
         """Check the values the model itself requires."""
-        if not vm.name or not isinstance(vm.name, str):
-            raise ValidationError("VM name must be a non-empty string", field="name", value=vm.name)
+        # A name ends up in file paths and, for some providers, inside a
+        # document, so a separator in one redirects where files are written. The
+        # same function the emitters call, so there is one rule (A-08).
+        check_name(vm.name, self.capabilities)
 
         if vm.cpu.count < 1:
             raise ValidationError("CPU count must be >= 1", field="cpu.count", value=vm.cpu.count)

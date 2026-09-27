@@ -172,6 +172,10 @@ class VirtualBoxCapabilities:
                 FirmwareType.EFI32: Support.READ_WRITE,
                 FirmwareType.EFI64: Support.READ_WRITE,
             },
+            # VirtualBox creates a folder named after the VM, so the name has
+            # to be a legal Windows directory name as well.
+            name_pattern=r'^(?!\.\.?$)[^/\\:*?"<>|\x00-\x1f]+$',
+            name_max_length=128,
             supports_tpm=True,
             secure_boot_readable=False,
             supported_network_types=(

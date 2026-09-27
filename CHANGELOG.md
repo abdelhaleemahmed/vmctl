@@ -68,6 +68,15 @@ things prevented that:
   firmware, and unsupported buses — before anything runs (F-08).
 - Warnings go to stderr, so `vmctl import … | sh` stays usable.
 
+### Security
+
+- A VM name is interpolated into file paths and, for libvirt, into an XML
+  document. A name containing `/` or `..` redirected where the domain definition
+  was written. Names are now checked against a per-provider pattern, in the
+  emitters themselves rather than only in the validator — a provider's
+  `create_vm` is reachable directly, so a check the validator alone performs does
+  not protect the files it writes. Found by the conformance suite.
+
 ### Fixed — CLI behaviour
 
 - `vmctl edit` applies changes. It emits only the settings that differ, is
@@ -87,6 +96,11 @@ things prevented that:
 
 ### Added
 
+- **A conformance suite every provider must pass** (`tests/conformance/`). One
+  parameterised set of rules covering the provider contract, the capability
+  declaration's internal consistency, deterministic emission, and that a VM name
+  cannot break out of the commands or documents it is embedded in. It runs without
+  a hypervisor, so a provider can be checked on a machine that has none.
 - **A second hypervisor: libvirt / QEMU-KVM.** `vmctl -p libvirt …` creates,
   reads, edits, starts, stops and deletes domains. The same config file works
   against either provider, and anything that does not translate is reported
