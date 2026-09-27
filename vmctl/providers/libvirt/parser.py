@@ -19,6 +19,7 @@ from ...core.exceptions import ProviderError
 from ...core.mapping import read_into
 from ..base import MediumProbe
 from ...core.devices import BusType, DeviceKind
+from ...core.platform import CPU_HOST_MODEL, CPU_HOST_PASSTHROUGH, Arch, NicModel
 from ...core.oscatalog import DEFAULT_ID as DEFAULT_GUEST_OS
 from ...core.vmconfig import (
     BootConfig,
@@ -36,6 +37,7 @@ from .capabilities import LibvirtCapabilities
 from .tables import (
     BOOT_DEVICE,
     GUEST_OS_FROM_OSINFO,
+    NIC_MODEL_FROM_LIBVIRT,
     OSINFO_NS,
     DISCARD_ON,
     DRIVER_TO_FORMAT,
@@ -197,13 +199,15 @@ class LibvirtParser:
 
         vm = VMConfig(
             name=flat.get("name") or vm_name,
-            cpu=CPUConfig(nested_virt=_nested(root)),
+            cpu=_cpu(root),
             memory=MemoryConfig(),
             firmware=FirmwareConfig(secure_boot=_secure_boot(root)),
             storage=disks,
             networks=networks,
             boot=boot,
             storage_controllers=controllers,
+            arch=_arch(root),
+            machine=_machine(root),
             audio_enabled=root.find("devices/sound") is not None,
             usb_enabled=root.find("devices/controller[@type='usb']") is not None,
             # A defined domain's UUID is part of its identity: libvirt refuses to
@@ -326,11 +330,12 @@ class LibvirtParser:
                 name = None if network == "default" else network
             model = iface.find("model")
             mac = iface.find("mac")
+            native = (model.get("type") or "" if model is not None else "").strip().lower()
             networks.append(
                 NetworkConfig(
-                    adapter_type=(
-                        (model.get("type") or "virtio") if model is not None else "virtio"
-                    ),
+                    # An unrecognised model keeps the guest's card working rather
+                    # than failing the read: virtio is libvirt's own default.
+                    model=NIC_MODEL_FROM_LIBVIRT.get(native, NicModel.VIRTIO),
                     network_type=mode,
                     adapter_name=name,
                     mac_address=(mac.get("address") if mac is not None else None),
@@ -361,9 +366,57 @@ def _present(parent: Optional[ET.Element], tag: str) -> bool:
     return parent is not None and parent.find(tag) is not None
 
 
-def _nested(root: ET.Element) -> bool:
-    cpu = root.find("cpu")
-    return cpu is not None and cpu.get("mode") in ("host-passthrough", "host-model")
+def _cpu(root: ET.Element) -> CPUConfig:
+    """Read the CPU: nested virtualisation, model and topology.
+
+    ``count`` is filled by the field table from ``<vcpu>``; everything else lives
+    in ``<cpu>``, which libvirt keeps exactly as it was given (A-10).
+    """
+    cpu_el = root.find("cpu")
+    if cpu_el is None:
+        return CPUConfig()
+    mode = cpu_el.get("mode")
+    model: Optional[str] = None
+    if mode == "host-passthrough":
+        model = CPU_HOST_PASSTHROUGH
+    elif mode == "host-model":
+        model = CPU_HOST_MODEL
+    else:
+        named = cpu_el.findtext("model")
+        model = named.strip() if named else None
+
+    topology = cpu_el.find("topology")
+    return CPUConfig(
+        # host-passthrough is exactly how the emitter expresses nested
+        # virtualisation, so reading it back that way is what makes the setting
+        # survive. host-model is not: it is a choice of CPU model, and inferring
+        # nested virt from it turned `model: host-model` into both settings.
+        nested_virt=mode == "host-passthrough",
+        model=model,
+        sockets=int(topology.get("sockets", 0)) or None if topology is not None else None,
+        cores=int(topology.get("cores", 0)) or None if topology is not None else None,
+        threads=int(topology.get("threads", 0)) or None if topology is not None else None,
+    )
+
+
+def _arch(root: ET.Element) -> Arch:
+    """Return the architecture the domain declares, defaulting to x86_64."""
+    type_el = root.find("os/type")
+    raw = (type_el.get("arch") or "" if type_el is not None else "").strip()
+    try:
+        return Arch(raw)
+    except ValueError:
+        return Arch.X86_64
+
+
+def _machine(root: ET.Element) -> Optional[str]:
+    """Return the machine type the domain declares, if any.
+
+    libvirt expands an alias into the exact versioned type it resolved
+    (``q35`` becomes ``pc-q35-rhel9.8.0``), so what comes back is the real one.
+    """
+    type_el = root.find("os/type")
+    return (type_el.get("machine") if type_el is not None else None) or None
 
 
 def _guest_os(root: ET.Element) -> str:

@@ -20,6 +20,7 @@ from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
 from ..core import oscatalog
 from ..core.naming import check_name
+from ..core.platform import describe_topology, topology_product
 from ..core.slots import place
 from ..core.translate import Policy, Translator
 from ..core.vmconfig import BusType, DeviceKind, FirmwareType, VMConfig
@@ -83,6 +84,25 @@ class VMValidator:
 
         if vm.cpu.count < 1:
             raise ValidationError("CPU count must be >= 1", field="cpu.count", value=vm.cpu.count)
+
+        # libvirt refuses a domain whose topology does not multiply out to its
+        # vCPU count ("CPU topology doesn't match maximum vcpu count"), so this is
+        # a real constraint rather than a stylistic one. It is checked here for
+        # every provider, because a topology that contradicts the count is wrong
+        # regardless of whether the target happens to enforce it.
+        if vm.cpu.has_topology:
+            described = topology_product(vm.cpu.sockets, vm.cpu.cores, vm.cpu.threads)
+            if described != vm.cpu.count:
+                raise ValidationError(
+                    f"cpu topology describes {described} vCPU(s) "
+                    f"({describe_topology(vm.cpu.sockets, vm.cpu.cores, vm.cpu.threads)}) "
+                    f"but cpu.count is {vm.cpu.count}",
+                    field="cpu",
+                    value=described,
+                    expected=str(vm.cpu.count),
+                    recovery_hint="Set cpu.count to the product, or drop the topology "
+                    "and let the provider choose one.",
+                )
 
         if not 1 <= vm.cpu.execution_cap <= 100:
             raise ValidationError(
@@ -304,7 +324,7 @@ class VMValidator:
         if vm.memory.mb % 4 != 0:
             warnings.append(
                 f"memory.mb is {vm.memory.mb}, which is not a multiple of 4; "
-                f"VirtualBox may round it"
+                f"{self.capabilities.provider} may round it"
             )
 
         # The guest OS used to be unwarnable: VirtualBox reports descriptions
@@ -386,7 +406,11 @@ class VMValidator:
                 )
 
         if vm.cpu.count > 1 and not vm.boot.ioapic:
+            # x86 SMP needs an I/O APIC to route interrupts to more than one CPU.
+            # The message used to name VirtualBox, which then turned up while
+            # creating a libvirt domain -- a provider's name in shared code (F-30).
             warnings.append(
-                "more than one CPU is configured but ioapic is off; "
-                "VirtualBox requires I/O APIC for SMP"
+                f"more than one CPU is configured but ioapic is off; an x86 guest "
+                f"needs an I/O APIC to use them, and {self.capabilities.provider} "
+                f"will not give it one"
             )

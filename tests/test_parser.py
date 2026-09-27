@@ -16,6 +16,8 @@ from vmctl.core.vmconfig import (
     BusType,
 )
 
+from vmctl.core.platform import NicModel
+
 from conftest import parse_label, read_fixture
 
 
@@ -156,8 +158,12 @@ def test_all_network_modes_read_their_adapter_name_from_the_right_key():
         (NetworkType.INTERNAL, "lab-backend"),
         (NetworkType.NAT, None),
     ]
-    assert vm.networks[2].adapter_type == "virtio"
-    assert vm.networks[3].adapter_type == "82545EM"
+    assert vm.networks[2].model is NicModel.VIRTIO
+    # 82540EM, 82543GC and 82545EM are all e1000 to the model; the exact chipset
+    # is kept as a native hint so a VirtualBox round trip returns the same card
+    # rather than the family's default (A-10).
+    assert vm.networks[3].model is NicModel.E1000
+    assert vm.networks[3].provider_options == {"virtualbox": {"nictype": "82545EM"}}
 
 
 def test_rtc_localtime_is_read():

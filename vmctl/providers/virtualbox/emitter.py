@@ -28,7 +28,16 @@ from ...core.oscatalog import family_of
 from ...core.translate import Policy, Substitution, Translator
 from ...core.capabilities import Capabilities
 from .capabilities import VirtualBoxCapabilities
-from .tables import GUEST_OS_TO_VBOX, FIELDS, MODIFIABLE, GuestOSCodec, generic_for
+from ...core.platform import NicModel, describe_topology
+from .tables import (
+    FIELDS,
+    GUEST_OS_TO_VBOX,
+    MODIFIABLE,
+    NIC_MODEL_FROM_VBOX,
+    NIC_MODEL_TO_VBOX,
+    GuestOSCodec,
+    generic_for,
+)
 
 
 class VirtualBoxEmitter:
@@ -220,7 +229,7 @@ class VirtualBoxEmitter:
 
         # Configure network adapters
         for i, network in enumerate(vm.networks):
-            commands.append(self._configure_network_adapter(i + 1, network))
+            commands.append(self._configure_network_adapter(i + 1, network, translator))
 
         # Boot order
         for i, device in enumerate(vm.boot.order[:4], 1):
@@ -253,6 +262,8 @@ class VirtualBoxEmitter:
         # USB
         if vm.usb_enabled:
             commands.append(["VBoxManage", "modifyvm", vm.name, "--usb", "on", "--usbehci", "on"])
+
+        self._report_unexpressible(vm, translator)
 
         # Everything a strict policy refused is reported together, so a user
         # sees all of it in one pass rather than one problem per run.
@@ -354,6 +365,33 @@ class VirtualBoxEmitter:
         """
         by_native = {sc.native_name: sc for sc in resolved.values() if sc.native_name}
         return resolve_controller(disk, resolved, by_bus, by_native)
+
+    def _report_unexpressible(self, vm: VMConfig, translator: Translator) -> None:
+        """Say which settings VirtualBox has no way to apply.
+
+        These are not failures -- a VM with a CPU topology is still worth creating
+        -- but a setting that vanishes without a word is how a config comes to
+        describe a machine that does not exist (A-04/A-10).
+        """
+        if vm.cpu.has_topology and not self.capabilities.cpu_topology:
+            translator.drop(
+                "cpu",
+                describe_topology(vm.cpu.sockets, vm.cpu.cores, vm.cpu.threads),
+                f"VirtualBox takes a CPU count and no topology, so it will get "
+                f"--cpus {vm.cpu.count}",
+            )
+        if vm.cpu.model and not self.capabilities.cpu_model_choice:
+            translator.drop("cpu.model", vm.cpu.model, "VirtualBox has no CPU model setting")
+        if vm.machine and not self.capabilities.machine_types:
+            translator.drop(
+                "machine", vm.machine, "VirtualBox emulates one machine model and does not name it"
+            )
+        if vm.arch not in self.capabilities.arches:
+            translator.drop(
+                "arch",
+                vm.arch.value,
+                "a VirtualBox VM runs the host's architecture; there is no setting",
+            )
 
     def _ostype(self, vm: VMConfig, translator: Translator) -> str:
         """Return the OS type id ``createvm`` will accept.
@@ -475,7 +513,51 @@ class VirtualBoxEmitter:
 
         return plan
 
-    def _configure_network_adapter(self, adapter_num: int, network: NetworkConfig) -> List[str]:
+    def _nictype(self, network: NetworkConfig, where: str, translator: Translator) -> str:
+        """Return the ``--nictype`` value for a NIC model.
+
+        Measured: VirtualBox 7.1.18 accepts seven chipsets and answers "Invalid NIC
+        type 'x' specified for NIC 1" to the rest, so ``e1000e``, ``rtl8139``,
+        ``ne2k`` and ``vmxnet3`` are genuinely absent here (A-10).
+
+        Raises:
+            ValidationError: Under ``strict``, when the model is one VirtualBox
+                does not have.
+        """
+        # A native chipset the parser kept wins, as long as it still means the
+        # model the config asks for -- so a round trip returns the same card and
+        # an edited model is still honoured (A-10).
+        kept = (network.provider_options or {}).get("virtualbox", {}).get("nictype")
+        if kept and NIC_MODEL_FROM_VBOX.get(str(kept).strip().lower()) is network.model:
+            return str(kept)
+        native = NIC_MODEL_TO_VBOX.get(network.model)
+        if native is not None:
+            return native
+        fallback = self.capabilities.nic_model_fallback() or NicModel.E1000
+        if not translator.policy.may_substitute:
+            translator._refuse(
+                where,
+                network.model.value,
+                "VirtualBox has no such network chipset",
+                fallback.value,
+            )
+        else:
+            translator.report.substitutions.append(
+                Substitution(
+                    where,
+                    network.model.value,
+                    fallback.value,
+                    "VirtualBox has no such network chipset",
+                )
+            )
+        return NIC_MODEL_TO_VBOX.get(fallback, "82540EM")
+
+    def _configure_network_adapter(
+        self,
+        adapter_num: int,
+        network: NetworkConfig,
+        translator: Translator,
+    ) -> List[str]:
         """Generate command to configure network adapter"""
         # Map our NetworkType to VirtualBox network type names
         network_type_map = {
@@ -494,7 +576,7 @@ class VirtualBoxEmitter:
             f"--nic{adapter_num}",
             vbox_net_type,
             f"--nictype{adapter_num}",
-            network.adapter_type,
+            self._nictype(network, f"networks[{adapter_num - 1}].model", translator),
             f"--cableconnected{adapter_num}",
             "on",
         ]

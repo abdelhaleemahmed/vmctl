@@ -377,3 +377,18 @@ def test_the_provider_says_where_it_keeps_images(backend):
         path = location.image_path("vm", "vm_disk.img")
         assert path.endswith("vm_disk.img")
         assert location.directory_for("vm") in path
+
+
+def test_a_warning_never_names_another_provider(backend, caps, vm_minimal):
+    """F-30 -- "VirtualBox requires I/O APIC for SMP" turned up while creating a
+    libvirt domain. A provider's name in shared code is a bug whichever way it
+    points, and the conformance suite is where it shows up."""
+    from vmctl.validators.vm_validator import VMValidator
+
+    vm_minimal.cpu.count = 2
+    vm_minimal.boot.ioapic = False
+    vm_minimal.memory.mb = 129  # trips the rounding warning too
+    others = {name for name in ("virtualbox", "libvirt") if name != caps.provider}
+    for warning in VMValidator(caps).validate(vm_minimal):
+        for other in others:
+            assert other.lower() not in warning.lower(), warning

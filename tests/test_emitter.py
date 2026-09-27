@@ -420,3 +420,70 @@ def test_a_device_can_name_its_controller_by_logical_id():
     attach = [c for c in commands if c[1] == "storageattach"][0]
     # The plan uses the provider's own name, because that is what VBoxManage takes.
     assert attach[attach.index("--storagectl") + 1] == "Fast Controller"
+
+
+def test_a_nic_model_virtualbox_lacks_is_substituted_and_reported():
+    """Measured: VirtualBox answers "Invalid NIC type 'e1000e' specified for NIC 1",
+    so four of the model's chipsets are genuinely absent here (A-10)."""
+    from vmctl.core.platform import NicModel
+    from vmctl.core.translate import Policy
+
+    vm = build_minimal()
+    vm.networks[0].model = NicModel.VMXNET3
+    emitter = VirtualBoxEmitter(vm.name, policy=Policy.NEAREST)
+    nic = [c for c in emitter.emit_create_vm(vm).as_argv_lists() if "--nic1" in c][0]
+    assert nic[nic.index("--nictype1") + 1] == "82540EM"
+    assert any(s.field == "networks[0].model" for s in emitter.report.substitutions)
+
+
+def test_a_nic_model_virtualbox_lacks_is_refused_under_strict():
+    from vmctl.core.exceptions import ValidationError
+    from vmctl.core.platform import NicModel
+
+    vm = build_minimal()
+    vm.networks[0].model = NicModel.RTL8139
+    with pytest.raises(ValidationError, match="network chipset"):
+        VirtualBoxEmitter(vm.name).emit_create_vm(vm)
+
+
+def test_the_exact_intel_variant_survives_a_round_trip():
+    """A-10 -- 82540EM, 82543GC and 82545EM are all `e1000` to the model. The one
+    the VM had is kept as a native hint, so re-creating it gives the guest back the
+    same card rather than the family's default."""
+    vm = parse_label("multinic")
+    kept = [n for n in vm.networks if n.provider_options][0]
+    assert kept.provider_options["virtualbox"]["nictype"] == "82545EM"
+    cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+    nictypes = [c[c.index("--nictype4") + 1] for c in cmds if "--nictype4" in c]
+    assert nictypes == ["82545EM"]
+
+
+def test_editing_the_model_overrides_a_kept_native_chipset():
+    """The hint is fidelity, not a lock: changing the model has to win."""
+    from vmctl.core.platform import NicModel
+
+    vm = parse_label("multinic")
+    net = [n for n in vm.networks if n.provider_options][0]
+    net.model = NicModel.VIRTIO
+    cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+    nictypes = [c[c.index("--nictype4") + 1] for c in cmds if "--nictype4" in c]
+    assert nictypes == ["virtio"]
+
+
+def test_settings_virtualbox_cannot_express_are_reported():
+    """A CPU topology, a CPU model, a machine type and an architecture all have no
+    VirtualBox equivalent. The VM is still worth creating -- but a setting that
+    vanishes without a word is how a config comes to describe a machine that does
+    not exist (A-04/A-10)."""
+    from vmctl.core.platform import Arch
+    from vmctl.core.translate import Policy
+
+    vm = build_minimal()
+    vm.cpu.count, vm.cpu.sockets, vm.cpu.cores = 4, 2, 2
+    vm.cpu.model = "host"
+    vm.machine = "q35"
+    vm.arch = Arch.AARCH64
+    emitter = VirtualBoxEmitter(vm.name, policy=Policy.NEAREST)
+    emitter.emit_create_vm(vm)
+    dropped = {d.field for d in emitter.report.drops}
+    assert {"cpu", "cpu.model", "machine", "arch"} <= dropped

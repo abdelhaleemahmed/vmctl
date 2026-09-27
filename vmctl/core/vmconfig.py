@@ -30,6 +30,7 @@ from typing import (
 
 from .devices import Allocation, BusType, DeviceKind, DiskFormat
 from .oscatalog import DEFAULT_ID as DEFAULT_GUEST_OS
+from .platform import Arch, NicModel
 
 # Re-exported and unused here: `from vmctl.core.vmconfig import DiskType` is the
 # import a 1.1.x caller wrote, and it keeps working after the M-01 split.
@@ -43,6 +44,7 @@ __all__ = [
     "BootConfig",
     "CPUConfig",
     "DEFAULT_DISK_MB",
+    "Arch",
     "DEFAULT_GUEST_OS",
     "DiskConfig",
     "FirmwareConfig",
@@ -50,6 +52,7 @@ __all__ = [
     "MemoryConfig",
     "NetworkConfig",
     "NetworkType",
+    "NicModel",
     "StorageController",
     "StorageControllerConfig",
     "StorageDevice",
@@ -99,6 +102,17 @@ class CPUConfig:
         execution_cap: Maximum percentage of host CPU time the VM may use (1–100).
         pae: Enable Physical Address Extension for 32-bit OSes.
         nested_virt: Enable nested virtualisation (required for running KVM inside VirtualBox).
+        sockets: Sockets to present, or None to let the provider decide.
+        cores: Cores per socket, or None.
+        threads: Threads per core, or None.
+        model: The CPU model the guest sees: ``host`` to pass the host's CPU
+            through, ``host-model`` for the closest migratable description, or a
+            named model such as ``Skylake-Client``. None leaves it to the
+            provider. VirtualBox has no such setting and reports it (A-10).
+
+    A topology is not free: libvirt refuses a domain whose sockets x cores x
+    threads does not equal its vCPU count, so :mod:`vmctl.validators` checks the
+    two agree rather than letting the hypervisor discover it.
     """
 
     count: int = 2
@@ -106,6 +120,15 @@ class CPUConfig:
     execution_cap: int = 100  # Percentage
     pae: bool = False  # Physical Address Extension
     nested_virt: bool = False
+    sockets: Optional[int] = None
+    cores: Optional[int] = None
+    threads: Optional[int] = None
+    model: Optional[str] = None
+
+    @property
+    def has_topology(self) -> bool:
+        """Whether the configuration states a topology at all."""
+        return any(v is not None for v in (self.sockets, self.cores, self.threads))
 
     def to_dict(self) -> dict:
         """Return CPU configuration as a plain dictionary.
@@ -419,6 +442,23 @@ LEGACY_DEVICE_FIELDS = {
 #: for it, which is now ``native_name``; the logical ``id`` is derived.
 LEGACY_CONTROLLER_FIELDS = {"name": "native_name", "controller_type": "bus"}
 
+#: Old name -> new name, on a network adapter.
+LEGACY_NETWORK_FIELDS = {"adapter_type": "model"}
+
+#: 1.1.x chipset spellings -> the neutral model. Both providers' native names are
+#: here because a config exported from either one has to keep loading: VirtualBox
+#: reports ``82540EM`` and QEMU ``e1000``, and they are the same card (A-10).
+LEGACY_NIC_MODELS = {
+    "82540em": "e1000",
+    "82543gc": "e1000",
+    "82545em": "e1000",
+    "am79c970a": "pcnet",
+    "am79c973": "pcnet",
+    "am79c960": "pcnet",
+    "virtio-net": "virtio",
+    "ne2k_pci": "ne2k",
+}
+
 #: Old name -> new name, on the VM itself.
 LEGACY_VM_FIELDS = {"disks": "storage", "ostype": "guest_os"}
 
@@ -473,6 +513,21 @@ def _bus_given_as_controller(kwargs: Dict[str, Any]) -> None:
     """
     if isinstance(kwargs.get("controller"), BusType):
         kwargs.setdefault("bus", kwargs.pop("controller"))
+
+
+def _nic_model_given_as_text(kwargs: Dict[str, Any]) -> None:
+    """Read a chipset *name* as the model it is.
+
+    1.1.x code wrote ``adapter_type="82540EM"`` -- a VirtualBox chipset id -- and
+    a caller may equally write the QEMU spelling. Both name the same card, so both
+    resolve to the same :class:`~vmctl.core.platform.NicModel` (A-10).
+    """
+    for key in ("adapter_type", "model"):
+        value = kwargs.get(key)
+        if not isinstance(value, str):
+            continue
+        text = value.strip().lower()
+        kwargs[key] = NicModel(LEGACY_NIC_MODELS.get(text, text))
 
 
 def _accept_legacy_keywords(
@@ -538,18 +593,42 @@ class NetworkConfig:
     """Network adapter configuration.
 
     Attributes:
-        adapter_type: NIC chipset emulation (e.g. ``"82540EM"`` for Intel PRO/1000 MT Desktop).
+        model: The network chipset the guest sees. Was ``adapter_type``, which
+            held VirtualBox's own id (``"82540EM"``) in the neutral model (A-10).
         network_type: Connection mode (NAT, BRIDGED, HOSTONLY, INTERNAL, NATNETWORK).
         adapter_name: Physical or virtual interface name used for BRIDGED / HOSTONLY modes.
         mac_address: Custom MAC address; ``None`` lets VirtualBox assign one automatically.
         promiscuous_mode: Allow the adapter to receive packets not addressed to it.
+        provider_options: Native details with no neutral equivalent, by provider
+            name. This is what keeps a same-provider round trip exact where the
+            neutral vocabulary is deliberately coarser: VirtualBox has three Intel
+            PRO/1000 variants that are all ``e1000`` to the model, and re-creating
+            the VM should give the guest back the same card, not the family's
+            default (A-10).
     """
 
-    adapter_type: str = "82540EM"  # Default Intel PRO/1000 MT Desktop
+    # e1000 rather than virtio: an emulated Intel card is what a guest with no
+    # drivers can see, which is the right default for a VM that may be about to
+    # install an OS. It is also what 1.1.x defaulted to, spelled neutrally.
+    model: NicModel = NicModel.E1000
     network_type: NetworkType = NetworkType.NAT
     adapter_name: Optional[str] = None  # For bridged/host-only
     mac_address: Optional[str] = None
     promiscuous_mode: bool = False
+    provider_options: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def _from_legacy(cls, data: dict, path: str) -> dict:
+        """Accept ``adapter_type:`` and the chipset names 1.1.x wrote there.
+
+        A raw chipset name is translated rather than passed through, unlike a
+        guest OS label: an unknown NIC model cannot be attached to anything, so
+        carrying it forward would only postpone the error to the hypervisor.
+        """
+        raw = data.get("adapter_type")
+        if isinstance(raw, str):
+            data["adapter_type"] = LEGACY_NIC_MODELS.get(raw.strip().lower(), raw)
+        return _rename_keys(data, LEGACY_NETWORK_FIELDS, path)
 
     @property
     def needs_adapter_name(self) -> bool:
@@ -573,6 +652,9 @@ class NetworkConfig:
         """
         result = asdict(self)
         result["network_type"] = self.network_type.value
+        result["model"] = self.model.value
+        if not self.provider_options:
+            del result["provider_options"]
         return result
 
 
@@ -654,6 +736,14 @@ class VMConfig:
     networks: List[NetworkConfig]
     boot: BootConfig
     storage_controllers: List[StorageControllerConfig]
+    #: The architecture the guest's virtual CPU presents. VirtualBox has no such
+    #: setting -- a VM runs the host's -- while libvirt requires one in every
+    #: domain (A-10).
+    arch: Arch = Arch.X86_64
+    #: The machine type (chipset) to emulate, such as ``q35`` or ``pc``. None
+    #: means the provider's own default, which is the portable answer: the set on
+    #: offer depends on the QEMU build, and VirtualBox has no choice at all.
+    machine: Optional[str] = None
     #: Which OS the guest runs, as a neutral id from
     #: :mod:`vmctl.core.oscatalog` (``ubuntu22.04``, ``win11``) -- or a
     #: provider's own string, which passes through untranslated. Was ``ostype``,
@@ -707,6 +797,8 @@ class VMConfig:
         """Convert VMConfig to dictionary for serialization"""
         result = {
             "name": self.name,
+            "arch": self.arch.value,
+            "machine": self.machine,
             "guest_os": self.guest_os,
             "description": self.description,
             "cpu": self.cpu.to_dict(),
@@ -762,6 +854,8 @@ class VMConfig:
 
 setattr(VMConfig, "disks", _alias("disks", "storage"))
 setattr(VMConfig, "ostype", _alias("ostype", "guest_os"))
+setattr(NetworkConfig, "adapter_type", _alias("adapter_type", "model"))
+_accept_legacy_keywords(NetworkConfig, LEGACY_NETWORK_FIELDS, _nic_model_given_as_text)
 _accept_legacy_keywords(VMConfig, LEGACY_VM_FIELDS)
 
 

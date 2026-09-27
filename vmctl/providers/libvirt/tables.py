@@ -12,6 +12,7 @@ the opposite of VirtualBox, where vmctl chooses the port and device numbers.
 
 from ...core.codecs import EnumCodec, Int, OnOff, Str
 from ...core.mapping import Field
+from ...core.platform import NicModel
 from ...core.vmconfig import (
     DiskFormat,
     DeviceKind,
@@ -145,22 +146,22 @@ NETWORK_TO_LIBVIRT = {
     NetworkType.INTERNAL: "network",
 }
 
-#: NIC chipset names, in both directions. VirtualBox names appear here because a
-#: config exported from VirtualBox carries them; A-10 replaces this with a
-#: neutral NicModel so the mapping is not provider-to-provider.
-NIC_MODEL_FROM_NATIVE = {
-    "82540em": "e1000",
-    "82543gc": "e1000",
-    "82545em": "e1000",
-    "am79c970a": "pcnet",
-    "am79c973": "pcnet",
-    "virtio": "virtio",
-    "virtio-net": "virtio",
-    "e1000": "e1000",
-    "e1000e": "e1000e",
-    "rtl8139": "rtl8139",
-    "vmxnet3": "vmxnet3",
+#: Neutral NIC model -> libvirt ``<model type='...'>``. This used to map
+#: VirtualBox's chipset names onto QEMU's directly, which made one provider's
+#: table depend on another's vocabulary; the model names the card instead (A-10).
+NIC_MODEL_TO_LIBVIRT = {
+    NicModel.VIRTIO: "virtio",
+    NicModel.E1000: "e1000",
+    NicModel.E1000E: "e1000e",
+    NicModel.RTL8139: "rtl8139",
+    NicModel.PCNET: "pcnet",
+    NicModel.NE2K: "ne2k_pci",
+    NicModel.VMXNET3: "vmxnet3",
 }
+
+#: The same, reversed. Every model above was accepted by ``virsh define`` on
+#: libvirt 11.10.0, so this is the measured set rather than a hopeful one.
+NIC_MODEL_FROM_LIBVIRT = {v: k for k, v in NIC_MODEL_TO_LIBVIRT.items()}
 
 #: libvirt firmware value per model firmware type. BIOS needs no attribute.
 FIRMWARE_TO_LIBVIRT = {

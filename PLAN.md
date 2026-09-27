@@ -368,6 +368,19 @@ declared *second* was reported as `disks[0]`. The device loop reused its
 that line named the wrong device. A report that points at the wrong device is
 worse than no report, since acting on it edits the wrong thing.
 
+### F-30 — A libvirt VM was warned about VirtualBox's requirements · S *(fixed)*
+`vmctl/validators/vm_validator.py`
+
+Found by reading the output of a real libvirt create: "more than one CPU is
+configured but ioapic is off; **VirtualBox** requires I/O APIC for SMP". The
+constraint is real -- an x86 guest needs an I/O APIC to use more than one CPU --
+but the sentence named the wrong product, because the shared validator had a
+provider's name written into it. The same was true of the memory-rounding warning.
+
+Both now name `capabilities.provider`, and a conformance rule asserts that no
+warning a provider produces mentions another provider -- which is the sort of
+thing only a suite parameterised over providers can notice.
+
 ### F-29 — Any guest OS outside a forty-entry literal could not be re-imported · M *(fixed)*
 `vmctl/providers/virtualbox/emitter.py`
 
@@ -1288,7 +1301,57 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > `Debian12_64`, which the host accepts. libvirt: `guest_os: debian12` becomes
 > `<libosinfo:os id="http://debian.org/debian/12"/>` and reads back as `debian12`.
 >
-> Remaining in Phase 5: `A-10` (arch/machine/CPU topology/NicModel).
+> **Phase 5 is complete: `A-10` (the fields a second hypervisor needs).** Three
+> things in the model were VirtualBox-shaped in a way that only shows up once
+> something else exists.
+>
+> *There was no architecture or machine type at all*, because VirtualBox has
+> neither -- a VM runs the host's architecture on a fixed chipset. libvirt requires
+> both in every domain, so vmctl's libvirt provider had been hardcoding `q35` in
+> the emitter: the same mistake as the guest OS map (A-05). `arch` is an enum
+> (`x86_64`, `aarch64`, ...) and `machine` an optional string, because the machine
+> types on offer depend on the QEMU build -- `virt` is ARM-only and is refused on
+> x86_64, measured -- so the portable answer is to leave it unset and let the
+> provider's capability declaration supply the default.
+>
+> *A CPU was a number.* `sockets`/`cores`/`threads` and a `model` (`host`,
+> `host-model`, or a named one such as `Skylake-Client`) are what libvirt, VMware
+> and Hyper-V all model. The topology is not free: libvirt refuses a domain whose
+> sockets x cores x threads does not equal its vCPU count ("CPU topology doesn't
+> match maximum vcpu count"), so the validator checks it for *every* provider --
+> a topology that contradicts the count is wrong regardless of who enforces it.
+> VirtualBox has only `--cpus`, so a topology and a model are reported as dropped
+> rather than ignored.
+>
+> *A NIC was the string `"82540EM"`* -- a VirtualBox chipset id in the neutral
+> model, which is why libvirt's table mapped *VirtualBox's* names onto QEMU's, one
+> provider's table depending on another's vocabulary. `NicModel` names the card;
+> `e1000` is `82540EM` there and `e1000` on QEMU. The absences are measured:
+> VirtualBox accepts seven chipsets and answers "Invalid NIC type 'e1000e'
+> specified for NIC 1" to the rest, so `e1000e`, `rtl8139`, `ne2k` and `vmxnet3`
+> are genuinely missing there and are substituted-and-reported, or refused under
+> `strict`. The fallback is `e1000` rather than the faster virtio, because an
+> emulated Intel card is what a guest with no drivers can actually see.
+>
+> Coarse vocabulary without losing fidelity: VirtualBox has three Intel PRO/1000
+> variants that are all `e1000` to the model, so the parser keeps the exact one in
+> `provider_options` and the emitter prefers it *when it still means the model the
+> config asks for*. A round trip returns the same card; editing the model still
+> wins.
+>
+> `F-30` came out of reading a real run's output: the shared validator warned a
+> libvirt VM that "VirtualBox requires I/O APIC for SMP". A conformance rule now
+> asserts no warning names another provider.
+>
+> Deferred deliberately: NAT port forwarding is `E-10`'s (it needs rules, not a
+> field), and the second wave in this item -- serial, video model, watchdog, shared
+> folders, cloud-init seed -- stays behind its capability flags until a provider
+> needs it.
+>
+> Verified on real hardware both ways. libvirt: `arch`, `machine: pc` (which
+> libvirt expanded to `pc-i440fx-rhel7.6.0`), a 2x2x1 topology, `host-model`, and
+> `e1000e` plus `virtio` adapters all read back. VirtualBox: `win11`, `virtio` and
+> `pcnet` (Am79C973) round-trip, and arch/machine/topology correctly stay absent.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -2041,7 +2104,7 @@ Configs exported by 1.1.x must keep loading through 2.x. Concretely:
 | `controller` (a bus) → `bus`; `controller_name` → `controller` (M-02) | the one key whose *meaning* changed. Told apart by value: `sata` is a bus, `sata0` a controller id; a `BusType` passed as `controller=` is the bus. A value that is neither lands as a controller nothing declares -- legal, and warned about |
 | `StorageController.name` → `id` + `native_name` (M-02) | `name=` sets `native_name` and reads back `native_name or id`; the id is derived from bus + index |
 | `ostype` → neutral `guest_os` (A-05) | `ostype:` accepted indefinitely; raw provider strings (`Ubuntu_64`, and any of the 227 ids or descriptions `VBoxManage list ostypes` reports) pass through untranslated forever |
-| `adapter_type: "82540EM"` → `NicModel` (A-10) | raw native strings accepted as passthrough |
+| `adapter_type: "82540EM"` → `NicModel` (A-10) | `adapter_type:` accepted indefinitely, and every native chipset name either provider uses resolves to the model it names. **Not a passthrough**, unlike a guest OS label: a chipset no provider has cannot be attached to anything, so carrying it forward would only postpone the error. The exact native variant is kept in `provider_options` for same-provider fidelity |
 | `List[List[str]]` → `Plan` (A-01) | internal API; `Plan.as_argv_lists()` shim if anything external depends on it |
 | `schema_version` added (E-14) | absent means "1", accepted forever |
 
@@ -2135,6 +2198,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-27 bootable controllers re-created as --bootable off
          [x] F-28 libvirt delete left every disk image behind
          [x] F-29 guest OS descriptions could not be re-imported
+         [x] F-30 a libvirt VM warned about VirtualBox's requirements
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2157,7 +2221,7 @@ Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-04 translation engine + policy + lossiness report
          [x] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
          [x] A-07 provider conformance suite   [~] A-08 escaping / injection safety
-         [x] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
+         [x] A-09 storage location abstraction [x] A-10 arch/machine/topology/NicModel
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion
          [ ] P-03 Hyper-V                    [ ] P-04 Proxmox (optional)
          [ ] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to

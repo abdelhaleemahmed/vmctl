@@ -202,3 +202,53 @@ def test_creatable_formats_are_what_disk_format_should_offer(caps):
         DiskFormat.RAW,
     } <= creatable
     assert DiskFormat.VHDX not in creatable
+
+
+# ---------------------------------------------------------------------------
+# The platform fields A-10 added
+# ---------------------------------------------------------------------------
+
+
+def test_each_provider_declares_what_it_can_do_about_a_cpu_topology():
+    """VirtualBox has `--cpus N` and nothing else; libvirt models sockets, cores
+    and threads. Declaring it is what lets the emitters report instead of guess."""
+    from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+    from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+
+    assert VirtualBoxCapabilities.get().cpu_topology is False
+    assert LibvirtCapabilities.get().cpu_topology is True
+
+
+def test_a_provider_with_no_machine_types_says_so_rather_than_naming_one():
+    """VirtualBox emulates one machine model and has no name for it, which is not
+    the same as "q35 by default"."""
+    from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+
+    caps = VirtualBoxCapabilities.get()
+    assert caps.machine_types == ()
+    assert caps.default_machine is None
+
+
+def test_nic_models_are_declared_per_provider():
+    from vmctl.core.platform import NicModel
+    from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+    from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+
+    vbox = VirtualBoxCapabilities.get()
+    libvirt = LibvirtCapabilities.get()
+    # Measured: VirtualBox refuses these four outright.
+    for absent in (NicModel.E1000E, NicModel.RTL8139, NicModel.NE2K, NicModel.VMXNET3):
+        assert vbox.native_nic_model(absent) is None
+        assert libvirt.native_nic_model(absent) is not None
+    assert vbox.native_nic_model(NicModel.E1000) == "82540EM"
+    assert libvirt.native_nic_model(NicModel.E1000) == "e1000"
+
+
+def test_the_nic_fallback_is_a_card_a_driverless_guest_can_see():
+    """Substituting virtio would leave a Windows installer with no network at all."""
+    from vmctl.core.platform import NicModel
+    from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+    from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+
+    for caps in (VirtualBoxCapabilities.get(), LibvirtCapabilities.get()):
+        assert caps.nic_model_fallback() is NicModel.E1000

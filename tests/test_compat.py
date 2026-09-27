@@ -75,6 +75,16 @@ RENAMED_DEVICE_KEYS = {
 }
 RENAMED_CONTROLLER_KEYS = {"name": "native_name", "controller_type": "bus"}
 RENAMED_VM_KEYS = {"ostype": "guest_os"}
+RENAMED_NETWORK_KEYS = {"adapter_type": "model"}
+#: A chipset id named the card; the model names it neutrally (A-10).
+RENAMED_NIC_MODELS = {
+    "82540EM": "e1000",
+    "82543GC": "e1000",
+    "82545EM": "e1000",
+    "Am79C970A": "pcnet",
+    "Am79C973": "pcnet",
+    "virtio": "virtio",
+}
 
 
 def _upgrade(before):
@@ -88,6 +98,8 @@ def _upgrade(before):
     devices = after.pop("disks", None)
     if devices is not None:
         after["storage"] = [_upgrade_device(d) for d in devices]
+    if after.get("networks"):
+        after["networks"] = [_upgrade_network(n) for n in after["networks"]]
     if after.get("storage_controllers"):
         upgraded = []
         seen = {}
@@ -103,6 +115,17 @@ def _upgrade(before):
             upgraded.append(renamed)
         after["storage_controllers"] = upgraded
     return after
+
+
+def _upgrade_network(network):
+    """Rewrite one 1.1.x network mapping."""
+    out = {}
+    for key, value in network.items():
+        if key == "adapter_type":
+            out["model"] = RENAMED_NIC_MODELS[value]
+        else:
+            out[RENAMED_NETWORK_KEYS.get(key, key)] = value
+    return out
 
 
 def _upgrade_device(device):
@@ -220,7 +243,11 @@ def test_legacy_network_vocabulary_is_understood():
         NetworkType.INTERNAL,
         NetworkType.NATNETWORK,
     }
-    assert any(n.adapter_type == "virtio" for n in vm.networks)
+    # A 1.1.x file names the chipset the way its hypervisor does; the model is
+    # the card, and both spellings of it resolve to the same one (A-10).
+    from vmctl.core.platform import NicModel
+
+    assert any(n.model is NicModel.VIRTIO for n in vm.networks)
 
 
 # ---------------------------------------------------------------------------
@@ -356,3 +383,27 @@ def test_a_1_1_x_ostype_still_loads_and_still_works():
     assert vm.guest_os == "Ubuntu_64"
     assert vm.ostype == "Ubuntu_64"  # the attribute alias reads it back
     assert GuestOSCodec().dump(vm.guest_os) == "Ubuntu_64"
+
+
+def test_a_1_1_x_chipset_name_loads_as_the_card_it_is():
+    """`adapter_type: "82540EM"` was VirtualBox's id for the Intel PRO/1000 MT
+    Desktop. The model names the card, so both spellings mean the same thing."""
+    from vmctl.core.platform import NicModel
+
+    for spelling in ("82540EM", "e1000", "Am79C973", "virtio"):
+        vm = VMConfig.from_dict({"name": "v", "networks": [{"adapter_type": spelling}]})
+        assert isinstance(vm.networks[0].model, NicModel), spelling
+    assert (
+        VMConfig.from_dict({"name": "v", "networks": [{"adapter_type": "82545EM"}]})
+        .networks[0]
+        .model
+        is NicModel.E1000
+    )
+
+
+def test_old_code_can_still_pass_a_chipset_string():
+    from vmctl.core.platform import NicModel
+    from vmctl.core.vmconfig import NetworkConfig
+
+    assert NetworkConfig(adapter_type="82540EM").model is NicModel.E1000
+    assert NetworkConfig(adapter_type="virtio").adapter_type is NicModel.VIRTIO

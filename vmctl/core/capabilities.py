@@ -15,7 +15,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
-from .vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
+from .devices import BusType, DeviceKind, DiskFormat
+from .platform import Arch, NicModel
+from .vmconfig import FirmwareType
 
 
 class Support(Enum):
@@ -175,6 +177,23 @@ class Capabilities:
     removable_extensions: Tuple[str, ...] = ()
 
     supported_network_types: Tuple[str, ...] = ()
+    #: Architectures this provider can run. VirtualBox runs the host's and has
+    #: no setting for it, so it declares just that one (A-10).
+    arches: Tuple[Arch, ...] = (Arch.X86_64,)
+    #: Machine types on offer, and which to use when the config does not say.
+    #: Empty means the provider has no such concept, so asking for one is
+    #: reported rather than passed on.
+    machine_types: Tuple[str, ...] = ()
+    default_machine: Optional[str] = None
+    #: Neutral NIC model -> what this provider calls it. A model absent here is
+    #: one this provider does not have.
+    nic_models: Dict[NicModel, str] = field(default_factory=dict)
+    #: Whether sockets/cores/threads can be expressed at all. VirtualBox has only
+    #: a CPU count, so a topology has to collapse into it and be reported.
+    cpu_topology: bool = False
+    #: Whether a CPU model can be chosen (``host``, ``host-model``, a named one).
+    cpu_model_choice: bool = False
+
     #: Every guest OS label this provider accepts, beyond the neutral ids in
     #: :mod:`vmctl.core.oscatalog`. For VirtualBox that is its own ids and the
     #: descriptions it reports; for libvirt, the ids it has a libosinfo id for.
@@ -222,6 +241,21 @@ class Capabilities:
         if preferred is not None and self.can_attach(kind, preferred):
             return preferred
         return None
+
+    def native_nic_model(self, model: NicModel) -> Optional[str]:
+        """Return this provider's name for a NIC model, or None when it has none."""
+        return self.nic_models.get(model)
+
+    def nic_model_fallback(self) -> Optional[NicModel]:
+        """Return the NIC model to substitute when the requested one is missing.
+
+        An emulated Intel card if the provider has one, because that is what a
+        guest with no drivers can see; otherwise whichever is declared first.
+        """
+        for preferred in (NicModel.E1000, NicModel.VIRTIO):
+            if preferred in self.nic_models:
+                return preferred
+        return next(iter(self.nic_models), None)
 
     def format_spec(self, fmt: DiskFormat) -> FormatSpec:
         """Return the support entry for a format, defaulting to unsupported."""

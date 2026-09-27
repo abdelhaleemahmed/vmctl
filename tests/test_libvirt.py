@@ -641,3 +641,117 @@ def test_the_machine_type_is_not_read_as_a_guest_os(parser, real_domain):
     held "pc-q35-rhel9.8.0" -- a category error the catalogue fixes (A-05)."""
     vm = parser.parse_text("lv-fixture", real_domain)
     assert "q35" not in vm.guest_os
+
+
+# ---------------------------------------------------------------------------
+# Architecture, machine type, CPU and NIC (A-10)
+# ---------------------------------------------------------------------------
+
+
+def test_the_architecture_and_machine_type_are_stated(emitter, vm):
+    """libvirt requires both in every domain; VirtualBox has neither, which is why
+    they were missing from the model until a second provider existed."""
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    type_el = root.find("os/type")
+    assert type_el.get("arch") == "x86_64"
+    assert type_el.get("machine") == "q35"
+
+
+def test_a_machine_type_from_the_config_wins(emitter, vm):
+    vm.machine = "pc"
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.find("os/type").get("machine") == "pc"
+
+
+def test_a_machine_type_this_build_lacks_is_substituted_and_reported(emitter, vm):
+    """Measured: `machine='virt'` is ARM-only and libvirt refuses it on x86_64."""
+    from vmctl.core.translate import Policy, Translator
+
+    vm.machine = "virt"
+    translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
+    root = ET.fromstring(emitter.build_domain_xml(vm, translator))
+    assert root.find("os/type").get("machine") == "q35"
+    assert any(s.field == "machine" for s in translator.report.substitutions)
+
+
+def test_a_cpu_topology_is_emitted(emitter, vm):
+    vm.cpu.count = 4
+    vm.cpu.sockets, vm.cpu.cores, vm.cpu.threads = 2, 2, 1
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    topology = root.find("cpu/topology")
+    assert (topology.get("sockets"), topology.get("cores"), topology.get("threads")) == (
+        "2",
+        "2",
+        "1",
+    )
+
+
+def test_a_named_cpu_model_becomes_a_custom_cpu(emitter, vm):
+    vm.cpu.nested_virt = False
+    vm.cpu.model = "Skylake-Client"
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    assert root.find("cpu").get("mode") == "custom"
+    assert root.findtext("cpu/model") == "Skylake-Client"
+
+
+def test_host_passthrough_and_host_model_are_the_two_keywords(emitter, vm):
+    for keyword, mode in (("host", "host-passthrough"), ("host-model", "host-model")):
+        vm.cpu.nested_virt = False
+        vm.cpu.model = keyword
+        root = ET.fromstring(emitter.build_domain_xml(vm))
+        assert root.find("cpu").get("mode") == mode, keyword
+
+
+def test_nested_virtualisation_needs_the_host_cpu_and_says_so(emitter, vm):
+    """It is expressed *as* host-passthrough, so a named model cannot also apply."""
+    from vmctl.core.translate import Policy, Translator
+
+    vm.cpu.nested_virt = True
+    vm.cpu.model = "Skylake-Client"
+    translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
+    root = ET.fromstring(emitter.build_domain_xml(vm, translator))
+    assert root.find("cpu").get("mode") == "host-passthrough"
+    assert any(d.field == "cpu.model" for d in translator.report.drops)
+
+
+def test_the_cpu_and_the_architecture_round_trip(parser, emitter, vm):
+    vm.cpu.count = 4
+    vm.cpu.sockets, vm.cpu.cores, vm.cpu.threads = 2, 2, 1
+    vm.cpu.nested_virt = False
+    vm.cpu.model = "host-model"
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert (once.cpu.sockets, once.cpu.cores, once.cpu.threads) == (2, 2, 1)
+    assert once.cpu.model == "host-model"
+    assert once.arch.value == "x86_64"
+    assert once.machine == "q35"
+
+
+def test_nic_models_are_named_neutrally(emitter, vm):
+    from vmctl.core.platform import NicModel
+
+    vm.networks[0].model = NicModel.E1000E
+    vm.networks[1].model = NicModel.NE2K
+    models = [
+        m.get("type")
+        for m in ET.fromstring(emitter.build_domain_xml(vm)).findall("devices/interface/model")
+    ]
+    assert models == ["e1000e", "ne2k_pci"]
+
+
+def test_a_nic_model_round_trips(parser, emitter, vm):
+    from vmctl.core.platform import NicModel
+
+    vm.networks[0].model = NicModel.RTL8139
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert once.networks[0].model is NicModel.RTL8139
+
+
+def test_a_cpu_model_choice_is_not_read_as_nested_virtualisation(parser, emitter, vm):
+    """host-passthrough is how nested virt is expressed, so reading it back that way
+    is right. host-model is a model choice, and inferring nested virt from it made a
+    round trip report both."""
+    vm.cpu.nested_virt = False
+    vm.cpu.model = "host-model"
+    once = parser.parse_text("demo", emitter.build_domain_xml(vm))
+    assert once.cpu.model == "host-model"
+    assert once.cpu.nested_virt is False

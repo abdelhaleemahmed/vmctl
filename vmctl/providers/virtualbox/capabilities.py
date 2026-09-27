@@ -26,7 +26,9 @@ from typing import Any, Dict
 
 from ...core.capabilities import BusSpec, Capabilities, FormatSpec, Support
 from ...core.vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
+from ...core.platform import Arch
 from .ostypes import OSTYPES
+from .tables import NIC_MODEL_TO_VBOX
 
 _BUS = BusType
 _ALL_ALLOC = ("thin", "thick")
@@ -184,6 +186,15 @@ class VirtualBoxCapabilities:
             name_max_length=128,
             supports_tpm=True,
             secure_boot_readable=False,
+            # A VM runs the host's architecture and there is no setting for it,
+            # nor any choice of chipset: VirtualBox has one machine model.
+            arches=(Arch.X86_64,),
+            machine_types=(),
+            nic_models=dict(NIC_MODEL_TO_VBOX),
+            # `--cpus N` is the whole of it: no sockets/cores/threads, and no CPU
+            # model, so both are reported rather than silently ignored (A-10).
+            cpu_topology=False,
+            cpu_model_choice=False,
             # Both spellings: `createvm` takes the id and `showvminfo` reports
             # the description, and a config may legitimately hold either.
             supported_os_types=tuple(OSTYPES) + tuple(t.description for t in OSTYPES.values()),

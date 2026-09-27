@@ -375,3 +375,25 @@ def test_a_native_or_neutral_guest_os_does_not_warn(validator, vm_minimal):
     for value in ("ubuntu22.04", "Ubuntu_64", "Ubuntu (64-bit)"):
         vm_minimal.guest_os = value
         assert not [w for w in validator.validate(vm_minimal) if "guest_os" in w], value
+
+
+def test_a_cpu_topology_must_multiply_out_to_the_count(validator, vm_minimal):
+    """Measured on libvirt: "CPU topology doesn't match maximum vcpu count". It is a
+    real constraint, so it is checked for every provider rather than left to the one
+    that happens to enforce it."""
+    vm_minimal.cpu.count = 4
+    vm_minimal.cpu.sockets, vm_minimal.cpu.cores = 1, 2
+    with pytest.raises(ValidationError, match="describes 2 vCPU"):
+        validator.validate(vm_minimal)
+
+
+def test_a_consistent_topology_is_accepted(validator, vm_minimal):
+    vm_minimal.cpu.count = 4
+    vm_minimal.cpu.sockets, vm_minimal.cpu.cores, vm_minimal.cpu.threads = 2, 2, 1
+    assert isinstance(validator.validate(vm_minimal), list)
+
+
+def test_a_partial_topology_counts_the_unset_parts_as_one(validator, vm_minimal):
+    vm_minimal.cpu.count = 2
+    vm_minimal.cpu.sockets = 2
+    assert isinstance(validator.validate(vm_minimal), list)

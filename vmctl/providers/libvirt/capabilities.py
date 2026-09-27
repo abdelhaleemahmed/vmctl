@@ -27,7 +27,8 @@ PLAN.md -- for libvirt that is a requirement rather than a refinement.
 
 from ...core.capabilities import BusSpec, Capabilities, FormatSpec, Support
 from ...core.vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
-from .tables import GUEST_OS_TO_OSINFO
+from ...core.platform import Arch
+from .tables import GUEST_OS_TO_OSINFO, NIC_MODEL_TO_LIBVIRT
 
 _BUS = BusType
 
@@ -140,6 +141,16 @@ class LibvirtCapabilities:
             name_max_length=253,
             supports_tpm=True,
             secure_boot_readable=True,
+            # x86_64 only on this build: `machine='virt'` is ARM and is refused
+            # here with "machine type not supported". The machine types are the
+            # aliases this QEMU offers, and libvirt expands them to the versioned
+            # ones it resolved (A-10).
+            arches=(Arch.X86_64, Arch.I686),
+            machine_types=("q35", "pc"),
+            default_machine="q35",
+            nic_models=dict(NIC_MODEL_TO_LIBVIRT),
+            cpu_topology=True,
+            cpu_model_choice=True,
             # libvirt records a guest OS as a libosinfo id, so what it can
             # express is exactly what vmctl has an id for.
             supported_os_types=tuple(GUEST_OS_TO_OSINFO),

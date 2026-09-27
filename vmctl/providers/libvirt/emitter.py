@@ -27,8 +27,9 @@ from ...core.capabilities import Capabilities
 from ...core.exceptions import ProviderError
 from ...core.naming import check_name
 from ...core.plan import Plan, Step, StepKind
+from ...core.platform import CPU_HOST_MODEL, CPU_HOST_PASSTHROUGH, CPU_MODEL_KEYWORDS
 from ...core.storage import StorageLocation, directory
-from ...core.translate import Policy, Translator
+from ...core.translate import Policy, Substitution, Translator
 from ...core.vmconfig import DEFAULT_DISK_MB, DeviceKind, VMConfig
 from .capabilities import LibvirtCapabilities
 from .tables import (
@@ -41,7 +42,7 @@ from .tables import (
     GUEST_OS_TO_OSINFO,
     KIND_TO_DEVICE,
     NETWORK_TO_LIBVIRT,
-    NIC_MODEL_FROM_NATIVE,
+    NIC_MODEL_TO_LIBVIRT,
     OSINFO_NS,
     ROTATION_RATE_BUSES,
     SSD_ROTATION_RATE,
@@ -70,8 +71,7 @@ class LibvirtEmitter:
         location: Optional[StorageLocation] = None,
         definition_dir: Optional[str] = None,
         domain_type: str = "qemu",
-        machine: str = "q35",
-        arch: str = "x86_64",
+        machine: Optional[str] = None,
         emulator: Optional[str] = None,
         capabilities: Optional[Capabilities] = None,
         policy: Policy = Policy.STRICT,
@@ -86,9 +86,9 @@ class LibvirtEmitter:
             definition_dir: Where the XML document is written before defining it.
             domain_type: ``kvm`` when hardware acceleration is available,
                 ``qemu`` for emulation. The backend decides.
-            machine: Machine type. q35 has no IDE controller at all, which is why
-                the capability declaration does not offer that bus.
-            arch: Guest architecture.
+            machine: Machine type to use when a configuration does not name one;
+                None takes the capability declaration's default. q35 has no IDE
+                controller at all, which is why that bus is not declared.
             emulator: Path to the QEMU binary, when it must be stated.
             capabilities: Provider limits to emit within.
             policy: What to do about values libvirt does not support.
@@ -99,8 +99,9 @@ class LibvirtEmitter:
         self.location = location or directory("/var/lib/libvirt/images")
         self.definition_dir = definition_dir or "/tmp"
         self.domain_type = domain_type
-        self.machine = machine
-        self.arch = arch
+        # The fallback machine type comes from the capability declaration, so the
+        # emitter does not hold a second opinion about what this build offers.
+        self.machine = machine or self.capabilities.default_machine or "q35"
         self.emulator = emulator
 
     # -- helpers -------------------------------------------------------------
@@ -126,10 +127,31 @@ class LibvirtEmitter:
             )
         return bus
 
-    @staticmethod
-    def _nic_model(adapter_type: str) -> str:
-        """Translate a NIC chipset name into a libvirt model."""
-        return NIC_MODEL_FROM_NATIVE.get(adapter_type.strip().lower(), "virtio")
+    def _nic_model(self, model, where: str, translator) -> str:
+        """Return the libvirt name for a NIC model, substituting when it has none.
+
+        Args:
+            model: The neutral model asked for.
+            where: Field path, for the report.
+            translator: Records a substitution.
+
+        Returns:
+            The ``<model type=...>`` value to emit.
+        """
+        native = NIC_MODEL_TO_LIBVIRT.get(model)
+        if native is not None:
+            return native
+        fallback = self.capabilities.nic_model_fallback() or model
+        if translator is not None:
+            translator.report.substitutions.append(
+                Substitution(
+                    where,
+                    model.value,
+                    fallback.value,
+                    "libvirt has no such network chipset",
+                )
+            )
+        return NIC_MODEL_TO_LIBVIRT.get(fallback, "virtio")
 
     # -- the document --------------------------------------------------------
 
@@ -166,7 +188,12 @@ class LibvirtEmitter:
         firmware = FIRMWARE_TO_LIBVIRT.get(vm.firmware.type, "")
         if firmware:
             os_el.set("firmware", firmware)
-        ET.SubElement(os_el, "type", arch=self.arch, machine=self.machine).text = "hvm"
+        ET.SubElement(
+            os_el,
+            "type",
+            arch=self._arch(vm, translator),
+            machine=self._machine(vm, translator),
+        ).text = "hvm"
         for device in vm.boot.order:
             mapped = BOOT_DEVICE.get(device)
             if mapped:
@@ -185,15 +212,14 @@ class LibvirtEmitter:
         clock = ET.SubElement(domain, "clock", offset="utc" if vm.rtc_utc else "localtime")
         ET.SubElement(clock, "timer", name="hpet", present="yes" if vm.boot.hpet else "no")
 
-        if vm.cpu.nested_virt:
-            ET.SubElement(domain, "cpu", mode="host-passthrough")
+        self._add_cpu(vm, domain, translator)
 
         devices = ET.SubElement(domain, "devices")
         if self.emulator:
             ET.SubElement(devices, "emulator").text = self.emulator
 
         self._add_storage(vm, devices, translator)
-        self._add_networks(vm, devices)
+        self._add_networks(vm, devices, translator)
 
         if vm.firmware.tpm:
             tpm = ET.SubElement(devices, "tpm", model="tpm-crb")
@@ -309,6 +335,87 @@ class LibvirtEmitter:
                 if _is_set(value):
                     translator.drop(path, value, reason)
 
+    def _arch(self, vm: VMConfig, translator: Optional[Translator]) -> str:
+        """Return the architecture to emit, reporting one this build cannot run.
+
+        libvirt requires an architecture in every domain; VirtualBox has no such
+        field, so a config that came from there says ``x86_64`` by default (A-10).
+        """
+        if vm.arch in self.capabilities.arches:
+            return vm.arch.value
+        fallback = self.capabilities.arches[0]
+        if translator is not None:
+            translator.report.substitutions.append(
+                Substitution(
+                    "arch",
+                    vm.arch.value,
+                    fallback.value,
+                    "this libvirt connection cannot run that architecture",
+                )
+            )
+        return fallback.value
+
+    def _machine(self, vm: VMConfig, translator: Optional[Translator]) -> str:
+        """Return the machine type to emit.
+
+        The set on offer depends on the QEMU build -- ``virt`` is ARM-only and
+        refused on x86_64 -- so an unknown one is reported and the provider's own
+        default used instead of letting ``virsh define`` fail.
+        """
+        default = self.machine
+        wanted = vm.machine
+        if not wanted:
+            return default
+        known = self.capabilities.machine_types
+        if not known or wanted in known:
+            return wanted
+        if translator is not None:
+            translator.report.substitutions.append(
+                Substitution(
+                    "machine",
+                    wanted,
+                    default,
+                    f"this build offers {', '.join(known)}",
+                )
+            )
+        return default
+
+    def _add_cpu(self, vm: VMConfig, domain: ET.Element, translator: Optional[Translator]) -> None:
+        """Add the ``<cpu>`` element: model, and topology when one is stated.
+
+        Nested virtualisation needs the host's own CPU exposed to the guest, which
+        is why it implies ``host-passthrough`` -- and why asking for a *named*
+        model at the same time cannot be honoured.
+        """
+        cpu = ET.Element("cpu")
+        model = (vm.cpu.model or "").strip()
+        if vm.cpu.nested_virt or model == CPU_HOST_PASSTHROUGH:
+            cpu.set("mode", "host-passthrough")
+            if model and model not in CPU_MODEL_KEYWORDS and translator is not None:
+                translator.drop(
+                    "cpu.model",
+                    model,
+                    "nested virtualisation needs the host CPU passed through, "
+                    "which cannot be combined with a named model",
+                )
+        elif model == CPU_HOST_MODEL:
+            cpu.set("mode", "host-model")
+        elif model:
+            cpu.set("mode", "custom")
+            ET.SubElement(cpu, "model").text = model
+
+        if vm.cpu.has_topology:
+            ET.SubElement(
+                cpu,
+                "topology",
+                sockets=str(vm.cpu.sockets or 1),
+                cores=str(vm.cpu.cores or 1),
+                threads=str(vm.cpu.threads or 1),
+            )
+
+        if cpu.get("mode") or len(cpu):
+            domain.append(cpu)
+
     def _add_guest_os(
         self, vm: VMConfig, domain: ET.Element, translator: Optional[Translator]
     ) -> None:
@@ -338,9 +445,11 @@ class LibvirtEmitter:
         holder = ET.SubElement(metadata, f"{{{OSINFO_NS}}}libosinfo")
         ET.SubElement(holder, f"{{{OSINFO_NS}}}os", id=osinfo)
 
-    def _add_networks(self, vm: VMConfig, devices: ET.Element) -> None:
+    def _add_networks(
+        self, vm: VMConfig, devices: ET.Element, translator: Optional[Translator] = None
+    ) -> None:
         """Add interfaces."""
-        for net in vm.networks:
+        for index, net in enumerate(vm.networks):
             kind = NETWORK_TO_LIBVIRT.get(net.network_type, "network")
             iface = ET.SubElement(devices, "interface", type=kind)
             if kind == "bridge":
@@ -351,7 +460,11 @@ class LibvirtEmitter:
                 pass
             else:
                 ET.SubElement(iface, "source", network=net.adapter_name or "default")
-            ET.SubElement(iface, "model", type=self._nic_model(net.adapter_type))
+            ET.SubElement(
+                iface,
+                "model",
+                type=self._nic_model(net.model, f"networks[{index}].model", translator),
+            )
             if net.mac_address:
                 ET.SubElement(iface, "mac", address=_format_mac(net.mac_address))
 

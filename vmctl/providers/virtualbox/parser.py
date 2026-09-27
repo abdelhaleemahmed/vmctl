@@ -6,6 +6,7 @@ import subprocess
 import re
 from typing import Any, Callable, Dict, Optional
 from ...core.devices import Allocation, BusType, DeviceKind, DiskFormat
+from ...core.platform import NicModel
 from ...core.vmconfig import (
     BootConfig,
     CPUConfig,
@@ -23,7 +24,7 @@ from ...core.capabilities import Capabilities
 from ...core.mapping import read_into
 from ..base import MediumProbe
 from .capabilities import VirtualBoxCapabilities
-from .tables import CONTROLLER_CHIPSETS, FIELDS
+from .tables import CONTROLLER_CHIPSETS, FIELDS, NIC_MODEL_FROM_VBOX, NIC_MODEL_TO_VBOX
 
 
 class VirtualBoxParser:
@@ -497,7 +498,10 @@ class VirtualBoxParser:
             nic_type = config.get(f"nic{i+1}", "none")
             if nic_type != "none":
                 network_type = vbox_network_map.get(nic_type, NetworkType.NAT)
-                adapter_type = config.get(f"nictype{i+1}", "82540EM")
+                native = config.get(f"nictype{i+1}", "82540EM").strip().lower()
+                # 82540EM is VirtualBox's default and its Intel PRO/1000 MT
+                # Desktop, which the model calls e1000 (A-10).
+                nic_model = NIC_MODEL_FROM_VBOX.get(native, NicModel.E1000)
 
                 # Read the adapter/network name from the correct key for each type
                 n = i + 1
@@ -517,8 +521,18 @@ class VirtualBoxParser:
                 else:
                     adapter_name = None
 
+                # Keep the exact chipset when it is not the canonical one for
+                # this model: 82540EM, 82543GC and 82545EM are all e1000 to the
+                # model, and a guest bound to one should get that one back (A-10).
+                canonical = NIC_MODEL_TO_VBOX.get(nic_model, "").lower()
+                hint = (
+                    {"virtualbox": {"nictype": config.get(f"nictype{i+1}")}}
+                    if native != canonical
+                    else {}
+                )
                 network = NetworkConfig(
-                    adapter_type=adapter_type,
+                    model=nic_model,
+                    provider_options=hint,
                     network_type=network_type,
                     adapter_name=adapter_name,
                     mac_address=config.get(f"macaddress{i+1}"),

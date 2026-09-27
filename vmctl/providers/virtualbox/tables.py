@@ -14,8 +14,32 @@ from typing import Dict
 
 from ...core.codecs import Codec, EnumCodec, Int, OnOff, Str
 from ...core.mapping import Field
+from ...core.platform import NicModel
 from ...core.vmconfig import FirmwareType, BusType
 from .ostypes import BY_DESCRIPTION, GENERIC_BY_FAMILY, OSTYPES
+
+#: Neutral NIC model -> what ``--nictype`` accepts. Measured on 7.1.18 by setting
+#: each one on a scratch VM: Am79C970A, Am79C973, Am79C960, 82540EM, 82543GC,
+#: 82545EM and virtio are accepted, and anything else answers "Invalid NIC type
+#: 'x' specified for NIC 1" -- so e1000e, rtl8139, ne2k and vmxnet3 are genuinely
+#: absent here, not merely unmapped (A-10).
+NIC_MODEL_TO_VBOX = {
+    NicModel.VIRTIO: "virtio",
+    NicModel.E1000: "82540EM",
+    NicModel.PCNET: "Am79C973",
+}
+
+#: Reported chipset -> neutral model. Several VirtualBox ids are the same card to
+#: a guest: 82540EM, 82543GC and 82545EM are all Intel PRO/1000 variants.
+NIC_MODEL_FROM_VBOX = {
+    "virtio": NicModel.VIRTIO,
+    "82540em": NicModel.E1000,
+    "82543gc": NicModel.E1000,
+    "82545em": NicModel.E1000,
+    "am79c970a": NicModel.PCNET,
+    "am79c973": NicModel.PCNET,
+    "am79c960": NicModel.PCNET,
+}
 
 #: Neutral guest id -> the id ``createvm --ostype`` accepts. Only the ids vmctl
 #: names neutrally are here; everything else passes through, and a test checks

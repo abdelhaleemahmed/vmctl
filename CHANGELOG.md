@@ -96,6 +96,18 @@ things prevented that:
 
 ### Added
 
+- **A VM can describe the machine underneath the guest**: `arch`, `machine`
+  (chipset), and a CPU with `sockets`/`cores`/`threads` and a `model` (`host`,
+  `host-model`, or a named CPU). libvirt needs all of it; VirtualBox has none of it
+  and says so rather than ignoring it.
+- **Network cards are named by what the guest sees** -- `virtio`, `e1000`,
+  `e1000e`, `rtl8139`, `pcnet`, `ne2k`, `vmxnet3` -- instead of by VirtualBox's
+  chipset id. A model a hypervisor does not have is reported, and the exact Intel
+  variant a VirtualBox VM had is preserved, so re-creating it gives the guest the
+  same card.
+- `vmctl validate` now catches a CPU topology that does not multiply out to the CPU
+  count, which libvirt refuses outright.
+- Fixed: warnings mentioned VirtualBox by name even when talking to libvirt.
 - **A VM says which OS its guest runs in neutral terms**: `guest_os: ubuntu22.04`
   rather than a hypervisor's own identifier. The ids are libosinfo's, the ones
   virt-install and GNOME Boxes use, and each hypervisor translates -- VirtualBox

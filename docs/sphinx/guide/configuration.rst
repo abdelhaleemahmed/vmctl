@@ -36,6 +36,16 @@ Minimal example
 Top-level fields
 ----------------
 
+.. note::
+
+   ``arch`` (``x86_64``, ``i686``, ``aarch64``, ``armv7l``, ``ppc64le``, ``s390x``)
+   and ``machine`` (``q35``, ``pc``, ...) describe the virtual hardware the guest
+   boots on. libvirt requires both in every domain; VirtualBox has neither -- a VM
+   runs the host's architecture on a fixed chipset -- and reports them as not
+   applied. Leaving ``machine`` unset means "whichever this hypervisor prefers",
+   which is the portable answer, because the machine types on offer depend on the
+   QEMU build.
+
 .. list-table::
    :header-rows: 1
    :widths: 20 10 50
@@ -108,7 +118,20 @@ cpu
    * - ``nested_virt``
      - false
      -
-     - Nested virtualisation (KVM inside VirtualBox).
+     - Nested virtualisation (KVM inside the guest). On libvirt this is expressed
+       by passing the host's CPU through.
+   * - ``sockets`` / ``cores`` / ``threads``
+     - *unset*
+     -
+     - CPU topology. They must multiply out to ``count``, which is what libvirt
+       requires; a hypervisor that has only a CPU count reports the topology as
+       not applied rather than ignoring it.
+   * - ``model``
+     - *unset*
+     -
+     - The CPU the guest sees: ``host`` passes the host's through (fastest, not
+       migratable), ``host-model`` is the closest migratable description, or name a
+       model such as ``Skylake-Client``. VirtualBox has no such setting.
 
 memory
 ------
@@ -257,6 +280,14 @@ networks
        adapter_name: enp3s0
 
 **network_type** values: ``NAT``, ``BRIDGED``, ``HOSTONLY``, ``INTERNAL``, ``NATNETWORK``
+
+**model** values -- the chipset the guest sees: ``virtio`` (paravirtualised, the
+fastest, and invisible to a guest without drivers), ``e1000``, ``e1000e``,
+``rtl8139``, ``pcnet``, ``ne2k``, ``vmxnet3``. The default is ``e1000``, an
+emulated Intel card, because that is what an OS installer can use unaided. Each
+hypervisor maps it -- VirtualBox calls ``e1000`` ``82540EM`` -- and one it does not
+have is reported rather than quietly swapped. ``adapter_type:`` is still accepted
+as the older name, including the chipset ids 1.1.x wrote there.
 
 Up to 8 adapters per VM.
 
