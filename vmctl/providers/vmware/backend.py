@@ -293,9 +293,14 @@ class VMwareBackend(BaseProvider):
         """Read a VM's ``.vmx`` into a configuration."""
         if not self.vm_exists(vm_name):
             raise VMNotFoundError(vm_name)
-        with open(self.vmx_path(vm_name)) as handle:
+        path = self.vmx_path(vm_name)
+        with open(path) as handle:
             text = handle.read()
-        return self.parser.parse_text(vm_name, text, probe=self.probe_medium)
+        # A .vmx names its disks by bare file name, so the directory it sits in is
+        # what makes them findable (F-35).
+        return self.parser.parse_text(
+            vm_name, text, probe=self.probe_medium, base_dir=os.path.dirname(path)
+        )
 
     def create_vm(self, vm: VMConfig, execute: bool = True, policy: Policy = Policy.STRICT) -> Plan:
         """Create a VM: its directory, its disks and its ``.vmx``."""

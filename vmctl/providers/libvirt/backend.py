@@ -253,6 +253,11 @@ class LibvirtBackend(BaseProvider):
                 step.path.parent.mkdir(parents=True, exist_ok=True)
                 step.path.write_text(step.content or "")
             elif step.kind is StepKind.EXEC and step.argv:
+                if step.argv[0] == "mkdir":
+                    # A plan reads as a shell script; it does not have to be run as
+                    # one, and `mkdir -p` is not portable.
+                    os.makedirs(step.argv[-1], exist_ok=True)
+                    continue
                 argv = list(step.argv)
                 # A plan is emitted without a connection URI so it reads cleanly;
                 # add ours when actually running it.

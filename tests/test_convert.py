@@ -171,9 +171,34 @@ def test_a_conversion_comes_back_as_a_plan(qemu):
     plan = convert(
         "/in/d.vdi", "/out/d.qcow2", DiskFormat.QCOW2, qemu, "libvirt", source_format=DiskFormat.VDI
     )
-    assert len(plan) == 1
-    assert plan.steps[0].kind is StepKind.EXEC
-    assert "convert" in plan.steps[0].description
+    # The directory first, then the conversion: conversions run before the VM is
+    # created, so nothing else has made the place they write into yet (F-36).
+    assert [s.argv[0] for s in plan] == ["mkdir", "qemu-img"]
+    assert plan.steps[-1].kind is StepKind.EXEC
+    assert "convert" in plan.steps[-1].description
+
+
+def test_the_target_directory_is_made_once(qemu):
+    """Two disks into the same directory is one mkdir, not two."""
+    plan = plan_conversions(
+        [
+            _request(target="/out/a.qcow2", label="a"),
+            _request(target="/out/b.qcow2", label="b"),
+        ],
+        qemu,
+        "libvirt",
+    )
+    assert [s.argv[0] for s in plan] == ["mkdir", "qemu-img", "qemu-img"]
+
+
+def test_a_windows_target_directory_is_found_too(qemu):
+    """A plan may name paths on another host, so the separator is not this host's."""
+    plan = plan_conversions(
+        [_request(target=r"C:\VMs\moved\d.vmdk", target_format=DiskFormat.VMDK)],
+        qemu,
+        "vmware",
+    )
+    assert plan.steps[0].argv[-1] == r"C:\VMs\moved"
 
 
 def test_a_no_op_produces_an_empty_plan(qemu):

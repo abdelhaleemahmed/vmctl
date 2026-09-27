@@ -27,7 +27,7 @@ except ImportError:  # pragma: no cover
 
 from .capabilities import Capabilities
 from .exceptions import ProviderError
-from .plan import Plan, Step
+from .plan import Plan, Step, StepKind
 from .vmconfig import DiskFormat, VMConfig
 
 
@@ -141,6 +141,7 @@ def plan_conversions(
         ProviderError: If a conversion is needed and the provider cannot do it.
     """
     plan = Plan(provider)
+    directories: List[str] = []
     for request in requests:
         if not request.needed:
             continue
@@ -158,9 +159,33 @@ def plan_conversions(
                     f"{request.target_format.value}"
                 )
             raise ProviderError(f"{provider} {detail}")
+        # The target's directory has to exist first. Conversions run *before* the
+        # VM is created, and for every provider that keeps a directory per VM the
+        # create plan is what makes it -- so a migration with --with-disks failed on
+        # "Could not create ...: No such file or directory" (F-36).
+        directory = _parent_of(request.target)
+        if directory and directory not in directories:
+            directories.append(directory)
+            plan.add(
+                Step(
+                    kind=StepKind.EXEC,
+                    description=f"ensure {directory} exists",
+                    argv=["mkdir", "-p", directory],
+                )
+            )
         for step in converter.steps(request):
             plan.add(step)
     return plan
+
+
+def _parent_of(path: str) -> str:
+    """Return the directory part of a path, for either kind of separator.
+
+    ``os.path.dirname`` is the host's answer, and a plan may name paths on another
+    host -- a Windows ``.vmdk`` target written from Linux, for instance (A-09).
+    """
+    cut = max(path.rfind("/"), path.rfind("\\"))
+    return path[:cut] if cut > 0 else ""
 
 
 def convert(

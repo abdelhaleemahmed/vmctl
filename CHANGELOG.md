@@ -96,6 +96,12 @@ things prevented that:
 
 ### Added
 
+- Fixed, all found by actually migrating VMs between hypervisors: a `.vmx`'s disks
+  could not be found from outside its own directory (so they came back as 20 GB
+  blanks); `migrate --with-disks` failed because the conversion ran before anything
+  had made the target directory; a converted image was named after the format it used
+  to be; QEMU and libvirt offered three network cards this QEMU build does not have,
+  which libvirt accepts and then cannot start.
 - **A fourth hypervisor: VMware Workstation** (`vmctl -p vmware`). A VM is a
   directory with a `.vmx` in it; vmctl writes the file, makes the disks with
   `vmware-vdiskmanager` and drives the lifecycle with `vmrun`. VMDK is the only

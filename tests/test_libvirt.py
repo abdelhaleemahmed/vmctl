@@ -730,12 +730,26 @@ def test_nic_models_are_named_neutrally(emitter, vm):
     from vmctl.core.platform import NicModel
 
     vm.networks[0].model = NicModel.E1000E
-    vm.networks[1].model = NicModel.NE2K
+    vm.networks[1].model = NicModel.RTL8139
     models = [
         m.get("type")
         for m in ET.fromstring(emitter.build_domain_xml(vm)).findall("devices/interface/model")
     ]
-    assert models == ["e1000e", "ne2k_pci"]
+    assert models == ["e1000e", "rtl8139"]
+
+
+def test_a_nic_model_the_qemu_build_lacks_is_substituted(emitter, vm):
+    """F-37 -- libvirt *defines* a domain with vmxnet3 and then cannot start it:
+    "'vmxnet3' is not a valid device model name". For libvirt, define-time acceptance
+    is not evidence, which is the same lesson F-31 taught about disk formats."""
+    from vmctl.core.platform import NicModel
+    from vmctl.core.translate import Policy, Translator
+
+    vm.networks[0].model = NicModel.VMXNET3
+    translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
+    root = ET.fromstring(emitter.build_domain_xml(vm, translator))
+    assert root.find("devices/interface/model").get("type") == "e1000"
+    assert any(s.field.endswith("model") for s in translator.report.substitutions)
 
 
 def test_a_nic_model_round_trips(parser, emitter, vm):

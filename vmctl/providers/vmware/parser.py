@@ -13,6 +13,7 @@ their address in the *name* (``sata0:2.fileName``), and adapters, which are numb
 the same way.
 """
 
+import os
 import re
 from typing import Dict, List, Optional, Tuple
 
@@ -101,7 +102,13 @@ class VMwareParser:
             raise ProviderError("this file contains no .vmx settings")
         return keys
 
-    def parse_text(self, vm_name: str, text: str, probe: Optional[MediumProbe] = None) -> VMConfig:
+    def parse_text(
+        self,
+        vm_name: str,
+        text: str,
+        probe: Optional[MediumProbe] = None,
+        base_dir: Optional[str] = None,
+    ) -> VMConfig:
         """Parse a ``.vmx``.
 
         Args:
@@ -109,6 +116,11 @@ class VMwareParser:
             text: The file's contents.
             probe: Reads a disk's real size, which a ``.vmx`` does not state -- the
                 same injected transport the other parsers take (T-04).
+            base_dir: The directory the ``.vmx`` is in. A ``.vmx`` names its disks by
+                bare file name, so without this they resolve against whatever the
+                working directory happens to be: the probe then failed, the size came
+                back as the model's 20 GB default, and a migration reported the image
+                as unreachable (F-35).
 
         Returns:
             The configuration the file describes.
@@ -139,7 +151,7 @@ class VMwareParser:
         vm.audio_enabled = lowered.get("sound.present", "").upper() == "TRUE"
         vm.usb_enabled = lowered.get("usb.present", "").upper() == "TRUE"
 
-        controllers, devices = self._storage(keys, probe)
+        controllers, devices = self._storage(keys, probe, base_dir)
         vm.storage_controllers = controllers
         vm.storage = devices
         vm.networks = self._networks(keys)
@@ -167,7 +179,10 @@ class VMwareParser:
         return BootConfig(order=order[:4])
 
     def _storage(
-        self, keys: Dict[str, str], probe: Optional[MediumProbe]
+        self,
+        keys: Dict[str, str],
+        probe: Optional[MediumProbe],
+        base_dir: Optional[str] = None,
     ) -> Tuple[List[StorageController], List[StorageDevice]]:
         """Build controllers and devices from the addressed keys."""
         # Which bus each controller is: `scsi0.virtualDev` decides between plain
@@ -204,6 +219,8 @@ class VMwareParser:
                 device_type, DeviceKind.FLOPPY if at.startswith("floppy") else DeviceKind.DISK
             )
             source = attributes.get("filename") or None
+            if source and base_dir and not os.path.isabs(source):
+                source = os.path.join(base_dir, source)
             removable = kind is not DeviceKind.DISK
             size = 0
             if not removable and source and probe is not None:

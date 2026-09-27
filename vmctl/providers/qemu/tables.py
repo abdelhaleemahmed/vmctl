@@ -127,17 +127,20 @@ FORMAT_TO_DRIVER = {
 }
 DRIVER_TO_FORMAT = {v: k for k, v in FORMAT_TO_DRIVER.items()}
 
-#: Neutral NIC model -> QEMU device name. Declared separately from libvirt's
-#: identical-looking table on purpose: libvirt gates what it passes on, so the two
-#: are measured against different things even though the names come from here.
+#: Neutral NIC model -> QEMU device name, from ``-device help``. This build has
+#: four of the seven models vmctl can name: ``pcnet``, ``ne2k_pci`` and ``vmxnet3``
+#: are not in it, and asking for one answers "'vmxnet3' is not a valid device model
+#: name" (F-37).
+#:
+#: This table was first written by reading libvirt's rather than the binary's, which
+#: is how the wrong three got in: libvirt *defines* a domain with vmxnet3 happily and
+#: then fails to start it. One provider's table is not evidence for another's, even
+#: when one of them is a manager of the other.
 NIC_MODEL_TO_QEMU = {
     NicModel.VIRTIO: "virtio-net-pci",
     NicModel.E1000: "e1000",
     NicModel.E1000E: "e1000e",
     NicModel.RTL8139: "rtl8139",
-    NicModel.PCNET: "pcnet",
-    NicModel.NE2K: "ne2k_pci",
-    NicModel.VMXNET3: "vmxnet3",
 }
 NIC_MODEL_FROM_QEMU = {v: k for k, v in NIC_MODEL_TO_QEMU.items()}
 NIC_MODEL_FROM_QEMU["virtio-net"] = NicModel.VIRTIO

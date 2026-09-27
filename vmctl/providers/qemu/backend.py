@@ -248,6 +248,11 @@ class QemuBackend(BaseProvider):
                 step.path.parent.mkdir(parents=True, exist_ok=True)
                 step.path.write_text(step.content or "")
             elif step.kind is StepKind.EXEC and step.argv:
+                if step.argv[0] == "mkdir":
+                    # A plan reads as a shell script; it does not have to be run as
+                    # one, and `mkdir -p` is not portable.
+                    os.makedirs(step.argv[-1], exist_ok=True)
+                    continue
                 result = subprocess.run(step.argv, capture_output=True, text=True)
                 if result.returncode != 0:
                     raise ProviderError(

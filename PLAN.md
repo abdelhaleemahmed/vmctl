@@ -368,6 +368,59 @@ declared *second* was reported as `disks[0]`. The device loop reused its
 that line named the wrong device. A report that points at the wrong device is
 worse than no report, since acting on it edits the wrong thing.
 
+### F-34 — A converted image was named after the format it used to be · S *(fixed)*
+`vmctl/providers/qemu/emitter.py`
+
+A migration to QEMU wrote ``qemu-img create -f qcow2 .../moved_root.vmdk``: the image
+path was built from the device's *original* format rather than the one chosen after
+translation. The file worked, because QEMU is told its format explicitly, but its name
+said something else -- and the next person to look at the directory would be entitled
+to believe it.
+
+The same run printed "vmdk will be converted to qcow2" twice, because the emitter
+resolves a disk's format once for the command line and once to create the image.
+``TranslationReport.lines()`` now deduplicates: the same sentence twice reads like
+two separate losses.
+
+### F-35 — A .vmx's disks could not be found from anywhere but its own directory · M *(fixed)*
+`vmctl/providers/vmware/parser.py`
+
+A ``.vmx`` names its disks by bare file name -- ``scsi0:0.fileName = "disk.vmdk"`` --
+which is deliberate and is how VMware writes one. The parser resolved them against
+the working directory instead of against the file's own, so the probe failed, every
+disk read back as the model's 20 GB default, and a migration reported the images as
+unreachable and created blank ones. Found by migrating a real VMware VM to QEMU.
+
+### F-36 — Converting before anything had made the directory · M *(fixed)*
+`vmctl/core/convert.py`
+
+``migrate --with-disks`` failed on "Could not create ...: No such file or directory".
+Conversions run *before* the VM is created -- which is right, the data has to exist
+first -- but for every provider that keeps a directory per VM, the thing that makes
+that directory is the create plan. So the conversion had nowhere to write.
+
+``plan_conversions`` now emits one directory step per distinct target directory, and
+the libvirt and QEMU backends make a directory the way the VMware one already did:
+by calling ``os.makedirs`` rather than running ``mkdir -p``, since a plan reads as a
+shell script but does not have to be run as one.
+
+### F-37 — A NIC model table copied from another provider · M *(fixed)*
+`vmctl/providers/qemu/tables.py`, `vmctl/providers/libvirt/tables.py`
+
+The QEMU provider's NIC table was written by reading libvirt's rather than
+``-device help``, so it claimed ``vmxnet3``, ``pcnet`` and ``ne2k_pci``. This build
+has none of them: QEMU answers "'vmxnet3' is not a valid device model name" and
+refuses to start. Found by starting a migrated VM.
+
+libvirt's table had the same three, and this is the sharper half of the finding:
+libvirt *defines* such a domain happily and only fails at start. That is the second
+time that has come up -- `F-31` was the same shape with disk formats -- so for libvirt
+define-time acceptance is now treated as evidence of nothing, and both tables were
+re-measured by starting a domain per model.
+
+One provider's table is not evidence for another's, even when one of them is a
+manager of the other.
+
 ### F-33 — An empty optical drive reached for the host's own · S *(fixed)*
 `vmctl/providers/vmware/emitter.py`
 
@@ -2345,6 +2398,10 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-31 libvirt claimed formats its QEMU cannot write
          [x] F-32 reading a running VM invented a 20 GB disk
          [x] F-33 an empty optical drive reached for the host's own
+         [x] F-34 a converted image named after its old format (+ duplicate report lines)
+         [x] F-35 a .vmx's disks unfindable outside its own directory
+         [x] F-36 conversions ran before the directory existed
+         [x] F-37 a NIC table copied from another provider
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit

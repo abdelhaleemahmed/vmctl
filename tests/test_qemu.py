@@ -230,8 +230,19 @@ def test_a_host_only_network_has_no_qemu_equivalent(emitter, vm):
 
 
 def test_a_nic_model_is_the_qemu_device_name(emitter, vm):
-    vm.networks[0].model = NicModel.NE2K
-    assert any(a.startswith("ne2k_pci,netdev=") for a in _argv(emitter, vm))
+    vm.networks[0].model = NicModel.RTL8139
+    assert any(a.startswith("rtl8139,netdev=") for a in _argv(emitter, vm))
+
+
+def test_a_nic_model_this_build_lacks_is_substituted(emitter, vm):
+    """F-37 -- this table was first written by reading libvirt's instead of
+    `-device help`, so it claimed vmxnet3, pcnet and ne2k_pci. QEMU answers
+    "'vmxnet3' is not a valid device model name" and refuses to start."""
+    vm.networks[0].model = NicModel.VMXNET3
+    translator = Translator(QemuCapabilities.get(), Policy.NEAREST)
+    argv = emitter.build_argv(vm, translator)
+    assert any(a.startswith("e1000,netdev=") for a in argv)
+    assert any(s.field.endswith("model") for s in translator.report.substitutions)
 
 
 # ---------------------------------------------------------------------------

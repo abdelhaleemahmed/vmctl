@@ -230,18 +230,39 @@ def test_a_provider_with_no_machine_types_says_so_rather_than_naming_one():
 
 
 def test_nic_models_are_declared_per_provider():
+    """Three products, three different sets, each measured against the product.
+
+    The instructive pair is libvirt and QEMU: libvirt *defines* a domain with vmxnet3
+    and then cannot start it, because the device is not in this QEMU build. So one
+    provider's table is not evidence for another's -- even when one manages the other
+    (F-37).
+    """
     from vmctl.core.platform import NicModel
     from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+    from vmctl.providers.qemu.capabilities import QemuCapabilities
     from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+    from vmctl.providers.vmware.capabilities import VMwareCapabilities
 
     vbox = VirtualBoxCapabilities.get()
     libvirt = LibvirtCapabilities.get()
-    # Measured: VirtualBox refuses these four outright.
+    qemu = QemuCapabilities.get()
+    vmware = VMwareCapabilities.get()
+
+    # VirtualBox: measured refusal of "Invalid NIC type".
     for absent in (NicModel.E1000E, NicModel.RTL8139, NicModel.NE2K, NicModel.VMXNET3):
-        assert vbox.native_nic_model(absent) is None
-        assert libvirt.native_nic_model(absent) is not None
+        assert vbox.native_nic_model(absent) is None, absent
     assert vbox.native_nic_model(NicModel.E1000) == "82540EM"
-    assert libvirt.native_nic_model(NicModel.E1000) == "e1000"
+
+    # This QEMU build has four; libvirt, which drives it, therefore has the same four.
+    for absent in (NicModel.PCNET, NicModel.NE2K, NicModel.VMXNET3):
+        assert qemu.native_nic_model(absent) is None, absent
+        assert libvirt.native_nic_model(absent) is None, absent
+    assert qemu.native_nic_model(NicModel.VIRTIO) == "virtio-net-pci"
+    assert libvirt.native_nic_model(NicModel.VIRTIO) == "virtio"
+
+    # VMware has vmxnet3 and no virtio at all -- the mirror image.
+    assert vmware.native_nic_model(NicModel.VMXNET3) == "vmxnet3"
+    assert vmware.native_nic_model(NicModel.VIRTIO) is None
 
 
 def test_the_nic_fallback_is_a_card_a_driverless_guest_can_see():

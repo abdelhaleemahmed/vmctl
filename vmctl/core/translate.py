@@ -146,12 +146,20 @@ class TranslationReport:
         return bool(self.substitutions or self.drops)
 
     def lines(self) -> List[str]:
-        """Return one line per finding, for ``Plan.warnings``."""
-        return [
-            item.render()
-            for group in (self.conversions, self.substitutions, self.drops)
-            for item in group
-        ]
+        """Return one line per finding, for ``Plan.warnings``.
+
+        Deduplicated, in order. A provider may resolve the same field twice -- the
+        QEMU emitter asks for a disk's format once to write the command line and once
+        to create the image -- and the same sentence printed twice reads like two
+        separate losses.
+        """
+        seen: List[str] = []
+        for group in (self.conversions, self.substitutions, self.drops):
+            for item in group:
+                line = item.render()
+                if line not in seen:
+                    seen.append(line)
+        return seen
 
     def render(self) -> str:
         """Return the report as a block of text for a user to read."""

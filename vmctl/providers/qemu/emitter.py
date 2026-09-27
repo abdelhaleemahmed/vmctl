@@ -100,9 +100,20 @@ class QemuEmitter:
         """Return the path of the pidfile the script writes."""
         return self.location.image_path(vm_name, "qemu.pid")
 
-    def image_path(self, vm: VMConfig, device) -> str:
-        """Return where a device's image lives."""
-        spec = self.capabilities.format_spec(device.format or self.capabilities.native_format)
+    def image_path(self, vm: VMConfig, device, fmt=None) -> str:
+        """Return where a device's image lives.
+
+        Args:
+            vm: The VM it belongs to.
+            device: The device.
+            fmt: The format it will actually be created in. Using the device's own
+                format instead produced ``moved_root.vmdk`` holding a qcow2 after a
+                migration: the file worked, because QEMU is told its format, but the
+                name said something else (F-34).
+        """
+        spec = self.capabilities.format_spec(
+            fmt or device.format or self.capabilities.native_format
+        )
         return self.location.image_path(
             vm.name, f"{vm.name}_{safe_filename(device.name)}.{spec.extension}"
         )
@@ -251,19 +262,18 @@ class QemuEmitter:
         # `source` means "attach this image"; `disk_path` only says where the
         # device was read *from*, which for a migrated VM is a path on another
         # host. Using it here pointed a QEMU command line at C:\vms\sys.vdi.
-        source = device.source or self.image_path(vm, device)
-        parts = [f"file={source}", "if=none", f"id={drive_id}"]
         if device.is_removable:
+            source = device.source or ""
+            parts = [f"file={source}", "if=none", f"id={drive_id}"]
             parts.append("media=cdrom" if device.kind is DeviceKind.CDROM else "media=disk")
-            if not (device.source or device.disk_path):
-                # An empty drive: the guest sees the device and no medium.
-                parts[0] = "file="
         else:
             chosen = (
                 translator.format_for(device, f"storage[{index}].format")
                 if translator is not None
                 else device.format or self.capabilities.native_format
             )
+            source = device.source or self.image_path(vm, device, chosen)
+            parts = [f"file={source}", "if=none", f"id={drive_id}"]
             parts.append(f"format={FORMAT_TO_DRIVER.get(chosen, 'qcow2')}")
         if device.readonly:
             parts.append("readonly=on")
@@ -378,7 +388,7 @@ class QemuEmitter:
                 continue  # inserted, or an image that already exists
             chosen = translator.format_for(device, f"storage[{index}].format")
             allocation = translator.allocation_for(device, chosen, f"storage[{index}]")
-            path = self.image_path(vm, device)
+            path = self.image_path(vm, device, chosen)
             argv = [
                 "qemu-img",
                 "create",

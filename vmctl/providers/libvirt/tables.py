@@ -154,13 +154,13 @@ NIC_MODEL_TO_LIBVIRT = {
     NicModel.E1000: "e1000",
     NicModel.E1000E: "e1000e",
     NicModel.RTL8139: "rtl8139",
-    NicModel.PCNET: "pcnet",
-    NicModel.NE2K: "ne2k_pci",
-    NicModel.VMXNET3: "vmxnet3",
 }
 
-#: The same, reversed. Every model above was accepted by ``virsh define`` on
-#: libvirt 11.10.0, so this is the measured set rather than a hopeful one.
+#: The same, reversed. Measured by *starting* a domain per model, not by defining
+#: one: libvirt accepts ``vmxnet3``, ``pcnet`` and ``ne2k_pci`` at define time and
+#: then fails to start the domain -- "'vmxnet3' is not a valid device model name" --
+#: because those devices are absent from this QEMU build (F-37). The same shape as
+#: F-31: for libvirt, define-time acceptance is not evidence of anything.
 NIC_MODEL_FROM_LIBVIRT = {v: k for k, v in NIC_MODEL_TO_LIBVIRT.items()}
 
 #: libvirt firmware value per model firmware type. BIOS needs no attribute.

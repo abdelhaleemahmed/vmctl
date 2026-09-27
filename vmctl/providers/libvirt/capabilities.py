@@ -191,7 +191,10 @@ class LibvirtCapabilities:
                 "tests/fixtures/libvirt_attach_matrix.json. The formats were "
                 "re-measured against `-drive format=help` and by starting a domain "
                 "per format: this build attaches only qcow2 and raw read-write "
-                "(F-31). libvirt's matrix depends on the QEMU build and machine "
-                "type -- E-05 probing is required for exactness."
+                "(F-31), and the NIC models by starting one per model, which left "
+                "four (F-37). For libvirt, define-time acceptance is evidence of "
+                "nothing: it takes a vmxnet3 or a VMDK happily and then fails to "
+                "start the domain. libvirt's matrix depends on the QEMU build and "
+                "machine type -- E-05 probing is required for exactness."
             ),
         )
