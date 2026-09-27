@@ -1,0 +1,5 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000004
+Location:       /home/tester/VirtualBox VMs/multi-disk/multi-disk-system.vdi
+Storage format: VDI
+Variant:        dynamic default
+Capacity:       51200 MBytes

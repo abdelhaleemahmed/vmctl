@@ -11,6 +11,7 @@ from ...core.vmconfig import (
     BootConfig, StorageControllerConfig, StorageControllerType
 )
 from ...core.exceptions import ProviderError
+from ..base import MediumProbe
 
 
 class VirtualBoxParser:
@@ -39,18 +40,97 @@ class VirtualBoxParser:
         except FileNotFoundError:
             raise ProviderError("VBoxManage not found. Is VirtualBox installed?")
 
-    def get_disk_info(self, disk_path: str) -> Dict[str, Any]:
-        """Get disk size, format, and variant from VirtualBox"""
-        # Detect format from file extension as fallback
-        format_map = {
-            '.vdi': DiskFormat.VDI,
-            '.vmdk': DiskFormat.VMDK,
-            '.vhd': DiskFormat.VHD,
-            '.raw': DiskFormat.RAW,
-            '.img': DiskFormat.RAW,
-        }
+    # -- pure decoding -------------------------------------------------------
+
+    EXTENSION_FORMATS = {
+        'vdi': DiskFormat.VDI,
+        'vmdk': DiskFormat.VMDK,
+        'vhd': DiskFormat.VHD,
+        'raw': DiskFormat.RAW,
+        'img': DiskFormat.RAW,
+    }
+
+    MEDIUM_FORMATS = {
+        'VDI': DiskFormat.VDI,
+        'VMDK': DiskFormat.VMDK,
+        'VHD': DiskFormat.VHD,
+        'RAW': DiskFormat.RAW,
+        'IMG': DiskFormat.RAW,
+    }
+
+    def default_format_for(self, disk_path: str) -> DiskFormat:
+        """Guess a medium's format from its file extension.
+
+        Used as the fallback when VirtualBox cannot be asked about the medium.
+
+        Args:
+            disk_path: Path to the medium file.
+
+        Returns:
+            DiskFormat: The format implied by the extension, or VDI.
+        """
         ext = disk_path.lower().rsplit('.', 1)[-1] if '.' in disk_path else ''
-        default_format = format_map.get(f'.{ext}', DiskFormat.VDI)
+        return self.EXTENSION_FORMATS.get(ext, DiskFormat.VDI)
+
+    def parse_medium_info(self, raw_info: str, default_format: DiskFormat) -> Dict[str, Any]:
+        """Decode ``VBoxManage showmediuminfo`` output.
+
+        Pure function: takes the command's text and returns the medium's
+        properties. Kept separate from :meth:`get_disk_info` so the same
+        decoding runs in production and against captured fixtures in tests.
+
+        Args:
+            raw_info: Raw ``showmediuminfo`` output.
+            default_format: Format to assume when the output does not state one.
+
+        Returns:
+            dict: ``size_mb``, ``format`` and ``variant`` keys.
+        """
+        disk_info = {
+            'size_mb': 20480,  # Default 20GB
+            'format': default_format,
+            'variant': DiskVariant.THIN
+        }
+
+        for line in raw_info.splitlines():
+            line = line.strip()
+            # Capacity: 20480 MBytes
+            if line.startswith('Capacity:'):
+                match = re.search(r'(\d+)\s*MBytes', line)
+                if match:
+                    disk_info['size_mb'] = int(match.group(1))
+            # Storage format: VMDK or VDI
+            elif line.startswith('Storage format:'):
+                fmt_str = line.split(':', 1)[1].strip().upper()
+                if fmt_str in self.MEDIUM_FORMATS:
+                    disk_info['format'] = self.MEDIUM_FORMATS[fmt_str]
+            # Variant: Standard (dynamic)
+            elif line.startswith('Variant:'):
+                variant_str = line.split(':', 1)[1].strip().lower()
+                if 'fixed' in variant_str:
+                    disk_info['variant'] = DiskVariant.THICK
+                else:
+                    disk_info['variant'] = DiskVariant.THIN
+
+        return disk_info
+
+    # -- transport -----------------------------------------------------------
+
+    def get_disk_info(self, disk_path: str) -> Dict[str, Any]:
+        """Get disk size, format, and variant from VirtualBox.
+
+        This is the production :class:`~vmctl.providers.base.MediumProbe`: it
+        runs ``showmediuminfo`` and hands the output to :meth:`parse_medium_info`.
+
+        Args:
+            disk_path: Path to the medium file.
+
+        Returns:
+            dict: ``size_mb``, ``format`` and ``variant`` keys. Falls back to
+            defaults (with the format guessed from the extension) when the
+            medium cannot be queried.
+        """
+        default_format = self.default_format_for(disk_path)
 
         try:
             result = subprocess.run(
@@ -59,41 +139,7 @@ class VirtualBoxParser:
                 text=True,
                 check=True
             )
-
-            disk_info = {
-                'size_mb': 20480,  # Default 20GB
-                'format': default_format,
-                'variant': DiskVariant.THIN
-            }
-
-            for line in result.stdout.splitlines():
-                line = line.strip()
-                # Capacity: 20480 MBytes
-                if line.startswith('Capacity:'):
-                    match = re.search(r'(\d+)\s*MBytes', line)
-                    if match:
-                        disk_info['size_mb'] = int(match.group(1))
-                # Storage format: VMDK or VDI
-                elif line.startswith('Storage format:'):
-                    fmt_str = line.split(':', 1)[1].strip().upper()
-                    if fmt_str == 'VMDK':
-                        disk_info['format'] = DiskFormat.VMDK
-                    elif fmt_str == 'VDI':
-                        disk_info['format'] = DiskFormat.VDI
-                    elif fmt_str == 'VHD':
-                        disk_info['format'] = DiskFormat.VHD
-                    elif fmt_str in ('RAW', 'IMG'):
-                        disk_info['format'] = DiskFormat.RAW
-                # Variant: Standard (dynamic)
-                elif line.startswith('Variant:'):
-                    variant_str = line.split(':', 1)[1].strip().lower()
-                    if 'fixed' in variant_str:
-                        disk_info['variant'] = DiskVariant.THICK
-                    else:
-                        disk_info['variant'] = DiskVariant.THIN
-
-            return disk_info
-
+            return self.parse_medium_info(result.stdout, default_format)
         except subprocess.CalledProcessError:
             # If we can't get disk info, return defaults with format from extension
             return {'size_mb': 20480, 'format': default_format, 'variant': DiskVariant.THIN}
@@ -101,12 +147,44 @@ class VirtualBoxParser:
             return {'size_mb': 20480, 'format': default_format, 'variant': DiskVariant.THIN}
 
     def parse_vm(self, vm_name: str) -> VMConfig:
-        """Parse VirtualBox VM into VMConfig"""
+        """Read a VM from VirtualBox and parse it into a VMConfig.
+
+        Acquires the text (transport) and delegates to :meth:`parse_text`.
+
+        Args:
+            vm_name: Name of the VM to read.
+
+        Returns:
+            VMConfig: The parsed configuration.
+
+        Raises:
+            ProviderError: If the VM cannot be read.
+        """
         raw_info = self.get_vm_info(vm_name)
+        return self.parse_text(vm_name, raw_info)
+
+    def parse_text(
+        self,
+        vm_name: str,
+        raw_info: str,
+        probe: Optional[MediumProbe] = None,
+    ) -> VMConfig:
+        """Parse ``showvminfo --machinereadable`` text into a VMConfig.
+
+        Pure with respect to the hypervisor: nothing here runs a command, so
+        this is the entry point tests use against captured fixtures.
+
+        Args:
+            vm_name: Name to assign to the resulting configuration.
+            raw_info: Raw ``showvminfo --machinereadable`` output.
+            probe: Medium lookup to use. Defaults to :meth:`get_disk_info`,
+                which shells out to VirtualBox.
+
+        Returns:
+            VMConfig: The parsed configuration.
+        """
         config_dict = self._parse_machinereadable(raw_info)
-        
-        # Convert to VMConfig
-        return self._dict_to_vmconfig(vm_name, config_dict)
+        return self._dict_to_vmconfig(vm_name, config_dict, probe=probe)
     
     def _parse_machinereadable(self, raw_info: str) -> Dict[str, str]:
         """Parse machine-readable output into dictionary"""
@@ -139,8 +217,25 @@ class VirtualBoxParser:
 
         return config
     
-    def _dict_to_vmconfig(self, vm_name: str, config: Dict[str, str]) -> VMConfig:
-        """Convert parsed dictionary to VMConfig"""
+    def _dict_to_vmconfig(
+        self,
+        vm_name: str,
+        config: Dict[str, str],
+        probe: Optional[MediumProbe] = None,
+    ) -> VMConfig:
+        """Convert a parsed machine-readable dictionary into a VMConfig.
+
+        Args:
+            vm_name: Name to assign to the resulting configuration.
+            config: Decoded ``key -> value`` pairs.
+            probe: Medium lookup used for disk size/format/variant. Defaults to
+                :meth:`get_disk_info`.
+
+        Returns:
+            VMConfig: The parsed configuration.
+        """
+        if probe is None:
+            probe = self.get_disk_info
         
         # CPU
         cpu = CPUConfig(
@@ -181,15 +276,23 @@ class VirtualBoxParser:
         disks = []
         storage_controllers = []
         
-        # Parse storage controllers
+        # Parse storage controllers.
+        #
+        # Indices are collected into a *sorted* list, not a set: VirtualBox
+        # numbers controllers in a meaningful order, and downstream code
+        # resolves a disk's controller by scanning this list. Iterating a set of
+        # strings varies with PYTHONHASHSEED, which made both the emitted
+        # command order and the controller a disk got attached to
+        # non-deterministic between runs (F-14 in PLAN.md).
         controller_pattern = re.compile(r'^storagecontrollername(\d+)$')
-        controller_indices = set()
-        
+        controller_indices = []
+
         for key, value in config.items():
             match = controller_pattern.match(key)
             if match:
-                idx = match.group(1)
-                controller_indices.add(idx)
+                controller_indices.append(match.group(1))
+
+        controller_indices = sorted(set(controller_indices), key=int)
         
         # Map VirtualBox controller types to our types
         vbox_controller_map = {
@@ -253,7 +356,7 @@ class VirtualBoxParser:
                 continue
 
             # Get actual disk size and variant from VirtualBox
-            disk_info = self.get_disk_info(disk_path)
+            disk_info = probe(disk_path)
 
             disk_type = DiskType.DVD if disk_path.lower().endswith('.iso') else DiskType.HDD
             disk = DiskConfig(

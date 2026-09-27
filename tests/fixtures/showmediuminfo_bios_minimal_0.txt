@@ -1,0 +1,10 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000001
+Parent UUID:    base
+State:          created
+Type:           normal (base)
+Location:       /home/tester/VirtualBox VMs/bios-minimal/bios-minimal.vdi
+Storage format: VDI
+Format variant: dynamic default
+Capacity:       20480 MBytes
+Size on disk:   2113 MBytes
+Encryption:     disabled

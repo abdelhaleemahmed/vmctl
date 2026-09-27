@@ -1,0 +1,83 @@
+audio_enabled: false
+boot:
+  acpi: true
+  boot1: disk
+  boot2: dvd
+  boot3: none
+  boot4: none
+  hpet: false
+  ioapic: true
+  order:
+  - disk
+  - dvd
+  - none
+  - none
+clipboard_mode: disabled
+cpu:
+  count: 8
+  execution_cap: 100
+  hotplug: false
+  nested_virt: false
+  pae: true
+description: null
+disks:
+- bootable: true
+  controller: sata
+  controller_name: SATA Controller
+  device: 0
+  format: vdi
+  name: disk_SATA Controller_0_0
+  port: 0
+  size_mb: 51200
+  type: hdd
+  variant: thin
+- bootable: true
+  controller: sata
+  controller_name: SATA Controller
+  device: 0
+  format: vmdk
+  name: disk_SATA Controller_1_0
+  port: 1
+  size_mb: 204800
+  type: hdd
+  variant: thin
+- bootable: true
+  controller: sas
+  controller_name: SAS-II Controller
+  device: 0
+  format: vhd
+  name: disk_SAS-II Controller_0_0
+  port: 0
+  size_mb: 102400
+  type: hdd
+  variant: thick
+draganddrop: disabled
+firmware:
+  secure_boot: false
+  tpm: false
+  type: bios
+memory:
+  ballooning: false
+  mb: 16384
+  page_fusion: false
+  vram_mb: 32
+metadata: {}
+name: multidisk
+networks:
+- adapter_name: null
+  adapter_type: 82540EM
+  mac_address: 080027112233
+  network_type: nat
+  promiscuous_mode: false
+ostype: Red Hat (64-bit)
+rtc_utc: true
+storage_controllers:
+- bootable: false
+  controller_type: sata
+  name: SATA Controller
+  port_count: 2
+- bootable: false
+  controller_type: sas
+  name: SAS-II Controller
+  port_count: 16
+usb_enabled: false

@@ -78,6 +78,16 @@ vmctl = "vmctl.cli.main:main"
 where = ["."]
 exclude = ["tests", "tests.*", "venv", "venv.*"]
 
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "allow_subprocess: test may call subprocess.run (must still not need a hypervisor)",
+    "documents_bug: pins current buggy behaviour; flips when the referenced finding is fixed",
+]
+filterwarnings = ["error::DeprecationWarning:vmctl.*"]
+
 [tool.black]
 line-length = 100
 target-version = ["py38", "py39", "py310", "py311", "py312"]

@@ -1,0 +1,13 @@
+VBoxManage createvm --name multidisk --ostype RedHat_64 --register
+VBoxManage modifyvm multidisk --memory 16384 --vram 32 --cpus 8 --firmware bios --acpi on --ioapic on --rtcuseutc on
+VBoxManage storagectl multidisk --name SATA Controller --add sata --controller IntelAhci --portcount 2 --bootable off
+VBoxManage storagectl multidisk --name SAS-II Controller --add sas --controller LsiLogicSas --portcount 16 --bootable off
+VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA Controller_0_0.vdi --size 51200 --format VDI --variant Standard
+VBoxManage storageattach multidisk --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA Controller_0_0.vdi
+VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA Controller_1_0.vmdk --size 204800 --format VMDK --variant Standard
+VBoxManage storageattach multidisk --storagectl SATA Controller --port 1 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA Controller_1_0.vmdk
+VBoxManage createhd --filename /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SAS-II Controller_0_0.vhd --size 102400 --format VHD --variant Fixed
+VBoxManage storageattach multidisk --storagectl SAS-II Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SAS-II Controller_0_0.vhd
+VBoxManage modifyvm multidisk --nic1 nat --nictype1 82540EM --cableconnected1 on --macaddress1 080027112233
+VBoxManage modifyvm multidisk --boot1 disk
+VBoxManage modifyvm multidisk --boot2 dvd

@@ -47,6 +47,13 @@ htmlcov/
 *.yaml
 *.yml
 !pyproject.toml
+# ...but committed fixtures and CI config are not "local test files".
+# NOTE: the blanket *.yaml/*.yml ignore above is still a footgun -- H-01 in
+# PLAN.md narrows it properly. These negations unblock Phase 0 only.
+!tests/**/*.yaml
+!tests/**/*.yml
+!.github/**/*.yml
+!.github/**/*.yaml
 
 # OS files
 .DS_Store

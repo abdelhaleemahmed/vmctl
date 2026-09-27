@@ -1,0 +1,9 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000002
+State:          created
+Type:           normal (base)
+Location:       /home/tester/VirtualBox VMs/efi-secure/efi-secure.vdi
+Storage format: VDI
+Format variant: fixed default
+Variant:        fixed default
+Capacity:       102400 MBytes
+Size on disk:   102400 MBytes

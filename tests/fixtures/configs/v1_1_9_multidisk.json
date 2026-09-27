@@ -1,0 +1,105 @@
+{
+  "name": "multidisk",
+  "ostype": "Red Hat (64-bit)",
+  "description": null,
+  "cpu": {
+    "count": 8,
+    "hotplug": false,
+    "execution_cap": 100,
+    "pae": true,
+    "nested_virt": false
+  },
+  "memory": {
+    "mb": 16384,
+    "vram_mb": 32,
+    "page_fusion": false,
+    "ballooning": false
+  },
+  "firmware": {
+    "type": "bios",
+    "secure_boot": false,
+    "tpm": false
+  },
+  "disks": [
+    {
+      "name": "disk_SATA Controller_0_0",
+      "size_mb": 51200,
+      "type": "hdd",
+      "format": "vdi",
+      "variant": "thin",
+      "controller": "sata",
+      "controller_name": "SATA Controller",
+      "port": 0,
+      "device": 0,
+      "bootable": true
+    },
+    {
+      "name": "disk_SATA Controller_1_0",
+      "size_mb": 204800,
+      "type": "hdd",
+      "format": "vmdk",
+      "variant": "thin",
+      "controller": "sata",
+      "controller_name": "SATA Controller",
+      "port": 1,
+      "device": 0,
+      "bootable": true
+    },
+    {
+      "name": "disk_SAS-II Controller_0_0",
+      "size_mb": 102400,
+      "type": "hdd",
+      "format": "vhd",
+      "variant": "thick",
+      "controller": "sas",
+      "controller_name": "SAS-II Controller",
+      "port": 0,
+      "device": 0,
+      "bootable": true
+    }
+  ],
+  "networks": [
+    {
+      "adapter_type": "82540EM",
+      "network_type": "nat",
+      "adapter_name": null,
+      "mac_address": "080027112233",
+      "promiscuous_mode": false
+    }
+  ],
+  "boot": {
+    "order": [
+      "disk",
+      "dvd",
+      "none",
+      "none"
+    ],
+    "boot1": "disk",
+    "boot2": "dvd",
+    "boot3": "none",
+    "boot4": "none",
+    "acpi": true,
+    "ioapic": true,
+    "hpet": false
+  },
+  "storage_controllers": [
+    {
+      "name": "SATA Controller",
+      "controller_type": "sata",
+      "port_count": 2,
+      "bootable": false
+    },
+    {
+      "name": "SAS-II Controller",
+      "controller_type": "sas",
+      "port_count": 16,
+      "bootable": false
+    }
+  ],
+  "audio_enabled": false,
+  "clipboard_mode": "disabled",
+  "draganddrop": "disabled",
+  "usb_enabled": false,
+  "rtc_utc": true,
+  "metadata": {}
+}

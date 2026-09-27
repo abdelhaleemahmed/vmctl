@@ -1,0 +1,6 @@
+UUID:           bbbbbbbb-0000-0000-0000-000000000001
+State:          created
+Type:           readonly
+Location:       /home/tester/iso/debian-12.5.0-amd64-netinst.iso
+Storage format: RAW
+Capacity:       632 MBytes

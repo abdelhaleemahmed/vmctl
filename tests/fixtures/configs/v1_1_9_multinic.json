@@ -1,0 +1,96 @@
+{
+  "name": "multinic",
+  "ostype": "Other Linux (64-bit)",
+  "description": null,
+  "cpu": {
+    "count": 2,
+    "hotplug": false,
+    "execution_cap": 100,
+    "pae": false,
+    "nested_virt": false
+  },
+  "memory": {
+    "mb": 2048,
+    "vram_mb": 16,
+    "page_fusion": false,
+    "ballooning": false
+  },
+  "firmware": {
+    "type": "bios",
+    "secure_boot": false,
+    "tpm": false
+  },
+  "disks": [
+    {
+      "name": "disk_SATA_0_0",
+      "size_mb": 20480,
+      "type": "hdd",
+      "format": "vdi",
+      "variant": "thin",
+      "controller": "sata",
+      "controller_name": "SATA",
+      "port": 0,
+      "device": 0,
+      "bootable": true
+    }
+  ],
+  "networks": [
+    {
+      "adapter_type": "82540EM",
+      "network_type": "bridged",
+      "adapter_name": "enp0s31f6",
+      "mac_address": "080027AA0001",
+      "promiscuous_mode": false
+    },
+    {
+      "adapter_type": "82540EM",
+      "network_type": "hostonly",
+      "adapter_name": "vboxnet0",
+      "mac_address": "080027AA0002",
+      "promiscuous_mode": false
+    },
+    {
+      "adapter_type": "virtio",
+      "network_type": "internal",
+      "adapter_name": "lab-backend",
+      "mac_address": "080027AA0003",
+      "promiscuous_mode": false
+    },
+    {
+      "adapter_type": "82545EM",
+      "network_type": "natnetwork",
+      "adapter_name": "LabNatNetwork",
+      "mac_address": "080027AA0004",
+      "promiscuous_mode": false
+    }
+  ],
+  "boot": {
+    "order": [
+      "disk",
+      "none",
+      "none",
+      "none"
+    ],
+    "boot1": "disk",
+    "boot2": "dvd",
+    "boot3": "none",
+    "boot4": "none",
+    "acpi": true,
+    "ioapic": false,
+    "hpet": false
+  },
+  "storage_controllers": [
+    {
+      "name": "SATA",
+      "controller_type": "sata",
+      "port_count": 1,
+      "bootable": false
+    }
+  ],
+  "audio_enabled": true,
+  "clipboard_mode": "disabled",
+  "draganddrop": "disabled",
+  "usb_enabled": false,
+  "rtc_utc": false,
+  "metadata": {}
+}

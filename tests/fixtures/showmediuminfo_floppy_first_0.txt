@@ -1,0 +1,5 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000008
+Location:       /home/tester/VirtualBox VMs/floppy-first/floppy-first.vdi
+Storage format: VDI
+Variant:        dynamic default
+Capacity:       10240 MBytes

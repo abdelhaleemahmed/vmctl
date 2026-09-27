@@ -1,0 +1,5 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000007
+Location:       /home/tester/VirtualBox VMs/multi-nic/multi-nic.vdi
+Storage format: VDI
+Variant:        dynamic default
+Capacity:       20480 MBytes

@@ -1,0 +1,74 @@
+audio_enabled: true
+boot:
+  acpi: true
+  boot1: disk
+  boot2: dvd
+  boot3: none
+  boot4: none
+  hpet: false
+  ioapic: false
+  order:
+  - disk
+  - none
+  - none
+  - none
+clipboard_mode: disabled
+cpu:
+  count: 2
+  execution_cap: 100
+  hotplug: false
+  nested_virt: false
+  pae: false
+description: null
+disks:
+- bootable: true
+  controller: sata
+  controller_name: SATA
+  device: 0
+  format: vdi
+  name: disk_SATA_0_0
+  port: 0
+  size_mb: 20480
+  type: hdd
+  variant: thin
+draganddrop: disabled
+firmware:
+  secure_boot: false
+  tpm: false
+  type: bios
+memory:
+  ballooning: false
+  mb: 2048
+  page_fusion: false
+  vram_mb: 16
+metadata: {}
+name: multinic
+networks:
+- adapter_name: enp0s31f6
+  adapter_type: 82540EM
+  mac_address: 080027AA0001
+  network_type: bridged
+  promiscuous_mode: false
+- adapter_name: vboxnet0
+  adapter_type: 82540EM
+  mac_address: 080027AA0002
+  network_type: hostonly
+  promiscuous_mode: false
+- adapter_name: lab-backend
+  adapter_type: virtio
+  mac_address: 080027AA0003
+  network_type: internal
+  promiscuous_mode: false
+- adapter_name: LabNatNetwork
+  adapter_type: 82545EM
+  mac_address: 080027AA0004
+  network_type: natnetwork
+  promiscuous_mode: false
+ostype: Other Linux (64-bit)
+rtc_utc: false
+storage_controllers:
+- bootable: false
+  controller_type: sata
+  name: SATA
+  port_count: 1
+usb_enabled: false

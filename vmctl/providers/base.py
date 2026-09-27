@@ -6,7 +6,31 @@ this abstract base class to ensure consistent API across providers.
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
+
+try:  # pragma: no cover - typing_extensions fallback for older interpreters
+    from typing import Protocol, runtime_checkable
+except ImportError:  # pragma: no cover
+    from typing_extensions import Protocol, runtime_checkable  # type: ignore
+
 from ..core.vmconfig import VMConfig
+
+
+@runtime_checkable
+class MediumProbe(Protocol):
+    """Looks up the properties of a storage medium by path.
+
+    Parsers need a medium's size, format and allocation variant, but acquiring
+    that information is *transport*, not parsing: it means shelling out to the
+    hypervisor or reading the host filesystem. Taking it as a collaborator keeps
+    every parser a pure function of its input text, which is what makes parsers
+    testable without the hypervisor installed.
+
+    Implementations return a dict with at least ``size_mb``, ``format`` and
+    ``variant`` keys.
+    """
+
+    def __call__(self, path: str) -> Dict[str, Any]:  # pragma: no cover - protocol
+        ...
 
 
 class BaseProvider(ABC):

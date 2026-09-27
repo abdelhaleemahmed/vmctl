@@ -1,0 +1,89 @@
+I read the whole package (~3,200 LOC) and exercised the CLI directly. Here's the report.
+
+What it is
+
+vmctl 1.1.9 — a Click-based CLI that exports VirtualBox VMs to YAML/JSON and recreates them. The architecture is genuinely good: a canonical VMConfig dataclass tree in the middle, a provider split into parser (VBox → config) / emitter (config → VBoxManage argv) / capabilities, pluggable serializers, and a validator driven by provider capability dicts. Subprocess calls all use argv lists, never shell=True. Docstrings are thorough and the dry-run-by-default posture on every destructive command is the right call.
+
+The problem is that the round-trip — the product's entire premise — is broken in several places, and there are no tests to have caught it.
+
+Critical: recreation produces a broken or wrong VM
+
+1. No storage controller is ever created for a minimal config — emitter.py:101
+
+The emitter only emits storagectl by iterating vm.storage_controllers. If that list is empty it emits none, then still emits storageattach --storagectl SATA (the DiskConfig.controller_name default, vmconfig.py:195). VBoxManage fails: no controller by that name exists on a fresh VM. This is reproducible with the example config in your own README:
+
+3: VBoxManage createhd --filename .../test-vm_system.vdi --size 51200 ...
+4: VBoxManage storageattach test-vm --storagectl SATA --port 0 ...   ← fails
+
+Any hand-written config (the documented config-as-code path) hits this. Only configs produced by vmctl export work, because the parser populates storage_controllers. The emitter should synthesize a controller per distinct disk.controller when none is declared.
+
+2. EFI VMs are exported as BIOS — parser.py:160
+
+config.get('firmware', 'bios') == 'efi' compares against VBoxManage's value, which is uppercase "EFI". So an EFI VM parses as FirmwareType.BIOS and is recreated with --firmware bios — the guest won't boot. EFI64/EFI32 are never detected at all, despite being in the enum and advertised in the README. Needs .lower() and a full map.
+
+3. Hyphenated VBoxManage keys are silently unreachable — parser.py:132
+
+The fallback regex is ^(\w+)="?(.*?)"?$; \w excludes -. So nested-hw-virt="on" never enters the parsed dict, and cpu.nested_virt is always False regardless of the source VM. Any other hyphenated key is equally invisible.
+
+4. Optical drives can't be recreated — emitter.py:110
+
+The emit loop calls createhd for every disk including DiskType.DVD, then attaches the freshly created .vdi as --type dvddrive:
+
+VBoxManage createhd --filename .../v_cd.vdi --size 4096 --format VDI ...
+VBoxManage storageattach v ... --type dvddrive --medium .../v_cd.vdi   ← rejected
+
+DVD entries should skip creation and attach emptydrive (or the ISO path, if you decide to keep it). The README's claim that ISOs are "correctly identified as optical media" is true of the parser and false of the emitter.
+
+5. Ten config fields round-trip lossily. cpu.hotplug, execution_cap, pae, nested_virt, memory.page_fusion, ballooning, firmware.tpm, clipboard_mode, draganddrop, boot.hpet are all parsed/exported and never referenced by the emitter. A user editing tpm: true in YAML gets silence, not an error. Either emit them or drop them from the model.
+
+High: validate crashes instead of validating
+
+VMConfig.from_dict (vmconfig.py:361) passes leftover keys as **data and does unguarded enum coercion, and YAMLSerializer.load only catches IOError/YAMLError. So the one command whose job is diagnosing bad files exits on a raw traceback:
+
+┌──────────────────┬──────────────────────────────────────────────────────────────────────────┐
+│      Input       │                                  Result                                  │
+├──────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ typo'd field     │ TypeError: __init__() got an unexpected keyword argument 'unknown_field' │
+├──────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ empty file       │ TypeError: argument of type 'NoneType' is not iterable                   │
+├──────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ controller: nvme │ ValueError: 'nvme' is not a valid StorageControllerType                  │
+└──────────────────┴──────────────────────────────────────────────────────────────────────────┘
+
+Each should be a ValidationError naming the field and the accepted values — the ValidationError class already takes field/expected/constraints for exactly this. Note nvme is in capabilities.max_ports_per_controller but not in the enum, so capabilities and model disagree.
+
+Two more in this tier:
+
+from_dict destroys its input. The data.pop(...) calls mutate the caller's dict — after from_dict(d), d == {'name': 'x'}. BatchCreator._get_base_vm passes a slice of the loaded batch file straight in (batch.py:62).
+
+The entire warnings pathway is dead code. VMValidator.validate builds warnings = [], never appends, returns it (vm_validator.py:23). Everything downstream — engine.create_vm's print loop, cmd_validate's "Warnings:" block, BatchCreator's per-VM warnings — can never fire. Worse, _validate_logical_constraints silently mutates the config instead (vm_validator.py:118: flips disks[0].bootable = True) where a warning is what's wanted.
+
+Medium
+
+- completion emits a wrong env var name — main.py:567. env_var is already _VMCTL_COMPLETE, then it prints f'_{env_var}...' → __VMCTL_COMPLETE=bash_source vmctl (double underscore). Following the documented eval "$(vmctl completion bash)" sets a variable Click ignores and evals vmctl's help text. Completion has never worked via this command.
+- edit doesn't edit — main.py:363. It reads the VM, applies overrides to the in-memory object, prints YAML, and admits "full apply support requires VBoxManage modifyvm integration." But the README's command table says "Modify running VM properties." Either wire it to modifyvm or mark it clearly as a preview.
+- BaseProvider.edit_vm is a data-loss trap — providers/base.py:156. The default implementation is delete_vm(); create_vm() — delete_vm passes --delete, so it destroys the disks. VirtualBoxBackend doesn't override it, and engine.edit_vm exposes it. Nothing calls it today; that's luck, not design. Make it raise NotImplementedError.
+- Batch instances without name collide silently. Two nameless instances both yield base; --execute creates the first and fails on the second with no rollback, leaving a half-built cluster. Require name and check uniqueness in _create_instance (batch.py:74).
+- .gitignore:47 ignores *.yaml/*.yml globally. BMR.yaml is untracked because of it, and .github/workflows/ci.yml would be too — which is likely why there's no CI. Narrow it to something like /*.yaml plus explicit negations.
+- 242 Sphinx _build/ artifacts are committed (docs/sphinx-ar/_build/, including environment.pickle). Ignore the build dirs and let the docs job generate them.
+
+Low / cleanup
+
+- No tests at all, despite pytest/pytest-cov/pytest-mock in three extras groups and a tests exclude in [tool.setuptools.packages.find]. Parser and emitter are pure functions over strings — _parse_machinereadable and emit_create_vm are trivially unit-testable against captured showvminfo fixtures, and would have caught findings 1–4 immediately. This is the highest-leverage thing on the list.
+- exceptions.py is 669 lines and ~18 of its classes and all 4 helper functions have zero references outside the file (VMNotFoundError, VMStateError, BatchError, DiskError, wrap_exception, is_recoverable_error, …). The code raises bare ProviderError/ValidationError strings everywhere. Either use the hierarchy or cut it to the four types in play.
+- engine.py repeats try: ... except ProviderError as e: raise e in nine methods. It's a no-op; delete it.
+- --description is wrapped in literal quotes (emitter.py:197). Since argv is a list, the quotes land in the stored description.
+- VBoxManage version assumptions are mixed: createhd is the deprecated 5.x alias (README's dry-run sample shows createmedium), while audio mixes 7.x --audio-driver with 6.x --audiocontroller. Pick a minimum version and state it.
+- Parser marks every disk bootable when boot.order[0] == 'disk' (parser.py:269), DVDs included.
+- _validate_schema hardcodes the 8-adapter limit instead of reading capabilities['max_network_adapters']; max_disks, supported_os_types, and supported_network_types are never consulted.
+- cmd_delete prints "Deletion cancelled." and exits 0 on abort — scripts can't distinguish it from success.
+- README badge still says v1.1.8 (README.md:7); version is duplicated in pyproject.toml and __init__.py.
+
+Suggested order
+
+1. Findings 1–4 plus a fixture-based test suite for parser/emitter — this is the difference between "exports work" and "exports work and can be restored."
+2. Wrap from_dict in real validation errors so validate earns its name.
+3. Make warnings actually surface; stop mutating configs in the validator.
+4. Fix completion, decide edit's fate, neuter BaseProvider.edit_vm, fix .gitignore and add CI.
+
+Happy to start on any of these — I'd suggest the parser/emitter tests first, since they pin the behavior before the fixes change it.

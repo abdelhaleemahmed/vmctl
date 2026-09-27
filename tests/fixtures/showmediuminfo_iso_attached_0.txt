@@ -1,0 +1,7 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000003
+State:          created
+Type:           normal (base)
+Location:       /home/tester/VirtualBox VMs/iso-attached/iso-attached.vdi
+Storage format: VDI
+Variant:        dynamic default
+Capacity:       30720 MBytes

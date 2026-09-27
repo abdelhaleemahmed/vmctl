@@ -1,0 +1,5 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000006
+Location:       /home/tester/VirtualBox VMs/multi-disk/multi-disk-archive.vhd
+Storage format: VHD
+Variant:        fixed default
+Capacity:       102400 MBytes

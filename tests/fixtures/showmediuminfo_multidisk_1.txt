@@ -1,0 +1,5 @@
+UUID:           aaaaaaaa-0000-0000-0000-000000000005
+Location:       /home/tester/VirtualBox VMs/multi-disk/multi-disk-data.vmdk
+Storage format: VMDK
+Variant:        dynamic default
+Capacity:       204800 MBytes
