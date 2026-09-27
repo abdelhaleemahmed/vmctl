@@ -605,3 +605,39 @@ def test_delete_removes_the_images_we_made_and_leaves_the_rest(tmp_path, monkeyp
     assert backend.delete_vm("d") is True
     assert not ours.exists(), "the image vmctl created should be gone"
     assert theirs.exists(), "an image from elsewhere is not ours to delete"
+
+
+def test_the_guest_os_is_recorded_as_a_libosinfo_id(emitter, vm):
+    """libvirt has no guest OS field; the convention virt-install and Boxes use is
+    a libosinfo id in <metadata>, which libvirt stores and echoes back (A-05)."""
+    vm.guest_os = "ubuntu22.04"
+    root = ET.fromstring(emitter.build_domain_xml(vm))
+    element = root.find(
+        "metadata/{http://libosinfo.org/xmlns/libvirt/domain/1.0}libosinfo/"
+        "{http://libosinfo.org/xmlns/libvirt/domain/1.0}os"
+    )
+    assert element is not None
+    assert element.get("id") == "http://ubuntu.com/ubuntu/22.04"
+
+
+def test_the_guest_os_round_trips(parser, emitter, vm):
+    vm.guest_os = "win11"
+    assert parser.parse_text("demo", emitter.build_domain_xml(vm)).guest_os == "win11"
+
+
+def test_a_guest_os_libvirt_cannot_record_is_reported(emitter, vm):
+    """A VirtualBox id carried into a migration has no libosinfo id, so there is
+    nothing to write -- and saying nothing would look like it had been applied."""
+    from vmctl.core.translate import Policy, Translator
+
+    vm.guest_os = "Windows31"
+    translator = Translator(LibvirtCapabilities.get(), Policy.NEAREST)
+    emitter.build_domain_xml(vm, translator)
+    assert any(d.field == "guest_os" for d in translator.report.drops)
+
+
+def test_the_machine_type_is_not_read_as_a_guest_os(parser, real_domain):
+    """It used to be: `ostype` was mapped to <os type machine=...>, so guest_os
+    held "pc-q35-rhel9.8.0" -- a category error the catalogue fixes (A-05)."""
+    vm = parser.parse_text("lv-fixture", real_domain)
+    assert "q35" not in vm.guest_os

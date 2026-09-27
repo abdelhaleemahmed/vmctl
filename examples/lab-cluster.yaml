@@ -2,7 +2,7 @@
 name: lab-cluster
 base_vm:
   name: ubuntu-template
-  ostype: Ubuntu_64
+  guest_os: ubuntu22.04
   cpu:
     count: 2
   memory:

@@ -26,6 +26,7 @@ from typing import Any, Dict
 
 from ...core.capabilities import BusSpec, Capabilities, FormatSpec, Support
 from ...core.vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
+from .ostypes import OSTYPES
 
 _BUS = BusType
 _ALL_ALLOC = ("thin", "thick")
@@ -183,6 +184,9 @@ class VirtualBoxCapabilities:
             name_max_length=128,
             supports_tpm=True,
             secure_boot_readable=False,
+            # Both spellings: `createvm` takes the id and `showvminfo` reports
+            # the description, and a config may legitimately hold either.
+            supported_os_types=tuple(OSTYPES) + tuple(t.description for t in OSTYPES.values()),
             supported_network_types=(
                 "nat",
                 "bridged",

@@ -74,6 +74,7 @@ RENAMED_DEVICE_KEYS = {
     "device": "unit",
 }
 RENAMED_CONTROLLER_KEYS = {"name": "native_name", "controller_type": "bus"}
+RENAMED_VM_KEYS = {"ostype": "guest_os"}
 
 
 def _upgrade(before):
@@ -83,7 +84,7 @@ def _upgrade(before):
     test compares vmctl's upgrade against an independent statement of it rather
     than against itself.
     """
-    after = dict(before)
+    after = {RENAMED_VM_KEYS.get(k, k): v for k, v in before.items()}
     devices = after.pop("disks", None)
     if devices is not None:
         after["storage"] = [_upgrade_device(d) for d in devices]
@@ -344,3 +345,14 @@ def test_a_legacy_controller_value_that_is_not_a_bus_is_reported():
     assert vm.storage[0].controller == "fibrechannel"
     warnings = VMValidator(VirtualBoxCapabilities.get()).validate(vm)
     assert any("fibrechannel" in w and "nor a bus" in w for w in warnings)
+
+
+def test_a_1_1_x_ostype_still_loads_and_still_works():
+    """`ostype: Ubuntu_64` is a VirtualBox id, which A-05 keeps as a passthrough --
+    the config was written against a tool that only had VirtualBox in it."""
+    from vmctl.providers.virtualbox.tables import GuestOSCodec
+
+    vm = VMConfig.from_dict({"name": "v", "ostype": "Ubuntu_64"})
+    assert vm.guest_os == "Ubuntu_64"
+    assert vm.ostype == "Ubuntu_64"  # the attribute alias reads it back
+    assert GuestOSCodec().dump(vm.guest_os) == "Ubuntu_64"

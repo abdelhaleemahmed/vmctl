@@ -18,6 +18,7 @@ from typing import List, Optional
 
 from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
+from ..core import oscatalog
 from ..core.naming import check_name
 from ..core.slots import place
 from ..core.translate import Policy, Translator
@@ -306,12 +307,19 @@ class VMValidator:
                 f"VirtualBox may round it"
             )
 
-        # ostype is deliberately NOT warned about. VirtualBox reports display
-        # names ("Ubuntu (64-bit)") while the capability list holds internal ids
-        # ("Ubuntu_64"), so any static comparison flags every real VM. Doing
-        # this properly means asking the host via `VBoxManage list ostypes` --
-        # E-05 in PLAN.md. A warning that fires on correct input is worse than
-        # no warning.
+        # The guest OS used to be unwarnable: VirtualBox reports descriptions
+        # ("Ubuntu (64-bit)") and accepts ids ("Ubuntu_64"), so any static
+        # comparison flagged every real VM. Since A-05 there is a neutral
+        # catalogue and each provider lists what it accepts besides, so a typo
+        # can be told from a deliberate passthrough.
+        if vm.guest_os and oscatalog.get(vm.guest_os) is None:
+            known = self.capabilities.supported_os_types
+            if known and vm.guest_os not in known:
+                warnings.append(
+                    f"guest_os is {vm.guest_os!r}, which is neither one of vmctl's "
+                    f"ids ({', '.join(oscatalog.ids()[:4])}, ...) nor a guest OS "
+                    f"{self.capabilities.provider} knows"
+                )
 
         if "disk" in vm.boot.order and not vm.storage:
             raise ValidationError(

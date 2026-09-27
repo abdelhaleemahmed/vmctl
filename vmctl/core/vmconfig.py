@@ -29,6 +29,7 @@ from typing import (
 )
 
 from .devices import Allocation, BusType, DeviceKind, DiskFormat
+from .oscatalog import DEFAULT_ID as DEFAULT_GUEST_OS
 
 # Re-exported and unused here: `from vmctl.core.vmconfig import DiskType` is the
 # import a 1.1.x caller wrote, and it keeps working after the M-01 split.
@@ -42,6 +43,7 @@ __all__ = [
     "BootConfig",
     "CPUConfig",
     "DEFAULT_DISK_MB",
+    "DEFAULT_GUEST_OS",
     "DiskConfig",
     "FirmwareConfig",
     "FirmwareType",
@@ -418,7 +420,7 @@ LEGACY_DEVICE_FIELDS = {
 LEGACY_CONTROLLER_FIELDS = {"name": "native_name", "controller_type": "bus"}
 
 #: Old name -> new name, on the VM itself.
-LEGACY_VM_FIELDS = {"disks": "storage"}
+LEGACY_VM_FIELDS = {"disks": "storage", "ostype": "guest_os"}
 
 
 def _rename_keys(data: dict, mapping: Dict[str, str], path: str) -> dict:
@@ -652,7 +654,12 @@ class VMConfig:
     networks: List[NetworkConfig]
     boot: BootConfig
     storage_controllers: List[StorageControllerConfig]
-    ostype: str = "Ubuntu_64"
+    #: Which OS the guest runs, as a neutral id from
+    #: :mod:`vmctl.core.oscatalog` (``ubuntu22.04``, ``win11``) -- or a
+    #: provider's own string, which passes through untranslated. Was ``ostype``,
+    #: whose default was the VirtualBox id ``Ubuntu_64``: the last vendor
+    #: spelling left in the canonical model (A-05).
+    guest_os: str = DEFAULT_GUEST_OS
     description: Optional[str] = None
     audio_enabled: bool = False
     clipboard_mode: str = "disabled"
@@ -700,7 +707,7 @@ class VMConfig:
         """Convert VMConfig to dictionary for serialization"""
         result = {
             "name": self.name,
-            "ostype": self.ostype,
+            "guest_os": self.guest_os,
             "description": self.description,
             "cpu": self.cpu.to_dict(),
             "memory": self.memory.to_dict(),
@@ -754,6 +761,7 @@ class VMConfig:
 
 
 setattr(VMConfig, "disks", _alias("disks", "storage"))
+setattr(VMConfig, "ostype", _alias("ostype", "guest_os"))
 _accept_legacy_keywords(VMConfig, LEGACY_VM_FIELDS)
 
 

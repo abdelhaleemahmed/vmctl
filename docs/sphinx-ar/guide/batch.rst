@@ -74,7 +74,7 @@
    name: test-cluster
 
    base_vm:
-     ostype: Ubuntu_64
+     guest_os: ubuntu22.04
      cpu:
        count: 2
      memory:

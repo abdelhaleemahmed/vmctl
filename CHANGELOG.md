@@ -96,6 +96,18 @@ things prevented that:
 
 ### Added
 
+- **A VM says which OS its guest runs in neutral terms**: `guest_os: ubuntu22.04`
+  rather than a hypervisor's own identifier. The ids are libosinfo's, the ones
+  virt-install and GNOME Boxes use, and each hypervisor translates -- VirtualBox
+  creates `Ubuntu22_LTS_64`, libvirt records the guest OS in the domain's metadata,
+  where it now survives a round trip for the first time. `ostype:` and raw
+  hypervisor strings keep working.
+- Fixed: exporting a VM whose guest OS was outside a forty-entry list produced a
+  config that could not be imported -- VirtualBox reports a description
+  ("Debian 12 Bookworm (64-bit)") and accepts only an id ("Debian12_64"). vmctl now
+  knows all 227 types the product lists.
+- `vmctl validate` now points out a misspelled guest OS, which it could not do
+  before.
 - **Storage is described as devices on a bus**, so a disk, a CD-ROM and a floppy
   drive are one list (`storage:`) rather than a list of "disks" that had to
   pretend. A device says what `kind` it is, which `bus` it hangs off and which

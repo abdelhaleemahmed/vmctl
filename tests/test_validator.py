@@ -277,11 +277,14 @@ def test_smp_without_ioapic_warns(validator, vm_minimal):
     assert any("I/O APIC" in w for w in warnings)
 
 
-def test_ostype_is_not_warned_about(validator, vm_minimal):
-    """Deferred to E-05: VirtualBox reports display names, the capability list
-    holds internal ids, so any static check flags every real VM."""
+def test_a_made_up_guest_os_is_now_warned_about(validator, vm_minimal):
+    """This test used to assert the opposite, and said why: VirtualBox reported
+    display names while the capability list held ids, so any static check flagged
+    every real VM. A-05 removed the reason -- there is a neutral catalogue, and the
+    provider's own list is generated from `VBoxManage list ostypes` -- so the check
+    is possible and this expectation flips."""
     vm_minimal.ostype = "CompletelyMadeUp_64"
-    assert validator.validate(vm_minimal) == []
+    assert any("guest_os" in w for w in validator.validate(vm_minimal))
 
 
 # ---------------------------------------------------------------------------
@@ -358,3 +361,17 @@ def test_naming_an_undeclared_controller_warns_and_falls_back(validator, vm_mini
     vm_minimal.storage[0].controller = "SATA"
     warnings = validator.validate(vm_minimal)
     assert any("nothing declares" in w for w in warnings)
+
+
+def test_a_misspelled_guest_os_warns(validator, vm_minimal):
+    """Unwarnable before A-05: VirtualBox reports descriptions and accepts ids, so
+    any static comparison flagged every real VM. With a neutral catalogue and a
+    per-provider list, a typo can be told from a deliberate passthrough."""
+    vm_minimal.guest_os = "Ubunto"
+    assert any("guest_os" in w for w in validator.validate(vm_minimal))
+
+
+def test_a_native_or_neutral_guest_os_does_not_warn(validator, vm_minimal):
+    for value in ("ubuntu22.04", "Ubuntu_64", "Ubuntu (64-bit)"):
+        vm_minimal.guest_os = value
+        assert not [w for w in validator.validate(vm_minimal) if "guest_os" in w], value

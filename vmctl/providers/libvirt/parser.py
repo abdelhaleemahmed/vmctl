@@ -19,6 +19,7 @@ from ...core.exceptions import ProviderError
 from ...core.mapping import read_into
 from ..base import MediumProbe
 from ...core.devices import BusType, DeviceKind
+from ...core.oscatalog import DEFAULT_ID as DEFAULT_GUEST_OS
 from ...core.vmconfig import (
     BootConfig,
     CPUConfig,
@@ -34,6 +35,8 @@ from ...core.vmconfig import (
 from .capabilities import LibvirtCapabilities
 from .tables import (
     BOOT_DEVICE,
+    GUEST_OS_FROM_OSINFO,
+    OSINFO_NS,
     DISCARD_ON,
     DRIVER_TO_FORMAT,
     FIELDS,
@@ -135,9 +138,6 @@ class LibvirtParser:
                 flat["firmware"] = "efi64"
             else:
                 flat["firmware"] = "bios"
-            type_el = os_el.find("type")
-            if type_el is not None:
-                flat["os_type"] = type_el.get("machine", "") or (type_el.text or "")
 
         features = root.find("features")
         flat["feature_acpi"] = "on" if _present(features, "acpi") else "off"
@@ -210,6 +210,7 @@ class LibvirtParser:
             # redefine a domain under a different one. Carrying it as a native
             # hint is what lets `vmctl edit` redefine rather than collide -- the
             # `provider_options` idea from A-08, in miniature.
+            guest_os=_guest_os(root),
             metadata=({"libvirt_uuid": flat["uuid"]} if flat.get("uuid") else {}),
         )
         vm.firmware.tpm = root.find("devices/tpm") is not None
@@ -363,6 +364,21 @@ def _present(parent: Optional[ET.Element], tag: str) -> bool:
 def _nested(root: ET.Element) -> bool:
     cpu = root.find("cpu")
     return cpu is not None and cpu.get("mode") in ("host-passthrough", "host-model")
+
+
+def _guest_os(root: ET.Element) -> str:
+    """Return the guest OS a domain records, or the model's default.
+
+    libvirt keeps no guest OS field of its own; the convention is a libosinfo id
+    in ``<metadata>``, which it stores and echoes back verbatim. An id vmctl does
+    not name neutrally is returned as the libosinfo id itself -- a passthrough, so
+    nothing is lost even when nothing can be translated (A-05).
+    """
+    element = root.find(f"metadata/{{{OSINFO_NS}}}libosinfo/{{{OSINFO_NS}}}os")
+    osinfo = element.get("id", "") if element is not None else ""
+    if not osinfo:
+        return DEFAULT_GUEST_OS
+    return GUEST_OS_FROM_OSINFO.get(osinfo, osinfo)
 
 
 def _secure_boot(root: ET.Element) -> bool:

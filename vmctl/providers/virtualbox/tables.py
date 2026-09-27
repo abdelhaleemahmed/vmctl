@@ -10,9 +10,119 @@ Native spellings were taken from ``VBoxManage showvminfo --machinereadable`` and
 ``VBoxManage modifyvm --help`` on VirtualBox 7.1.18, on a real host.
 """
 
-from ...core.codecs import EnumCodec, Int, OnOff, Str
+from typing import Dict
+
+from ...core.codecs import Codec, EnumCodec, Int, OnOff, Str
 from ...core.mapping import Field
 from ...core.vmconfig import FirmwareType, BusType
+from .ostypes import BY_DESCRIPTION, GENERIC_BY_FAMILY, OSTYPES
+
+#: Neutral guest id -> the id ``createvm --ostype`` accepts. Only the ids vmctl
+#: names neutrally are here; everything else passes through, and a test checks
+#: every value below against the generated ``OSTYPES`` list so a typo cannot ship.
+GUEST_OS_TO_VBOX = {
+    "linux": "Linux_64",
+    "ubuntu": "Ubuntu_64",
+    "ubuntu20.04": "Ubuntu20_LTS_64",
+    "ubuntu22.04": "Ubuntu22_LTS_64",
+    "ubuntu24.04": "Ubuntu24_LTS_64",
+    "debian": "Debian_64",
+    "debian11": "Debian11_64",
+    "debian12": "Debian12_64",
+    "rhel": "RedHat_64",
+    "rhel8": "RedHat8_64",
+    "rhel9": "RedHat9_64",
+    "centos7": "RedHat7_64",
+    "fedora": "Fedora_64",
+    "opensuse": "OpenSUSE_64",
+    "oracle9": "Oracle9_64",
+    "archlinux": "ArchLinux_64",
+    "alpine": "Linux_64",
+    "win10": "Windows10_64",
+    "win11": "Windows11_64",
+    "win2019": "Windows2019_64",
+    "win2022": "Windows2022_64",
+    "freebsd": "FreeBSD_64",
+    "openbsd": "OpenBSD_64",
+    "macos": "MacOS_64",
+    "solaris11": "Solaris11_64",
+    "other": "Other_64",
+}
+
+#: The same, reversed. Where two neutral ids share a VirtualBox id -- ``alpine``
+#: has none of its own, so it uses the generic Linux one -- the first wins, which
+#: keeps the reverse mapping the one a reader would expect.
+GUEST_OS_FROM_VBOX: Dict[str, str] = {}
+for _neutral, _native in GUEST_OS_TO_VBOX.items():
+    GUEST_OS_FROM_VBOX.setdefault(_native, _neutral)
+
+
+class GuestOSCodec(Codec):
+    """Reads what VirtualBox *reports* and writes what it *accepts*.
+
+    Those are two different strings: ``showvminfo`` gives a description ("Ubuntu
+    (64-bit)") and ``createvm --ostype`` takes an id ("Ubuntu_64"), answering
+    "Unknown or invalid guest OS type given" to anything else. Feeding a
+    description straight back is what made any guest outside a forty-entry literal
+    impossible to re-import (F-29).
+
+    Reading prefers vmctl's neutral id, so an exported config is portable; a guest
+    vmctl does not name neutrally keeps VirtualBox's own id, which is a documented
+    passthrough rather than a loss.
+    """
+
+    def load(self, raw: str) -> str:
+        """Return a neutral id, or VirtualBox's id when there is no neutral one."""
+        text = raw.strip().strip('"')
+        native = BY_DESCRIPTION.get(text, text if text in OSTYPES else "")
+        if not native:
+            # Neither a description nor an id this build knows. Keep it verbatim:
+            # it came from somewhere, and refusing to read a VM because of its OS
+            # label would be worse than carrying a string vmctl cannot place.
+            return text
+        return GUEST_OS_FROM_VBOX.get(native, native)
+
+    def dump(self, value: str) -> str:
+        """Return the id ``--ostype`` takes.
+
+        Args:
+            value: A neutral id, a VirtualBox id, or a VirtualBox description.
+
+        Raises:
+            ValueError: If it is none of those, naming what would be accepted.
+        """
+        text = (value or "").strip()
+        native = (
+            GUEST_OS_TO_VBOX.get(text.lower())
+            or (text if text in OSTYPES else None)
+            or BY_DESCRIPTION.get(text)
+        )
+        if native is None:
+            raise ValueError(
+                f"{value!r} is not a guest OS type VirtualBox knows; expected one "
+                f"of vmctl's ids ({', '.join(sorted(GUEST_OS_TO_VBOX))}) or one of "
+                f"the {len(OSTYPES)} ids from `VBoxManage list ostypes`"
+            )
+        return native
+
+    def describe(self) -> str:
+        return "a guest OS id"
+
+
+def generic_for(native: str) -> str:
+    """Return the most generic type in *native*'s family, for a substitution.
+
+    Args:
+        native: A VirtualBox OS type id.
+
+    Returns:
+        The family's generic id, or ``Other_64`` when the family has none --
+        VirtualBox offers no version-less "Windows", and choosing its oldest
+        member instead would be a guess dressed as a translation.
+    """
+    entry = OSTYPES.get(native)
+    return GENERIC_BY_FAMILY.get(entry.family, "Other_64") if entry else "Other_64"
+
 
 #: Native firmware value -> model value. VirtualBox reports these in upper case,
 #: which is why a lower-case comparison made every EFI VM look like BIOS (F-02).
@@ -72,10 +182,11 @@ FIELDS = (
     ),
     Field("clipboard_mode", "clipboard", Str(), "--clipboard-mode"),
     Field("draganddrop", "draganddrop", Str(), "--draganddrop"),
-    # Read-only here: `ostype` is set by `createvm`, not `modifyvm`, and needs
-    # the display-name mapping in the emitter. A-05 moves that to a shared
-    # catalogue.
-    Field("ostype", "ostype", Str()),
+    # No flag: `ostype` is set by `createvm`, not `modifyvm`, so the emitter
+    # passes `codec.dump()` to the create command itself. The declaration is
+    # still here because the parser reads it through the same codec, which is
+    # what keeps reading and writing from disagreeing (A-11).
+    Field("guest_os", "ostype", GuestOSCodec()),
     Field("description", "description", Str(), "--description"),
 )
 

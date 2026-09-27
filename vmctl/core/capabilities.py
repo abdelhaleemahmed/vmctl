@@ -175,6 +175,10 @@ class Capabilities:
     removable_extensions: Tuple[str, ...] = ()
 
     supported_network_types: Tuple[str, ...] = ()
+    #: Every guest OS label this provider accepts, beyond the neutral ids in
+    #: :mod:`vmctl.core.oscatalog`. For VirtualBox that is its own ids and the
+    #: descriptions it reports; for libvirt, the ids it has a libosinfo id for.
+    #: Used to tell a typo from a passthrough (A-05).
     supported_os_types: Tuple[str, ...] = ()
 
     #: Where each figure above came from, so a reader can tell a measured limit

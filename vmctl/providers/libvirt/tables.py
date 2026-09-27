@@ -74,6 +74,44 @@ SSD_ROTATION_RATE = "1"
 #: ``dumpxml``, so unlike the rotation rate it needs no per-bus table.
 DISCARD_ON = "unmap"
 
+#: libvirt names a guest OS nowhere in the domain itself: the convention, shared
+#: with virt-install and GNOME Boxes, is a `libosinfo`_ id in ``<metadata>``.
+#: Verified on libvirt 11.10.0 -- it accepts the element and echoes it back
+#: unchanged, so a guest OS survives a round trip here (A-05).
+#:
+#: .. _libosinfo: https://libosinfo.org/
+OSINFO_NS = "http://libosinfo.org/xmlns/libvirt/domain/1.0"
+
+#: Neutral guest id -> libosinfo os id. Only the ids vmctl names neutrally; a
+#: provider string passes through, and cannot be expressed here.
+GUEST_OS_TO_OSINFO = {
+    "linux": "http://libosinfo.org/linux/2019",
+    "ubuntu20.04": "http://ubuntu.com/ubuntu/20.04",
+    "ubuntu22.04": "http://ubuntu.com/ubuntu/22.04",
+    "ubuntu24.04": "http://ubuntu.com/ubuntu/24.04",
+    "debian11": "http://debian.org/debian/11",
+    "debian12": "http://debian.org/debian/12",
+    "rhel8": "http://redhat.com/rhel/8.0",
+    "rhel9": "http://redhat.com/rhel/9.0",
+    "centos7": "http://centos.org/centos/7.0",
+    "fedora": "http://fedoraproject.org/fedora/40",
+    "opensuse": "http://opensuse.org/opensuse/15.5",
+    "oracle9": "http://oracle.com/ol/9.0",
+    "archlinux": "http://archlinux.org/archlinux/rolling",
+    "alpine": "http://alpinelinux.org/alpine/3.19",
+    "win10": "http://microsoft.com/win/10",
+    "win11": "http://microsoft.com/win/11",
+    "win2019": "http://microsoft.com/win/2k19",
+    "win2022": "http://microsoft.com/win/2k22",
+    "freebsd": "http://freebsd.org/freebsd/14.0",
+    "openbsd": "http://openbsd.org/openbsd/7.4",
+    "macos": "http://apple.com/macos/10.15",
+    "solaris11": "http://oracle.com/solaris/11.4",
+}
+
+#: The same, reversed.
+GUEST_OS_FROM_OSINFO = {v: k for k, v in GUEST_OS_TO_OSINFO.items()}
+
 #: Device kind -> libvirt ``<disk device='...'>``.
 KIND_TO_DEVICE = {
     DeviceKind.DISK: "disk",
@@ -147,5 +185,8 @@ FIELDS = (
     Field("boot.hpet", "timer_hpet", OnOff()),
     Field("rtc_utc", "clock_utc", OnOff()),
     Field("description", "description", Str()),
-    Field("ostype", "os_type", Str()),
+    # `ostype` used to be mapped to the *machine type* here, which put
+    # "pc-q35-rhel9.8.0" in a field meaning "which OS the guest runs" -- a
+    # category error. The guest OS is read from libosinfo metadata instead
+    # (A-05), and the machine type belongs to A-10.
 )

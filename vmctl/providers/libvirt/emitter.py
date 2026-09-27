@@ -35,12 +35,14 @@ from .tables import (
     BOOT_DEVICE,
     BUS_CONTROLLER_MODEL,
     BUS_TO_LIBVIRT,
+    DISCARD_ON,
     FIRMWARE_TO_LIBVIRT,
     FORMAT_TO_DRIVER,
+    GUEST_OS_TO_OSINFO,
     KIND_TO_DEVICE,
     NETWORK_TO_LIBVIRT,
     NIC_MODEL_FROM_NATIVE,
-    DISCARD_ON,
+    OSINFO_NS,
     ROTATION_RATE_BUSES,
     SSD_ROTATION_RATE,
     TARGET_PREFIX,
@@ -148,6 +150,8 @@ class LibvirtEmitter:
         ET.SubElement(domain, "name").text = vm.name
         # Redefining a domain requires its existing UUID: libvirt rejects a
         # definition that reuses a name with a different identity.
+        self._add_guest_os(vm, domain, translator)
+
         existing_uuid = vm.metadata.get("libvirt_uuid") if vm.metadata else None
         if existing_uuid:
             ET.SubElement(domain, "uuid").text = str(existing_uuid)
@@ -304,6 +308,35 @@ class LibvirtEmitter:
                 value = _get(vm, path)
                 if _is_set(value):
                     translator.drop(path, value, reason)
+
+    def _add_guest_os(
+        self, vm: VMConfig, domain: ET.Element, translator: Optional[Translator]
+    ) -> None:
+        """Record which OS the guest runs, the way libvirt tooling does.
+
+        libvirt has no field for it, so the shared convention is a libosinfo id in
+        ``<metadata>`` -- which libvirt stores and returns unchanged, so this is
+        what makes the guest OS survive a round trip here.
+
+        A guest vmctl cannot name neutrally (a VirtualBox id carried through, say)
+        has no libosinfo id, so there is nothing to write and it is reported.
+        """
+        osinfo = GUEST_OS_TO_OSINFO.get((vm.guest_os or "").strip().lower())
+        if not osinfo:
+            if translator is not None and vm.guest_os:
+                translator.drop(
+                    "guest_os",
+                    vm.guest_os,
+                    "libvirt records a guest OS as a libosinfo id, and there is "
+                    "none for this one",
+                )
+            return
+        ET.register_namespace("libosinfo", OSINFO_NS)
+        metadata = domain.find("metadata")
+        if metadata is None:
+            metadata = ET.SubElement(domain, "metadata")
+        holder = ET.SubElement(metadata, f"{{{OSINFO_NS}}}libosinfo")
+        ET.SubElement(holder, f"{{{OSINFO_NS}}}os", id=osinfo)
 
     def _add_networks(self, vm: VMConfig, devices: ET.Element) -> None:
         """Add interfaces."""

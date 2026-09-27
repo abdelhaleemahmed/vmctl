@@ -368,6 +368,22 @@ declared *second* was reported as `disks[0]`. The device loop reused its
 that line named the wrong device. A report that points at the wrong device is
 worse than no report, since acting on it edits the wrong thing.
 
+### F-29 — Any guest OS outside a forty-entry literal could not be re-imported · M *(fixed)*
+`vmctl/providers/virtualbox/emitter.py`
+
+`showvminfo` reports a guest's **description** ("Debian 12 Bookworm (64-bit)") and
+`createvm --ostype` accepts only its **id** ("Debian12_64"), answering "Unknown or
+invalid guest OS type given" to anything else. The emitter carried a hand-written
+map of about forty descriptions, so exporting a VM running anything else produced
+a config that could not be imported -- verified on the host, which refuses the
+description outright.
+
+Fixed by generating the whole table. `VBoxManage list ostypes` reports 227 types
+with their descriptions, families and architectures on 7.1.18; the capture is a
+fixture and `scripts/generate-ostypes.py` turns it into a data module. A
+hand-maintained subset of a list the product can be asked for is the shape of the
+bug, not the size of it.
+
 ### F-27 — A round trip turned off booting from the controller · M *(fixed)*
 `vmctl/providers/virtualbox/parser.py`
 
@@ -1238,8 +1254,41 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 > bus that can carry it. A VirtualBox capture migrated to real libvirt carries
 > 10/10 checked settings.
 >
-> Remaining in Phase 5: `A-05` (the guest-OS catalogue) and `A-10`
-> (arch/machine/CPU topology/NicModel).
+> **Twelfth step done: `A-05` (the last vendor string leaves the model).**
+> `ostype: "Ubuntu_64"` was a VirtualBox identifier sitting in the canonical
+> model, and the map from what VirtualBox *reports* to what it *accepts* lived
+> inside the emitter -- the wrong layer twice over.
+>
+> `core/oscatalog.py` holds short ids in libosinfo's style (`ubuntu22.04`,
+> `rhel9`, `win11`) with a family each. Borrowed rather than invented: they are the
+> ids virt-install, GNOME Boxes and virt-manager already use, so a vmctl config is
+> not a third convention. The catalogue is deliberately small, because anything
+> outside it passes through verbatim -- which is what keeps a 1.1.x `ostype` and
+> any native string working.
+>
+> Each provider translates, and both translations are measured. VirtualBox's is
+> **generated**: `VBoxManage list ostypes` lists 227 types with descriptions,
+> families and architectures, the capture is a fixture, and
+> `scripts/generate-ostypes.py` writes the data module. That is how `F-29` was
+> found -- the emitter's forty-entry literal meant any other guest exported to a
+> config `createvm` rejects. libvirt's is a libosinfo id in `<metadata>`, which
+> libvirt accepts and echoes back unchanged (checked against a defined domain), so
+> the guest OS survives a round trip there for the first time. It also removes a
+> category error: libvirt's `ostype` was mapped to the *machine type*, so
+> `guest_os` held `pc-q35-rhel9.8.0`.
+>
+> A warning becomes possible that had to be declined before. The old validator
+> comment said why -- descriptions versus ids, so any static check flagged every
+> real VM -- and `test_ostype_is_not_warned_about` pinned that. With a catalogue
+> and a generated per-provider list, a typo can be told from a passthrough, so the
+> test flipped to assert the opposite.
+>
+> Verified on real hardware. VirtualBox: a VM created as `Debian12_64` reports
+> "Debian 12 Bookworm (64-bit)", vmctl reads `debian12` and re-emits
+> `Debian12_64`, which the host accepts. libvirt: `guest_os: debian12` becomes
+> `<libosinfo:os id="http://debian.org/debian/12"/>` and reads back as `debian12`.
+>
+> Remaining in Phase 5: `A-10` (arch/machine/CPU topology/NicModel).
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1991,7 +2040,7 @@ Configs exported by 1.1.x must keep loading through 2.x. Concretely:
 | `variant` → `allocation` (M-01) | `variant` stays an accepted alias |
 | `controller` (a bus) → `bus`; `controller_name` → `controller` (M-02) | the one key whose *meaning* changed. Told apart by value: `sata` is a bus, `sata0` a controller id; a `BusType` passed as `controller=` is the bus. A value that is neither lands as a controller nothing declares -- legal, and warned about |
 | `StorageController.name` → `id` + `native_name` (M-02) | `name=` sets `native_name` and reads back `native_name or id`; the id is derived from bus + index |
-| `ostype` → neutral `guest_os` (A-05) | raw provider strings accepted as passthrough forever |
+| `ostype` → neutral `guest_os` (A-05) | `ostype:` accepted indefinitely; raw provider strings (`Ubuntu_64`, and any of the 227 ids or descriptions `VBoxManage list ostypes` reports) pass through untranslated forever |
 | `adapter_type: "82540EM"` → `NicModel` (A-10) | raw native strings accepted as passthrough |
 | `List[List[str]]` → `Plan` (A-01) | internal API; `Plan.as_argv_lists()` shim if anything external depends on it |
 | `schema_version` added (E-14) | absent means "1", accepted forever |
@@ -2085,6 +2134,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-26 a translation report named the wrong disk
          [x] F-27 bootable controllers re-created as --bootable off
          [x] F-28 libvirt delete left every disk image behind
+         [x] F-29 guest OS descriptions could not be re-imported
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2105,7 +2155,7 @@ Phase 5  [x] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-02 typed Capabilities, matrix-driven validator
          [x] A-03 provider registry + --provider + entry points
          [x] A-04 translation engine + policy + lossiness report
-         [ ] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
+         [x] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
          [x] A-07 provider conformance suite   [~] A-08 escaping / injection safety
          [x] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [ ] P-02 VMware Workstation/Fusion

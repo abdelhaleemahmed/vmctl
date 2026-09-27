@@ -10,7 +10,7 @@ Minimal example
 .. code-block:: yaml
 
    name: minimal-linux
-   ostype: Ubuntu_64
+   guest_os: ubuntu22.04
 
    cpu:
      count: 2
@@ -46,9 +46,16 @@ Top-level fields
    * - ``name``
      - *required*
      - VM name — must be unique in VirtualBox.
-   * - ``ostype``
-     - ``Ubuntu_64``
-     - VirtualBox OS type identifier (e.g. ``Ubuntu_64``, ``Windows10_64``).
+   * - ``guest_os``
+     - ``ubuntu``
+     - Which OS the guest runs, as a short neutral id: ``ubuntu22.04``,
+       ``debian12``, ``rhel9``, ``win11``, ``freebsd``, ``other`` and so on --
+       the ids libosinfo uses, so virt-install and GNOME Boxes understand the same
+       names. Each provider translates: VirtualBox creates ``Ubuntu22_LTS_64``,
+       libvirt records a libosinfo id in the domain's metadata. A hypervisor's own
+       string (``Ubuntu_64``) is accepted and passed through untranslated, which
+       is what keeps 1.1.x files working; ``ostype:`` is still accepted as the
+       older name for this field.
    * - ``description``
      - ``null``
      - Optional free-text description.

@@ -142,7 +142,7 @@ Every VM is a plain YAML (or JSON) file. Put it in Git, share it with a team, or
 
 ```yaml
 name: ubuntu-server
-ostype: Ubuntu_64
+guest_os: ubuntu22.04
 cpu:
   count: 4
 memory:
@@ -169,7 +169,7 @@ Every create/import/batch command shows you the exact `VBoxManage` commands it w
 $ vmctl import server.yaml --new-name dev-server
 
 Dry-run mode. Commands that would be executed:
-  1: VBoxManage createvm --name dev-server --ostype Ubuntu_64 --register
+  1: VBoxManage createvm --name dev-server --ostype Ubuntu22_LTS_64 --register
   2: VBoxManage modifyvm dev-server --memory 8192 --vram 16 --cpus 4 ...
   3: VBoxManage storagectl dev-server --name SATA Controller --add sata ...
   4: VBoxManage createmedium disk --filename ...dev-server_system.vdi --size 51200 ...

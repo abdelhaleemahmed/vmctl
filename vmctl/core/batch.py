@@ -205,7 +205,7 @@ class BatchCreator:
             "description": "Batch VM creation template",
             "base_vm": {
                 "name": "ubuntu-base",
-                "ostype": "Ubuntu_64",
+                "guest_os": "ubuntu22.04",
                 "cpu": {"count": 2},
                 "memory": {"mb": 2048},
                 "firmware": {"type": "bios"},

@@ -63,7 +63,7 @@ def test_bios_minimal_shape():
     assert vm.memory.mb == 128
     assert vm.memory.vram_mb == 16
     assert vm.firmware.type == FirmwareType.BIOS
-    assert vm.ostype == "Ubuntu (64-bit)"
+    assert vm.guest_os == "ubuntu"
     assert vm.boot.acpi is True
     assert vm.boot.ioapic is True
     assert vm.rtc_utc is True

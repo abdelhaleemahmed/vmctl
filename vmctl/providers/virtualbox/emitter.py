@@ -24,10 +24,11 @@ from ...core.naming import check_name, safe_filename
 from ...core.plan import Plan
 from ...core.storage import StorageLocation, directory
 from ...core.slots import place
-from ...core.translate import Policy, Translator
+from ...core.oscatalog import family_of
+from ...core.translate import Policy, Substitution, Translator
 from ...core.capabilities import Capabilities
 from .capabilities import VirtualBoxCapabilities
-from .tables import FIELDS, MODIFIABLE
+from .tables import GUEST_OS_TO_VBOX, FIELDS, MODIFIABLE, GuestOSCodec, generic_for
 
 
 class VirtualBoxEmitter:
@@ -80,49 +81,11 @@ class VirtualBoxEmitter:
         translator = Translator(self.capabilities, self.policy)
         commands: List[List[str]] = []
 
-        # Map display names to internal VirtualBox OS type names
-        ostype_map = {
-            # Red Hat / RHEL
-            "Red Hat (64-bit)": "RedHat_64",
-            "Red Hat (32-bit)": "RedHat",
-            "Red Hat": "RedHat",
-            # Rocky Linux (uses RedHat type)
-            "Rocky Linux (64-bit)": "RedHat_64",
-            "Rocky Linux": "RedHat_64",
-            # CentOS
-            "CentOS (64-bit)": "RedHat_64",
-            "CentOS": "RedHat",
-            # Fedora
-            "Fedora (64-bit)": "Fedora_64",
-            "Fedora (32-bit)": "Fedora",
-            "Fedora": "Fedora",
-            # Ubuntu
-            "Ubuntu (64-bit)": "Ubuntu_64",
-            "Ubuntu (32-bit)": "Ubuntu",
-            "Ubuntu": "Ubuntu",
-            # Debian
-            "Debian (64-bit)": "Debian_64",
-            "Debian (32-bit)": "Debian",
-            "Debian": "Debian",
-            # Linux Generic
-            "Linux 2.6 / 3.x / 4.x (64-bit)": "Linux26_64",
-            "Linux 2.6 / 3.x / 4.x (32-bit)": "Linux26",
-            "Other Linux (64-bit)": "Linux_64",
-            "Other Linux (32-bit)": "Linux",
-            "Other Linux": "Linux",
-            # Windows
-            "Windows 10 (64-bit)": "Windows10_64",
-            "Windows 10 (32-bit)": "Windows10",
-            "Windows 11 (64-bit)": "Windows11_64",
-            "Windows Server 2019 (64-bit)": "Windows2019_64",
-            "Windows Server 2016 (64-bit)": "Windows2016_64",
-            # Other
-            "Other (64-bit)": "Other_64",
-            "Other (32-bit)": "Other",
-        }
-
-        # Normalize ostype - use mapping or original if already internal format
-        ostype = ostype_map.get(vm.ostype, vm.ostype)
+        # Which OS type to create with. The mapping from what VirtualBox
+        # *reports* to what it *accepts* is the provider's own field table now,
+        # not a literal here: a hand-written subset meant any guest outside it
+        # exported to a config that could not be imported (F-29, A-05).
+        ostype = self._ostype(vm, translator)
 
         # Create VM
         commands.append(
@@ -391,6 +354,40 @@ class VirtualBoxEmitter:
         """
         by_native = {sc.native_name: sc for sc in resolved.values() if sc.native_name}
         return resolve_controller(disk, resolved, by_bus, by_native)
+
+    def _ostype(self, vm: VMConfig, translator: Translator) -> str:
+        """Return the OS type id ``createvm`` will accept.
+
+        Args:
+            vm: The configuration being emitted.
+            translator: Records what could not be expressed exactly.
+
+        Returns:
+            A VirtualBox OS type id.
+
+        Raises:
+            ValidationError: Under ``strict``, when the guest OS is one
+                VirtualBox does not know.
+        """
+        codec = GuestOSCodec()
+        try:
+            return codec.dump(vm.guest_os)
+        except ValueError as exc:
+            # Falling back silently would create the VM under the wrong guest
+            # type, which changes the defaults VirtualBox picks for it.
+            generic = generic_for(GUEST_OS_TO_VBOX.get(family_of(vm.guest_os).value, ""))
+            if not translator.policy.may_substitute:
+                translator._refuse("guest_os", vm.guest_os, str(exc), generic)
+                return generic
+            translator.report.substitutions.append(
+                Substitution(
+                    "guest_os",
+                    vm.guest_os,
+                    generic,
+                    "VirtualBox has no OS type by that name",
+                )
+            )
+            return generic
 
     @staticmethod
     def _storagectl_name(controller: StorageController) -> str:

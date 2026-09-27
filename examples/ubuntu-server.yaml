@@ -2,7 +2,7 @@
 # this exact config used to be impossible to import, because nothing created the
 # storage controller it referenced (F-01 in PLAN.md).
 name: ubuntu-server
-ostype: Ubuntu_64
+guest_os: ubuntu22.04
 cpu:
   count: 4
 memory:

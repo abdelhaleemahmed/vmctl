@@ -158,15 +158,42 @@ def test_every_command_targets_this_vm(vm_full):
             assert vm_full.name in cmd, cmd
 
 
-def test_display_ostype_names_are_mapped_to_internal_ids():
-    """The parser reads 'Red Hat (64-bit)'; createvm needs 'RedHat_64'."""
+def test_a_guest_os_is_emitted_as_the_id_createvm_accepts():
+    """VirtualBox reports "Red Hat (64-bit)" and accepts only "RedHat_64".
+
+    Since A-05 the parser turns the description into vmctl's neutral id, and the
+    emitter turns that back into the id the product takes -- so a config is
+    portable and the command is still valid.
+    """
     vm = parse_label("multidisk")
-    assert vm.ostype == "Red Hat (64-bit)"
+    assert vm.guest_os == "rhel"
     cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
     assert cmds[0][cmds[0].index("--ostype") + 1] == "RedHat_64"
 
 
-def test_internal_ostype_ids_pass_through(vm_minimal):
+def test_a_guest_vmctl_cannot_name_neutrally_still_round_trips():
+    """F-29 -- the hand-written map covered about forty descriptions, so any other
+    guest exported to a config `createvm` rejected with "Unknown or invalid guest
+    OS type given". The generated table covers all 227 the product knows."""
+    from vmctl.providers.virtualbox.tables import GuestOSCodec
+
+    assert GuestOSCodec().load("Debian 12 Bookworm (64-bit)") == "debian12"
+    assert GuestOSCodec().dump("debian12") == "Debian12_64"
+    # And one with no neutral id at all keeps VirtualBox's own, which is valid.
+    assert GuestOSCodec().load("Windows 3.1") == "Windows31"
+    assert GuestOSCodec().dump("Windows31") == "Windows31"
+
+
+def test_a_native_os_id_in_a_config_passes_through(vm_minimal):
+    """A 1.1.x config holds VirtualBox's own id, and it stays legal -- that is
+    what "raw provider strings accepted as passthrough" means (A-05)."""
+    vm_minimal.guest_os = "Windows2022_64"
+    cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal).as_argv_lists()
+    assert cmds[0][cmds[0].index("--ostype") + 1] == "Windows2022_64"
+
+
+def test_the_neutral_default_is_the_1_1_x_default(vm_minimal):
+    """The default was the VirtualBox id `Ubuntu_64`; it must still create that."""
     cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal).as_argv_lists()
     assert cmds[0][cmds[0].index("--ostype") + 1] == "Ubuntu_64"
 

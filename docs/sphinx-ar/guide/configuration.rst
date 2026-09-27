@@ -9,7 +9,7 @@
 .. code-block:: yaml
 
    name: minimal-linux
-   ostype: Ubuntu_64
+   guest_os: ubuntu22.04
 
    cpu:
      count: 2
@@ -45,9 +45,15 @@
    * - ``name``
      - *مطلوب*
      - اسم الجهاز الافتراضي — يجب أن يكون فريداً في VirtualBox.
-   * - ``ostype``
-     - ``Ubuntu_64``
-     - معرّف نوع نظام التشغيل في VirtualBox (مثال: ``Ubuntu_64``، ``Windows10_64``).
+   * - ``guest_os``
+     - ``ubuntu``
+     - نظام التشغيل داخل الجهاز الضيف، بمعرّف محايد قصير: ``ubuntu22.04`` و
+       ``debian12`` و ``rhel9`` و ``win11`` و ``freebsd`` و ``other`` وغيرها —
+       وهي المعرّفات التي يستخدمها libosinfo، فيفهمها virt-install و GNOME Boxes
+       بالأسماء نفسها. كل مُوفِّر يترجمها: VirtualBox ينشئ ``Ubuntu22_LTS_64``،
+       و libvirt يسجّل معرّف libosinfo في بيانات النطاق الوصفية. كما يُقبل اسم
+       المُشرف الافتراضي نفسه (``Ubuntu_64``) ويُمرَّر كما هو، وهذا ما يجعل ملفات
+       1.1.x تعمل دون تغيير؛ و ``ostype:`` ما زال مقبولاً كالاسم الأقدم للحقل.
    * - ``description``
      - ``null``
      - وصف اختياري.
