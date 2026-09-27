@@ -96,6 +96,19 @@ things prevented that:
 
 ### Added
 
+- **`--clone-disks` on `import` and `create`** copies a VM's disk contents, not just
+  its shape. Opt-in, because it is the slow and space-hungry part, and it says how
+  many images and roughly how much data before it starts. An image this machine
+  cannot read is reported and that disk is created blank, as it would have been
+  anyway. It is the same code path as `migrate --with-disks`, so both convert the
+  formats the target cannot write, and both refuse rather than leaving an empty disk
+  behind. A config file cannot say where a VM's data was -- that describes a host, so
+  it is left out of an export -- so on a file, name the image in `source:`, which is
+  then *copied* rather than shared between two VMs.
+- Fixed: cloning with `--disk-format` produced a file whose contents did not match its
+  name -- `--disk-format raw` on a qcow2 image wrote the qcow2 container byte for byte
+  into a `.raw` file and attached it as raw, so the guest would have found a qcow2
+  header where its partition table should be. vmctl reported success.
 - **vmctl now asks the host what it has**, instead of trusting a table for everything:
   which bridges exist, which machine types this QEMU build offers, which guest OS ids
   this VirtualBox knows. So `vmctl validate` catches `adapter_name: eth0` on a machine

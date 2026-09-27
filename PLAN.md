@@ -421,6 +421,29 @@ re-measured by starting a domain per model.
 One provider's table is not evidence for another's, even when one of them is a
 manager of the other.
 
+### F-38 — A cloned disk whose contents did not match its name · M *(fixed)*
+`vmctl/core/clone.py`, `vmctl/cli/main.py`
+
+Found by running `import --disk-format raw --clone-disks` against a qcow2 image and
+looking at the result rather than at the exit code.
+
+`--disk-format` rewrites every device's `format` -- that is what it is for -- and
+`plan_clone` then read that same field back as the *source's* format. So the copy ran
+as `qemu-img convert -f raw -O raw source.qcow2 target.raw`: with both ends declared
+raw, qemu-img copied the qcow2 *container* byte for byte into a file named `.raw`,
+which the run script then attached as raw. `qemu-img info` reported the result as
+qcow2; the first sixteen bytes were `QFI\xfb`. A guest would find a qcow2 header
+where its partition table should be, and vmctl would have reported success.
+
+The fix names the confusion it came from: where a device's data is and what format it
+is in *now* are one fact (`Origin`), separate from what the new VM is being asked for.
+An origin is passed in by the caller, captured before anything rewrites it, and never
+inferred from the request; an origin of unknown format is left for the tool to detect,
+which is better than asserting one wrongly.
+
+This is the third finding of the same shape as `F-31` and `F-37`: the tool accepted
+the command, and only the artefact it produced showed it was wrong.
+
 ### F-33 — An empty optical drive reached for the host's own · S *(fixed)*
 `vmctl/providers/vmware/emitter.py`
 
@@ -2182,9 +2205,30 @@ the model (E-03, E-05) want Phase 5 first.
   Dry-run by default, printing the plan like `import` does. This is the real
   endgame: `apply` makes the tool declarative rather than one-shot. Depends on
   E-01 and F-10.
-- **E-03 `--clone-disks` on `import`/`create` · M.** Every doc warns that disk
+- **E-03 `--clone-disks` on `import`/`create` · M. *(done)*** Every doc warns that disk
   contents are not copied. `VBoxManage clonemedium` can copy them when the
   source is local. Opt-in, with a clear size/time warning up front.
+
+  > Done, as the plan said it should be: **one code path**. `vmctl/core/clone.py`
+  > (`plan_clone`) is what `migrate --with-disks` now calls too, so the two cannot
+  > drift -- a copy is a conversion whose formats happen to match, which is why it
+  > goes through `core/convert.py` and inherits its refusals.
+  >
+  > Three things the implementation had to settle:
+  >
+  > * **A config file cannot say where the data was.** `to_dict()` leaves `disk_path`
+  >   out on purpose -- it describes the host a device was read from -- so
+  >   `import --clone-disks` on an *exported* file finds nothing, and says so with the
+  >   two things that do work: clone from the VM itself, or name the image in
+  >   `source:`. Silence there would read as a bug.
+  > * **`source:` means copy, not share.** Attaching one image file to a second VM is
+  >   data corruption waiting for both of them to boot, so asking for the contents
+  >   gives the new VM its own copy.
+  > * **F-38**, found by running it: `--disk-format raw` rewrote each device's format
+  >   and `plan_clone` read that back as the *source's* format. See the finding.
+  >
+  > Verified on real QEMU: a `0x5a` pattern written into a source image was read back
+  > out of the clone, and the clone started and stopped.
 - **E-04 `vmctl export --all -d <dir>` · S. *(done)*** The README's "lab snapshots" use
   case currently needs a shell loop. One command, one file per VM, plus a
   manifest — and it turns the whole lab into something committable.
@@ -2495,6 +2539,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-35 a .vmx's disks unfindable outside its own directory
          [x] F-36 conversions ran before the directory existed
          [x] F-37 a NIC table copied from another provider
+         [x] F-38 a cloned disk whose contents did not match its name
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2523,6 +2568,6 @@ Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
          [x] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
 Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
-         [ ] E-03 clone-disks  [x] E-05 capability probing
+         [x] E-03 clone-disks  [x] E-05 capability probing
          [ ] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C
 ```

@@ -38,8 +38,10 @@ Then execute:
 
 .. note::
 
-   ``import`` creates a new VM with a **blank disk**.  Disk contents are not
-   copied.  Use Bareos, rsync, or a similar tool to restore data into the new VM.
+   ``import`` creates a new VM with a **blank disk**.  Disk contents are copied
+   only when you ask for them with ``--clone-disks``, and only when the images can
+   be read from this machine — a config file names the image in ``source:``.
+   Otherwise use Bareos, rsync, or a similar tool to restore data into the new VM.
 
 Clone from an existing VM
 --------------------------

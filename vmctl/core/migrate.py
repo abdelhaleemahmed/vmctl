@@ -20,10 +20,10 @@ surfaces:
   asked for and reachable, rather than pretending otherwise.
 """
 
-import os
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from .clone import plan_clone
 from .convert import ConversionRequest, plan_conversions
 from .exceptions import ValidationError
 from .plan import Plan
@@ -143,36 +143,11 @@ def plan_migration(
         location = target.storage_location()
         if image_dir:
             location = location.with_value(image_dir)
-        for disk in vm.storage:
-            if disk.is_removable:
-                # An ISO is host-specific; carrying the path over would point at
-                # a file the target cannot see.
-                disk.source = None
-                continue
-            origin = disk.disk_path
-            if not origin:
-                continue
-            if not os.path.exists(origin):
-                unreachable.append(origin)
-                continue
-            spec = target.capabilities.format_spec(disk.format)
-            target_format = (
-                disk.format if spec.support.creatable else target.capabilities.native_format
-            )
-            extension = target.capabilities.format_spec(target_format).extension
-            copy_to = location.image_path(vm.name, f"{vm.name}_{disk.name}.{extension}")
-            conversions.append(
-                ConversionRequest(
-                    source=origin,
-                    target=copy_to,
-                    target_format=target_format,
-                    source_format=disk.format,
-                    label=disk.name,
-                )
-            )
-            # The target attaches the converted copy instead of creating a blank.
-            disk.source = copy_to
-            disk.format = target_format
+        # The same function `import --clone-disks` calls (E-03): bringing a VM's data
+        # to a new place is one operation, whether or not the hypervisor changes.
+        cloned = plan_clone(vm, target.capabilities, location)
+        conversions = cloned.requests
+        unreachable = cloned.unreachable
 
     plan = plan_conversions(conversions, target.converter(), target.name)
     creation = target.create_vm(vm, execute=False, policy=policy)

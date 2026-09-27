@@ -378,8 +378,8 @@ VM — set it in the config file.
 | `vmctl stop <vm> [-f] [--wait SECONDS]` | Stop VM (graceful or forced), optionally waiting for it |
 | `vmctl read <vm> [--format yaml\|json]` | Print VM configuration |
 | `vmctl export <vm> -o <file>` | Save VM config to file |
-| `vmctl import <file> [--new-name <n>] [--execute] [--out PATH]` | Create VM from config file |
-| `vmctl create <vm> --new-name <n> [--execute]` | Clone VM config from existing VM |
+| `vmctl import <file> [--new-name <n>] [--clone-disks] [--execute] [--out PATH]` | Create VM from config file |
+| `vmctl create <vm> --new-name <n> [--clone-disks] [--execute]` | Clone VM config from existing VM |
 | `vmctl edit <vm> [--memory MB] [--vram MB] [--cpus N] [--new-name <n>] [--execute]` | Change a stopped VM's CPU, memory or name (dry-run by default) |
 | `vmctl delete <vm> [-f]` | Delete VM and disk files |
 | `vmctl validate <file>` | Validate config file |

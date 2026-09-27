@@ -13,7 +13,9 @@ from typing import List, Optional
 from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
-from vmctl.core.convert import convert as plan_convert
+from vmctl.core.clone import Origin, plan_clone
+from vmctl.core.convert import convert as plan_convert, plan_conversions
+from vmctl.core.plan import Plan
 from vmctl.core.diff import diff, stated_paths, summarise
 from vmctl.core.naming import safe_filename
 from vmctl.core.schema import build as build_schema
@@ -191,6 +193,76 @@ def _write_plan(plan, out: str) -> None:
 
     for path in written:
         click.echo(f"Wrote {path}")
+
+
+def _with_copies_first(copies: Plan, creation: Plan) -> Plan:
+    """Return one plan: the disk copies, then the VM.
+
+    The order is not cosmetic. The emitter attaches those images rather than creating
+    blanks, so they have to exist before the VM is defined -- the same order
+    ``migrate`` uses, for the same reason.
+    """
+    combined = Plan(creation.provider)
+    seen = []
+    for step in copies:
+        combined.add(step)
+        seen.append(step.argv)
+    for step in creation:
+        # Both halves want the VM's directory to exist, and saying so twice is noise
+        # in a plan a person is being asked to read before running it.
+        if step.argv is not None and step.argv in seen:
+            continue
+        combined.add(step)
+    for warning in list(copies.warnings) + list(creation.warnings):
+        combined.warn(warning)
+    return combined
+
+
+def _origins(vm) -> List[Origin]:
+    """Return where each of a VM's disks is now, before anything rewrites that.
+
+    Called the moment a configuration is read and *before* ``--disk-format`` or a
+    rename touches it: after that, a device's format is what the user asked for
+    rather than what the existing image is, and copying with the wrong source format
+    produces a file whose contents do not match its name (F-38).
+    """
+    return [Origin(device.source or device.disk_path, device.format) for device in vm.storage]
+
+
+def _clone_disks(engine, vm, origins=None) -> Optional[Plan]:
+    """Return the plan that copies a VM's disk contents, or None (E-03).
+
+    Every piece of vmctl's documentation used to say that configuration moves and data
+    does not. This is the opt-in other half, and it goes through the same conversion
+    service ``migrate --with-disks`` uses -- a copy is a conversion whose formats
+    happen to match -- so the two behave identically, refusals included.
+
+    Args:
+        engine: The engine, for the target's capabilities and location.
+        vm: The configuration to create. Modified: each device that gets a copy is
+            pointed at it, so the emitter attaches rather than creating a blank.
+        origins: Where each device's data is now and in what format, from
+            :func:`_origins`, or None to read it from the configuration.
+
+    Returns:
+        A plan for the copies, or None when there is nothing to copy.
+    """
+    result = plan_clone(vm, engine.capabilities, engine.backend.storage_location(), origins)
+    for path in result.unreachable:
+        _warn(f"{path} cannot be read from here, so that disk will be created blank")
+    if not result:
+        # An exported configuration does not say where the data was -- `disk_path`
+        # describes a host, so it is deliberately left out of an export -- which makes
+        # this the common and confusing case rather than an odd one.
+        click.echo(
+            "Nothing to copy: this configuration names no disk images. A config file "
+            "does not record where a VM's data was, so clone from the VM itself "
+            "(vmctl create <vm> --clone-disks) or name the image with 'source:'."
+        )
+        return None
+    # Said before anything runs, because this is the slow and space-hungry part.
+    click.echo(result.describe())
+    return plan_conversions(result.requests, engine.backend.converter(), engine.provider_name)
 
 
 def _read_mapping(path: Path) -> dict:
@@ -619,29 +691,47 @@ def _export_all(ctx, directory: Path, fmt: str) -> None:
     "in / (or an existing directory) gets plan.sh plus the provider's own artifact "
     "-- the domain XML, the .vmx, the run script.",
 )
+@click.option(
+    "--clone-disks",
+    is_flag=True,
+    help="Also copy the disk contents, when the images can be read from this machine. "
+    "Off by default: it is the slow, space-hungry part of creating a VM.",
+)
 @click.pass_context
-def cmd_import(ctx, config_file, new_name, disk_format, policy, execute, out):
+def cmd_import(ctx, config_file, new_name, disk_format, policy, execute, out, clone_disks):
     """Create a VM from a YAML or JSON configuration file.
 
     Without --execute the command prints the VBoxManage commands that
     would be run but does not touch VirtualBox (dry-run mode).
 
-    Note: import creates a new VM with a blank disk.  It does not copy
-    disk contents.  Use Bareos, rsync, or a similar tool to restore data.
+    By default the new VM gets blank disks: a configuration file describes a machine,
+    not its contents. Pass --clone-disks to copy the images the file points at, when
+    they can be read from this machine.
 
     \b
     Examples:
       vmctl import ubuntu-server.yaml --new-name test-server
       vmctl import ubuntu-server.yaml --new-name test-server --execute
       vmctl import ubuntu-server.yaml --new-name test-server --disk-format vmdk
+      vmctl import ubuntu-server.yaml --new-name restored --clone-disks --execute
     """
     try:
         engine = _engine(ctx)
         vm = engine.import_vm(config_file, new_name)
+        # Read before --disk-format rewrites the formats: what the images *are* is
+        # not what the new VM is being asked for (F-38).
+        origins = _origins(vm)
         _apply_disk_format(vm, disk_format)
         if execute:
             _require_absent(engine, vm.name)
+        copies = _clone_disks(engine, vm, origins) if clone_disks else None
         plan = engine.create_vm(vm, execute=execute, on_warning=_warn, policy=Policy(policy))
+        if copies is not None:
+            # The data first: the emitter attaches these images, so they have to be
+            # there before the VM is defined.
+            plan = _with_copies_first(copies, plan)
+            if execute:
+                engine.backend.run_plan(copies)
         _show_plan(plan, execute, f"Created VM '{vm.name}' from {config_file}", out)
     except VMToolError as e:
         _fail(e)
@@ -685,13 +775,23 @@ def cmd_import(ctx, config_file, new_name, disk_format, policy, execute, out):
     "in / (or an existing directory) gets plan.sh plus the provider's own artifact "
     "-- the domain XML, the .vmx, the run script.",
 )
+@click.option(
+    "--clone-disks",
+    is_flag=True,
+    help="Also copy the disk contents, when the images can be read from this machine. "
+    "Off by default: it is the slow, space-hungry part of creating a VM.",
+)
 @click.pass_context
-def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, execute, out):
+def cmd_create(
+    ctx, source_vm, new_name, memory, cpus, disk_format, policy, execute, out, clone_disks
+):
     """Clone a VM configuration from an existing VirtualBox VM.
 
     Reads the source VM's configuration live from VirtualBox, applies
-    any overrides, and creates a new blank VM with the same hardware
-    profile.  Disk contents are NOT copied.
+    any overrides, and creates a new VM with the same hardware profile.
+
+    Disk contents are not copied unless --clone-disks is given: the default is a
+    machine with the same shape and blank disks, which is fast and costs no space.
 
     \b
     Examples:
@@ -699,10 +799,14 @@ def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, exec
       vmctl create ubuntu-server --new-name ubuntu-clone --execute
       vmctl create ubuntu-server --new-name small-clone --cpus 2 --memory 2048 --execute
       vmctl create ubuntu-server --new-name vmware-clone --disk-format vmdk
+      vmctl create ubuntu-server --new-name full-clone --clone-disks --execute
     """
     try:
         engine = _engine(ctx)
         vm = engine.read_vm(source_vm)
+        # Where the source's data is and what it is, read before the name and the
+        # formats change: the copies come from the original VM's images.
+        origins = _origins(vm)
         vm.name = new_name
         if memory:
             vm.memory.mb = memory
@@ -711,7 +815,12 @@ def cmd_create(ctx, source_vm, new_name, memory, cpus, disk_format, policy, exec
         _apply_disk_format(vm, disk_format)
         if execute:
             _require_absent(engine, vm.name)
+        copies = _clone_disks(engine, vm, origins) if clone_disks else None
         plan = engine.create_vm(vm, execute=execute, on_warning=_warn, policy=Policy(policy))
+        if copies is not None:
+            plan = _with_copies_first(copies, plan)
+            if execute:
+                engine.backend.run_plan(copies)
         _show_plan(plan, execute, f"Created VM '{vm.name}'", out)
     except VMToolError as e:
         _fail(e)

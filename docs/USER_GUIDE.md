@@ -517,7 +517,7 @@ vmctl import backup/test-env.yaml --new-name test-env --execute
 
 **Disk names must be unique within a VM.** If you have two disks, name them `os` and `data`, not both `disk`.
 
-**Import creates blank disks.** The disk size and format match the original, but content is not copied. This is intentional — it gives you a clean VM with the right hardware profile.
+**Import creates blank disks by default.** The disk size and format match the original, but content is not copied — that gives you a clean VM with the right hardware profile, fast and at no cost in disk space. Pass `--clone-disks` to copy the contents too, when the images can be read from this machine; it tells you how much data that is before it starts. A config file does not record where a VM's data was (that describes a host, not the VM), so on a file the image has to be named in `source:`, and it is copied rather than shared with whatever else uses it.
 
 **Storage controller names matter.** When importing a config exported from VirtualBox, the `controller_name` field holds the actual VirtualBox controller name (e.g., `SATA Controller`). Leave it as-is unless you know what you're changing.
 

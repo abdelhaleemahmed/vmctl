@@ -829,3 +829,117 @@ def test_export_all_needs_a_directory(runner, vbox):
 def test_export_without_all_still_needs_a_name_and_output(runner, vbox):
     assert runner.invoke(cli, ["export"]).exit_code == 1
     assert "or --all" in runner.invoke(cli, ["export"]).output
+
+
+# ---------------------------------------------------------------------------
+# --clone-disks (E-03)
+# ---------------------------------------------------------------------------
+
+
+def _config_naming_an_image(tmp_path, image):
+    path = tmp_path / "named.yaml"
+    path.write_text(
+        "name: from-file\n"
+        "cpu:\n  count: 1\n"
+        "memory:\n  mb: 128\n"
+        f"disks:\n  - name: system\n    size_mb: 20480\n    source: {image}\n"
+        "networks: []\n"
+    )
+    return path
+
+
+def _sparse(tmp_path, name, megabytes=1):
+    path = tmp_path / name
+    with open(path, "wb") as handle:
+        handle.truncate(megabytes * 1024 * 1024)
+    return path
+
+
+def test_import_copies_nothing_unless_asked(runner, vbox, tmp_path):
+    """A configuration file describes a machine, not its contents."""
+    image = _sparse(tmp_path, "root.vdi")
+    result = runner.invoke(cli, ["import", str(_config_naming_an_image(tmp_path, image))])
+    assert result.exit_code == 0
+    assert "clonemedium" not in result.output
+    assert "copying" not in result.output
+
+
+def test_clone_disks_copies_the_image_the_file_names(runner, vbox, tmp_path):
+    image = _sparse(tmp_path, "root.vdi", 3)
+    result = runner.invoke(
+        cli, ["import", str(_config_naming_an_image(tmp_path, image)), "--clone-disks"]
+    )
+    assert result.exit_code == 0
+    # Said up front, because this is the slow and space-hungry part.
+    assert "copying 1 disk image(s), about 3 MB" in result.output
+    assert str(image) in result.output
+
+
+def test_the_copies_come_before_the_vm_is_created(runner, vbox, tmp_path):
+    """Not cosmetic: the emitter attaches those images, so they must exist first."""
+    image = _sparse(tmp_path, "root.vdi")
+    result = runner.invoke(
+        cli, ["import", str(_config_naming_an_image(tmp_path, image)), "--clone-disks"]
+    )
+    lines = result.output.splitlines()
+    copy = next(i for i, line in enumerate(lines) if "clonemedium" in line)
+    create = next(i for i, line in enumerate(lines) if "createvm" in line)
+    assert copy < create
+
+
+def test_clone_disks_attaches_the_copy_rather_than_creating_a_blank(runner, vbox, tmp_path):
+    image = _sparse(tmp_path, "root.vdi")
+    result = runner.invoke(
+        cli, ["import", str(_config_naming_an_image(tmp_path, image)), "--clone-disks"]
+    )
+    assert "createmedium" not in result.output
+    assert "from-file_system.vdi" in result.output
+
+
+def test_clone_disks_says_when_an_image_cannot_be_read_from_here(runner, vbox, tmp_path):
+    """A config from another machine names paths this one cannot see."""
+    result = runner.invoke(
+        cli, ["import", str(_config_naming_an_image(tmp_path, "/gone/root.vdi")), "--clone-disks"]
+    )
+    assert result.exit_code == 0
+    assert "cannot be read from here" in result.output
+    assert "created blank" in result.output
+
+
+def test_clone_disks_on_a_config_that_names_no_image_explains_itself(runner, vbox, tmp_path):
+    """The common case: `disk_path` is left out of an export, so there is nothing
+    to copy -- and saying only "nothing to copy" would look like a bug."""
+    result = runner.invoke(cli, ["import", str(_write_config(tmp_path)), "--clone-disks"])
+    assert result.exit_code == 0
+    assert "Nothing to copy" in result.output
+    assert "create <vm> --clone-disks" in result.output
+    assert "source:" in result.output
+    # Still creates the VM, with the blank disk it would have had anyway.
+    assert "createvm" in result.output
+
+
+def test_create_clone_disks_copies_from_the_source_vms_own_images(runner, vbox, monkeypatch):
+    """`create` reads the origins live, so it does not need a file to name them."""
+    monkeypatch.setattr("os.path.exists", lambda path: True)
+    monkeypatch.setattr("os.path.getsize", lambda path: 5 * 1024 * 1024)
+    result = runner.invoke(cli, ["create", "bios-minimal", "--new-name", "clone", "--clone-disks"])
+    assert result.exit_code == 0
+    assert "copying 1 disk image(s), about 5 MB" in result.output
+    assert "clonemedium" in result.output
+
+
+def test_create_names_the_source_image_not_the_renamed_one(runner, vbox, monkeypatch):
+    """The origins are read before the rename, or the copy would look for a file
+    belonging to a VM that does not exist yet."""
+    monkeypatch.setattr("os.path.exists", lambda path: True)
+    monkeypatch.setattr("os.path.getsize", lambda path: 1024 * 1024)
+    result = runner.invoke(cli, ["create", "bios-minimal", "--new-name", "clone", "--clone-disks"])
+    copy = next(line for line in result.output.splitlines() if "clonemedium" in line)
+    # The fixture VM's own image, and the new VM's place -- in that order.
+    assert "sys.vdi" in copy
+    assert copy.index("sys.vdi") < copy.index("/clone/clone_")
+
+
+def test_clone_disks_is_off_by_default_for_create(runner, vbox):
+    result = runner.invoke(cli, ["create", "bios-minimal", "--new-name", "clone"])
+    assert "clonemedium" not in result.output
