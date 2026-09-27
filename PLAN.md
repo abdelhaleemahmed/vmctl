@@ -870,8 +870,31 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 >   and SCSI because this build lacks the LSI chipset. A static table can only be
 >   a conservative default, and the declaration says so.
 >
+> **Fourth step done:** `A-06` (deterministic slot allocation).
+>
+> `core/slots.py` decides where every device sits, once, for every provider. The
+> emitters and the validator call it instead of each working placement out, so
+> they cannot disagree — the class of bug that put a system disk on a floppy
+> controller in Phase 0.
+>
+> It needed the same fix `controller_name` needed: `port` and `device` defaulted
+> to `0`, so "unset" was indistinguishable from "explicitly the first slot", and
+> two devices that simply did not care where they went collided. Both are now
+> `Optional[int] = None`.
+>
+> Verified on both providers. A config that never mentions a port produced, on
+> real VirtualBox, SATA ports 0/1/2 plus IDE master **and slave** (`--device 1`),
+> applied cleanly; and on libvirt the same shape got `sda`/`sdb`/`sdc` in
+> configuration order. Emitter goldens are unchanged, so configurations that did
+> state positions place exactly as before.
+>
+> One simplification fell out: the libvirt emitter briefly sorted devices by
+> placement, which only shuffled target letters. Configuration order is already
+> deterministic and is what a reader expects, so it iterates that directly and
+> does not use port/unit at all — libvirt assigns addresses itself.
+>
 > Remaining: `M-01`, `M-02`, `M-05`, `M-06` (the three-axis storage model and
-> medium conversion), `A-04`…`A-10`.
+> medium conversion), `A-04`, `A-05`, `A-07`…`A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1728,7 +1751,7 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [x] A-02 typed Capabilities, matrix-driven validator
          [x] A-03 provider registry + --provider + entry points
          [ ] A-04 translation engine + policy + lossiness report
-         [ ] A-05 neutral guest-OS catalog     [ ] A-06 deterministic slot allocation
+         [x] A-05 neutral guest-OS catalog     [x] A-06 deterministic slot allocation
          [ ] A-07 provider conformance suite   [ ] A-08 escaping / injection safety
          [ ] A-09 storage location abstraction [ ] A-10 arch/machine/topology/NicModel
 Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion

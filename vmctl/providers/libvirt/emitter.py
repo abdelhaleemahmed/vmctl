@@ -186,6 +186,10 @@ class LibvirtEmitter:
         needed_controllers: Dict[str, str] = {}
         counters: Dict[str, int] = {}
 
+        # libvirt assigns PCI addresses itself, so a device's port and unit are
+        # not expressed here at all -- but the *order* devices are declared in
+        # decides their target names, so it must be stable. Configuration order
+        # already is, and is what a reader expects, so it is used directly.
         for disk in vm.disks:
             bus = self._libvirt_bus(disk)
             model = BUS_CONTROLLER_MODEL.get(disk.controller)

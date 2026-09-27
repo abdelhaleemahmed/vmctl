@@ -109,15 +109,32 @@ def test_duplicate_controller_names_rejected(validator, vm_minimal):
         validator.validate(vm_minimal)
 
 
-def test_two_disks_in_the_same_slot_are_rejected(validator, vm_minimal):
-    """F-08 - this used to pass and then fail inside VBoxManage mid-create."""
+def test_two_disks_pinned_to_the_same_slot_are_rejected(validator, vm_minimal):
+    """F-08 - this used to pass and then fail inside VBoxManage mid-create.
+
+    Both positions have to be *stated* for this to be a conflict: a device that
+    does not say where it goes is placed somewhere free instead (A-06).
+    """
+    vm_minimal.disks[0].port = 0
+    vm_minimal.disks[0].device = 0
     vm_minimal.disks.append(
         DiskConfig(
-            name="second", controller_name=vm_minimal.disks[0].controller_name, port=0, device=0
+            name="second",
+            controller_name=vm_minimal.disks[0].controller_name,
+            port=0,
+            device=0,
         )
     )
     with pytest.raises(ValidationError, match="both attached to"):
         validator.validate(vm_minimal)
+
+
+def test_devices_that_do_not_state_a_position_do_not_collide(validator, vm_minimal):
+    """The friction A-06 removes: for libvirt, port and device are vmctl's own
+    bookkeeping, so a config that omits them used to collide in slot 0."""
+    vm_minimal.disks.append(DiskConfig(name="second", size_mb=1024))
+    vm_minimal.disks.append(DiskConfig(name="third", size_mb=1024))
+    assert validator.validate(vm_minimal) == []
 
 
 def test_port_beyond_the_controller_port_count_is_rejected(validator, vm_minimal):

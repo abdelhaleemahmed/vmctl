@@ -92,6 +92,12 @@ things prevented that:
   against either provider, and anything that does not translate is reported
   rather than dropped. Verified end to end on libvirt 11.10.0 / QEMU 10.1.0,
   including booting a domain.
+- **Automatic device placement.** A configuration no longer has to say which
+  port and device number each disk uses; vmctl assigns the lowest free position
+  on the controller, deterministically, respecting IDE's master/slave pairing.
+  Positions you do state are kept exactly. `port` and `device` now default to
+  "unset" rather than `0`, which had made two devices that did not care where
+  they went collide.
 - **Provider selection**: `--provider/-p`, `$VMCTL_PROVIDER`, or detection of
   whatever is installed. `vmctl providers` lists what is usable here and which
   one is the default. Providers register lazily, so a hypervisor whose tooling is

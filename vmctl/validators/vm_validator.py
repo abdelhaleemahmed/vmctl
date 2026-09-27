@@ -14,10 +14,11 @@ meant a caller's object changed under them and no warning was ever produced
 (F-08).
 """
 
-from typing import Dict, List, Tuple
+from typing import List
 
 from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
+from ..core.slots import place
 from ..core.vmconfig import DiskType, FirmwareType, VMConfig
 
 
@@ -256,50 +257,10 @@ class VMValidator:
                 field="storage_controllers",
             )
 
-        # Two devices cannot share one (controller, port, device) slot.
-        seen: Dict[Tuple[str, int, int], Tuple[int, str]] = {}
-        for i, disk in enumerate(vm.disks):
-            # Compare the *resolved* controller, not the raw name: an unset name
-            # means "whichever controller serves this bus", so two devices on
-            # different buses must not look like a clash.
-            resolved = vm.controller_for(disk)
-            controller = resolved.name if resolved else disk.controller.value
-            slot = (controller, disk.port, disk.device)
-            if slot in seen:
-                raise ValidationError(
-                    f"disks[{i}] ({disk.name}) and disks[{seen[slot][0]}] "
-                    f"({seen[slot][1]}) are both attached to controller "
-                    f"{controller!r} port {disk.port} device {disk.device}",
-                    field=f"disks[{i}]",
-                    recovery_hint="Give each device its own port or device number.",
-                )
-            seen[slot] = (i, disk.name)
-
-        # A device cannot sit on a port the controller does not have.
-        for i, disk in enumerate(vm.disks):
-            sc = vm.controller_for(disk)
-            if sc is None or not sc.port_count:
-                continue
-            if disk.port >= sc.port_count:
-                raise ValidationError(
-                    f"disks[{i}] ({disk.name}) uses port {disk.port} on "
-                    f"controller {sc.name!r}, which has {sc.port_count} "
-                    f"port(s) (0-{sc.port_count - 1})",
-                    field=f"disks[{i}].port",
-                    value=disk.port,
-                    expected=f"0-{sc.port_count - 1}",
-                )
-            spec = self.capabilities.bus(sc.controller_type)
-            units = spec.units_per_port if spec else 1
-            if disk.device >= units:
-                raise ValidationError(
-                    f"disks[{i}] ({disk.name}) uses device {disk.device} on a "
-                    f"{sc.controller_type.value} controller, which allows "
-                    f"{units} device(s) per port",
-                    field=f"disks[{i}].device",
-                    value=disk.device,
-                    expected=f"0-{units - 1}",
-                )
+        # Placement -- collisions, ports a bus does not have, and devices per
+        # port -- is resolved by the shared allocator, so the validator and the
+        # emitters cannot disagree about where a device lands (A-06).
+        place(vm, self.capabilities)
 
         # Secure boot needs EFI; VirtualBox refuses the combination outright.
         if vm.firmware.secure_boot and vm.firmware.type == FirmwareType.BIOS:

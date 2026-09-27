@@ -218,8 +218,9 @@ class DiskConfig:
         controller: Storage bus type the disk is attached to.
         controller_name: Exact controller name (e.g. ``"SATA Controller"``), or
             None to use whichever controller serves ``controller``.
-        port: Controller port number (0-based).
-        device: Device number on the port (0 or 1).
+        port: Controller port number (0-based), or None to be assigned.
+        device: Device number on the port (0 or 1 on IDE), or None to be
+            assigned.
         bootable: Mark this disk as a boot device.
         disk_path: Original image path on the source system (not exported).
         source: Existing medium to attach for removable devices (e.g. an ISO
@@ -238,8 +239,12 @@ class DiskConfig:
     # (F-01). A config that names "SATA" still works: it is matched as a real
     # name first, and falls back to bus matching if nothing has that name.
     controller_name: Optional[str] = None
-    port: int = 0
-    device: int = 0
+    # None means "put it somewhere sensible": vmctl assigns the lowest free
+    # position on the controller, deterministically (A-06). Defaulting both to 0
+    # made "unset" indistinguishable from "explicitly the first slot", so two
+    # devices that simply did not care where they went collided.
+    port: Optional[int] = None
+    device: Optional[int] = None
     bootable: bool = False
     disk_path: Optional[str] = None  # Original disk path (for reference)
     source: Optional[str] = None  # Existing medium to attach (ISO for DVD, etc.)

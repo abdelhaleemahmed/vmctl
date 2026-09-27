@@ -111,8 +111,8 @@ Each entry in the `disks` list:
 | `variant` | enum | `THIN` | — | Allocation type (see below) |
 | `controller` | enum | `SATA` | — | Storage controller type |
 | `controller_name` | string | `null` | — | Exact controller name; `null` means "whichever controller serves `controller`", and one is created if the config declares none |
-| `port` | int | `0` | 0–port max | Controller port number |
-| `device` | int | `0` | 0–1 on IDE, 0 elsewhere | Device on port |
+| `port` | int | *assigned* | 0–port max | Controller port; omit it and vmctl assigns the lowest free one |
+| `device` | int | *assigned* | 0–1 on IDE, 0 elsewhere | Device on the port; omit it and vmctl assigns it |
 | `bootable` | bool | `false` | — | Informational only: VirtualBox has no per-disk bootable flag, boot selection is `boot.order` plus the controller's bootable setting |
 
 #### Disk Types

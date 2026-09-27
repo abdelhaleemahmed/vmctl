@@ -21,6 +21,7 @@ from ...core.vmconfig import (
 from ...core.exceptions import ProviderError
 from ...core.mapping import changed_flags, emit_flags
 from ...core.plan import Plan
+from ...core.slots import place
 from ...core.capabilities import Capabilities
 from .capabilities import VirtualBoxCapabilities
 from .tables import FIELDS, MODIFIABLE
@@ -157,13 +158,16 @@ class VirtualBoxEmitter:
         # does not declare gets one synthesised, so a hand-written config works
         # instead of attaching to a controller that was never created (F-01).
         controllers = self._resolve_controllers(vm)
+        # Where each device sits, decided once and shared with the validator and
+        # every other provider (A-06).
+        placements = place(vm, self.capabilities)
         by_bus: Dict[StorageControllerType, StorageControllerConfig] = {}
         for sc in controllers.values():
             by_bus.setdefault(sc.controller_type, sc)
             commands.append(self._create_storage_controller(sc))
 
         # Create and attach media.
-        for disk in vm.disks:
+        for disk, placement in zip(vm.disks, placements):
             controller = self._match_controller(disk, controllers, by_bus)
             if controller is None:
                 raise ProviderError(
@@ -229,9 +233,9 @@ class VirtualBoxEmitter:
                     "--storagectl",
                     controller.name,
                     "--port",
-                    str(disk.port),
+                    str(placement.port),
                     "--device",
-                    str(disk.device),
+                    str(placement.unit),
                     "--type",
                     attach_type,
                     "--medium",
