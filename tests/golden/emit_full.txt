@@ -1,5 +1,5 @@
 VBoxManage createvm --name full-vm --ostype Ubuntu_64 --register
-VBoxManage modifyvm full-vm --memory 16384 --vram 128 --cpus 8 --firmware efi64 --acpi on --ioapic on --rtcuseutc on --pae on --nested-hw-virt on --cpuhotplug on --pagefusion on --hpet on --cpuexecutioncap 90 --clipboard-mode disabled --draganddrop disabled
+VBoxManage modifyvm full-vm --memory 16384 --vram 128 --cpus 8 --firmware efi64 --acpi on --ioapic on --rtcuseutc on --pae on --nested-hw-virt on --cpuhotplug on --pagefusion on --hpet on --cpuexecutioncap 90 --clipboard-mode disabled --draganddrop disabled --description every field set
 VBoxManage modifyvm full-vm --tpm-type 2.0
 VBoxManage modifynvram full-vm enrollmssignatures
 VBoxManage storagectl full-vm --name SATA Controller --add sata --controller IntelAhci --portcount 2 --bootable on
@@ -18,4 +18,3 @@ VBoxManage modifyvm full-vm --boot2 dvd
 VBoxManage modifyvm full-vm --boot3 network
 VBoxManage modifyvm full-vm --audio-driver pulse --audio-enabled on --audiocontroller hda
 VBoxManage modifyvm full-vm --usb on --usbehci on
-VBoxManage modifyvm full-vm --description every field set

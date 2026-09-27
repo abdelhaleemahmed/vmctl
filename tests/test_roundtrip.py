@@ -81,5 +81,7 @@ def test_from_dict_does_not_mutate_its_input():
 def test_full_roundtrip_reaches_the_hypervisor(label):
     """F-05/F-02 — an EFI VM with nested virt must re-emit those settings."""
     vm = reload_through(YAMLSerializer(), parse_label(label))
-    flat = {tok for cmd in VirtualBoxEmitter(vm.name).emit_create_vm(vm) for tok in cmd}
+    flat = {
+        tok for cmd in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists() for tok in cmd
+    }
     assert "efi64" in flat or "efi" in flat

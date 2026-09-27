@@ -6,6 +6,7 @@ import re
 import subprocess
 import time
 from typing import Any, Callable, Dict, List, Optional, cast
+from ...core.plan import Plan, StepKind
 from ...core.vmconfig import VMConfig
 from ...core.exceptions import (
     DependencyError,
@@ -174,18 +175,25 @@ class VirtualBoxBackend(BaseProvider):
         vm: VMConfig = self.parser.parse_vm(vm_name)
         return vm
 
-    def create_vm(self, vm: VMConfig, execute: bool = True) -> List[List[str]]:
-        """Create a new VM from VMConfig."""
+    def create_vm(self, vm: VMConfig, execute: bool = True) -> Plan:
+        """Create a new VM from VMConfig.
+
+        Args:
+            vm: Configuration to create.
+            execute: Run the plan. False returns it unexecuted (dry-run).
+
+        Returns:
+            Plan: The steps that were, or would be, run.
+        """
         if execute:
             self.check_supported()
         emitter = VirtualBoxEmitter(vm.name, machine_folder=self.machine_folder)
-        commands: List[List[str]] = emitter.emit_create_vm(vm)
+        plan = emitter.emit_create_vm(vm)
 
         if execute:
-            for cmd in commands:
-                self._run_command(cmd)
+            self.run_plan(plan)
 
-        return commands
+        return plan
 
     def edit_vm(
         self,
@@ -193,7 +201,7 @@ class VirtualBoxBackend(BaseProvider):
         new_config: VMConfig,
         execute: bool = True,
         on_warning: Optional[Callable[[str], None]] = None,
-    ) -> List[List[str]]:
+    ) -> Plan:
         """Apply a configuration to an existing VM with `modifyvm`.
 
         Reads the VM's current state and emits only the flags that differ, so
@@ -207,7 +215,7 @@ class VirtualBoxBackend(BaseProvider):
                 in place (storage and network layout).
 
         Returns:
-            list: The commands that were, or would be, executed.
+            Plan: The steps that were, or would be, run.
 
         Raises:
             ProviderError: If the VM does not exist, is running, or a command
@@ -232,21 +240,16 @@ class VirtualBoxBackend(BaseProvider):
 
         current = self.read_vm(vm_name)
         emitter = VirtualBoxEmitter(vm_name, machine_folder=self.machine_folder)
-        commands: List[List[str]]
-        commands, unsupported = emitter.emit_modify_vm(current, new_config)
+        plan = emitter.emit_modify_vm(current, new_config)
 
-        if unsupported and on_warning:
-            for item in unsupported:
-                on_warning(
-                    f"{item} differs from the VM but cannot be changed in "
-                    f"place; it was left alone"
-                )
+        if on_warning:
+            for message in plan.warnings:
+                on_warning(message)
 
         if execute:
-            for cmd in commands:
-                self._run_command(cmd)
+            self.run_plan(plan)
 
-        return commands
+        return plan
 
     def delete_vm(self, vm_name: str) -> bool:
         """Delete a VM and its associated files."""
@@ -393,6 +396,28 @@ class VirtualBoxBackend(BaseProvider):
                 dependency="VBoxManage",
                 install_command="Install VirtualBox and ensure VBoxManage is on your PATH",
             )
+
+    def run_plan(self, plan: Plan) -> None:
+        """Execute every step in a plan, in order.
+
+        Args:
+            plan: The plan to run.
+
+        Raises:
+            ProviderError: If a step fails, or the plan contains a kind this
+                provider cannot run.
+        """
+        for step in plan:
+            if step.kind is StepKind.EXEC and step.argv:
+                self._run_command(step.argv)
+            elif step.kind is StepKind.WRITE_FILE and step.path is not None:
+                step.path.parent.mkdir(parents=True, exist_ok=True)
+                step.path.write_text(step.content or "")
+            else:
+                raise ProviderError(
+                    f"the virtualbox provider cannot run a "
+                    f"{step.kind.value} step ({step.description})"
+                )
 
     def _run_command(self, command: List[str]) -> str:
         """Run a VBoxManage command."""

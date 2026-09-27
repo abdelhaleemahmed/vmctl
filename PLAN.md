@@ -287,6 +287,30 @@ from `VBoxManage showvminfo` NVRAM output or drop the field from the model
 rather than pretend it round-trips. Gate on the `H-07` version floor — the
 option set differs across 6.1 / 7.0 / 7.1.
 
+### F-23 — Three settings were emitted but never read · S *(fixed by A-11)*
+`vmctl/providers/virtualbox/parser.py`
+
+The mirror image of `F-05`. Phase 1 made the emitter write `--hpet`,
+`--cpuexecutioncap` and `--pagefusion`; nothing ever read them back, although
+VirtualBox reports all three:
+
+```
+pagefusion="off"
+cpuexecutioncap=100
+hpet="on"
+```
+
+So exporting a VM and importing it again **silently reset** HPET, the CPU
+execution cap and page fusion to their defaults. Verified on the real host: a VM
+built with `--hpet on --cpuexecutioncap 75 --pagefusion on` round-tripped as
+off/100/off.
+
+The cause is structural rather than an oversight: reading and writing were
+separate hand-written code paths with nothing tying them together, so they could
+drift in either direction. `A-11`'s field table closes it by construction — one
+declaration serves both directions, and a property test asserts the round trip
+for **every** field in the table, so the next field cannot repeat it.
+
 ### F-22 — An empty removable drive is not represented at all · S
 `vmctl/providers/virtualbox/parser.py` (disk attachment filter)
 
@@ -765,6 +789,24 @@ hazard for anyone doing `except TimeoutError` in this codebase.
 ---
 
 ## Phase 5 — Portable core: neutral model, storage matrix, plan abstraction
+
+> **Status: in progress.** `A-01` (Plan) and `A-11` (field-table mapping) are
+> done and landed together, as planned — they are the two halves of the same
+> seam. Suite: 274 passed, 1 skipped.
+>
+> **`A-01` is provably behaviour-neutral**: the golden command files are
+> byte-identical and the CLI's dry-run output is unchanged, because the test
+> helper renders a `Plan` through `as_argv_lists()`. `List[List[str]]` is gone
+> from the provider contract, so libvirt's XML, VMware's `.vmx` and Hyper-V's
+> PowerShell now have a shape to fit into.
+>
+> **`A-11` paid for itself immediately** by exposing `F-23`: `hpet`,
+> `cpuexecutioncap` and `pagefusion` were emitted but never read, so an
+> export/import cycle silently reset them. Verified fixed on the real host —
+> 7/7 fields survived a round trip that previously lost three. The only golden
+> that moved was `--hpet off` becoming `--hpet on`, which is the bug being fixed.
+>
+> Remaining: `M-01`…`M-06` (the three-axis storage model), `A-02`…`A-10`.
 
 This phase adds no new hypervisor. Its only job is to make the **existing
 structure** carry more than one, so that every later provider is four small
@@ -1599,6 +1641,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-20 'Format variant:' prefix -> variant always thin
          [x] F-21 audio="default" misread as audio enabled
          [ ] F-22 empty removable drive dropped entirely (narrow fix or M-02)
+         [x] F-23 hpet/cpuexecutioncap/pagefusion were never read (fixed by A-11)
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -1614,8 +1657,8 @@ Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [ ] M-03 support matrix incl. (kind x bus) attach table  + PROBE it
          [ ] M-04 --disk-format option, provider-filtered choices
          [ ] M-05 shared medium conversion      [ ] M-06 config back-compat mapping
-         [ ] A-01 Plan/Step replaces List[List[str]]   <-- land alone
-         [ ] A-11 field-table mapping engine + codecs + decoders (with A-01)
+         [x] A-01 Plan/Step replaces List[List[str]]   <-- land alone
+         [x] A-11 field-table mapping engine + codecs + decoders (with A-01)
          [ ] A-02 typed Capabilities, matrix-driven validator
          [ ] A-03 provider registry + --provider + entry points
          [ ] A-04 translation engine + policy + lossiness report

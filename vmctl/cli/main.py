@@ -69,6 +69,30 @@ def _require_absent(engine, name: str) -> None:
         _fail(VMAlreadyExistsError(name))
 
 
+def _show_plan(plan, execute: bool, done_message: str) -> None:
+    """Report a plan: either what was run, or what would be.
+
+    Args:
+        plan: The plan returned by the engine.
+        execute: Whether it was actually applied.
+        done_message: What to print when it was.
+    """
+    for message in plan.warnings:
+        _warn(message)
+
+    if not plan:
+        click.echo("No changes to apply.")
+        return
+
+    if execute:
+        click.echo(done_message)
+        click.echo(plan.render())
+    else:
+        click.echo("Dry-run mode.  Commands that would be executed:")
+        click.echo(plan.render())
+        click.echo("\nRun with --execute to apply.")
+
+
 def _fail(exc: Exception) -> None:
     """Print an error the way a user can act on, then exit 1.
 
@@ -371,14 +395,8 @@ def cmd_import(config_file, new_name, execute):
         vm = engine.import_vm(config_file, new_name)
         if execute:
             _require_absent(engine, vm.name)
-            engine.create_vm(vm, on_warning=_warn)
-            click.echo(f"Created VM '{vm.name}' from {config_file}")
-        else:
-            commands = engine.create_vm(vm, execute=False, on_warning=_warn)
-            click.echo("Dry-run mode.  Commands that would be executed:")
-            for i, cmd in enumerate(commands, 1):
-                click.echo(f"  {i:3d}: {' '.join(cmd)}")
-            click.echo("\nRun with --execute to apply.")
+        plan = engine.create_vm(vm, execute=execute, on_warning=_warn)
+        _show_plan(plan, execute, f"Created VM '{vm.name}' from {config_file}")
     except VMToolError as e:
         _fail(e)
 
@@ -421,14 +439,8 @@ def cmd_create(source_vm, new_name, memory, cpus, execute):
             vm.cpu.count = cpus
         if execute:
             _require_absent(engine, vm.name)
-            engine.create_vm(vm, on_warning=_warn)
-            click.echo(f"Created VM '{vm.name}'")
-        else:
-            commands = engine.create_vm(vm, execute=False, on_warning=_warn)
-            click.echo("Dry-run mode.  Commands that would be executed:")
-            for i, cmd in enumerate(commands, 1):
-                click.echo(f"  {i:3d}: {' '.join(cmd)}")
-            click.echo("\nRun with --execute to apply.")
+        plan = engine.create_vm(vm, execute=execute, on_warning=_warn)
+        _show_plan(plan, execute, f"Created VM '{vm.name}'")
     except VMToolError as e:
         _fail(e)
 
@@ -475,20 +487,8 @@ def cmd_edit(vm_name, new_name, memory, vram, cpus, execute):
         if cpus:
             vm.cpu.count = cpus
 
-        commands = engine.edit_vm(vm_name, vm, execute=execute, on_warning=_warn)
-
-        if not commands:
-            click.echo("No changes to apply.")
-            return
-        if execute:
-            click.echo(f"Updated VM '{vm_name}'")
-            for cmd in commands:
-                click.echo(f"  {' '.join(cmd)}")
-        else:
-            click.echo("Dry-run mode.  Commands that would be executed:")
-            for i, cmd in enumerate(commands, 1):
-                click.echo(f"  {i:3d}: {' '.join(cmd)}")
-            click.echo("\nRun with --execute to apply.")
+        plan = engine.edit_vm(vm_name, vm, execute=execute, on_warning=_warn)
+        _show_plan(plan, execute, f"Updated VM '{vm_name}'")
     except VMToolError as e:
         _fail(e)
 

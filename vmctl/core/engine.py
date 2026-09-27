@@ -4,6 +4,7 @@ Core engine coordinating all components
 
 from pathlib import Path
 from typing import Callable, List, Optional
+from .plan import Plan
 from .vmconfig import VMConfig
 from .exceptions import ValidationError, SerializationError
 from ..validators.vm_validator import VMValidator
@@ -44,7 +45,7 @@ class VMCtlEngine:
         validate: bool = True,
         execute: bool = True,
         on_warning: Optional[Callable[[str], None]] = None,
-    ) -> List[List[str]]:
+    ) -> Plan:
         """Create a new VM.
 
         Args:
@@ -57,7 +58,7 @@ class VMCtlEngine:
                 a caller may be piping; the CLI now routes them to stderr.
 
         Returns:
-            list: The commands that were, or would be, executed.
+            Plan: The steps that were, or would be, run.
         """
         if validate:
             for warning in self.validator.validate(vm):
@@ -72,7 +73,7 @@ class VMCtlEngine:
         new_config: VMConfig,
         execute: bool = True,
         on_warning: Optional[Callable[[str], None]] = None,
-    ) -> List[List[str]]:
+    ) -> Plan:
         """Edit an existing VM.
 
         Args:
@@ -82,7 +83,7 @@ class VMCtlEngine:
             on_warning: Where to send validation warnings.
 
         Returns:
-            list: The commands that were executed.
+            Plan: The steps that were, or would be, run.
         """
         for warning in self.validator.validate(new_config):
             if on_warning:

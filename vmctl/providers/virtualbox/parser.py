@@ -10,7 +10,6 @@ from ...core.vmconfig import (
     CPUConfig,
     MemoryConfig,
     FirmwareConfig,
-    FirmwareType,
     DiskConfig,
     DiskType,
     DiskFormat,
@@ -22,7 +21,9 @@ from ...core.vmconfig import (
     StorageControllerType,
 )
 from ...core.exceptions import DependencyError, ProviderError
+from ...core.mapping import read_into
 from ..base import MediumProbe
+from .tables import CONTROLLER_CHIPSETS, FIELDS
 
 
 class VirtualBoxParser:
@@ -71,31 +72,6 @@ class VirtualBoxParser:
         "VHD": DiskFormat.VHD,
         "RAW": DiskFormat.RAW,
         "IMG": DiskFormat.RAW,
-    }
-
-    FIRMWARE_TYPES = {
-        "bios": FirmwareType.BIOS,
-        "efi": FirmwareType.EFI,
-        "efi32": FirmwareType.EFI32,
-        "efi64": FirmwareType.EFI64,
-    }
-
-    #: Reported controller chipset -> canonical bus type. Verified against
-    #: ``VBoxManage storagectl --help`` on VirtualBox 7.1.18: the full chipset
-    #: set is BusLogic, I82078, ICH6, IntelAhci, LSILogic, LSILogicSAS, NVMe,
-    #: PIIX3, PIIX4, USB, VirtIO.
-    CONTROLLER_TYPES = {
-        "piix3": StorageControllerType.IDE,
-        "piix4": StorageControllerType.IDE,
-        "ich6": StorageControllerType.IDE,
-        "intelahci": StorageControllerType.SATA,
-        "lsilogic": StorageControllerType.SCSI,
-        "buslogic": StorageControllerType.SCSI,
-        "lsilogicsas": StorageControllerType.SAS,
-        "nvme": StorageControllerType.NVME,
-        "i82078": StorageControllerType.FLOPPY,
-        "usb": StorageControllerType.USB,
-        "virtioscsi": StorageControllerType.VIRTIO_SCSI,
     }
 
     TRUTHY = {"on", "true", "yes", "1", "enabled"}
@@ -311,42 +287,26 @@ class VirtualBoxParser:
         """
         lookup: Callable[[str], Dict[str, Any]] = probe if probe is not None else self.get_disk_info
 
-        # CPU
-        cpu = CPUConfig(
-            count=int(config.get("cpus", 2)),
-            pae=self._flag(config, "pae"),
-            nested_virt=self._flag(config, "nested-hw-virt"),
-        )
-
-        # Memory
-        memory = MemoryConfig(
-            mb=int(config.get("memory", 2048)), vram_mb=int(config.get("vram", 16))
-        )
-
-        # Firmware. VirtualBox reports BIOS / EFI / EFI32 / EFI64 in upper case,
-        # so the comparison must be case-insensitive and cover every value --
-        # matching only lowercase 'efi' made every EFI VM look like BIOS (F-02).
+        # Scalar settings come from the shared field table below; only the
+        # structural parts are assembled by hand. Reading and writing a setting
+        # are now the same declaration, so a field cannot be parsed but not
+        # emitted (F-05) or emitted but not parsed (F-23) -- which is how hpet,
+        # cpuexecutioncap and pagefusion were being lost.
+        cpu = CPUConfig()
+        memory = MemoryConfig()
         firmware = FirmwareConfig(
-            type=self.FIRMWARE_TYPES.get(
-                config.get("firmware", "bios").strip().lower(),
-                FirmwareType.BIOS,
-            ),
             # VirtualBox 7.x does not report secure-boot state in
-            # machine-readable output at all, so this is always False on read;
-            # see F-17.
-            secure_boot=self._flag(config, "secureboot"),
+            # machine-readable output at all, so it can never be read back; see
+            # F-17. It is deliberately absent from the field table.
+            secure_boot=False,
         )
-
-        # Boot
         boot = BootConfig(
             order=[
                 config.get("boot1", "disk"),
                 config.get("boot2", "dvd"),
                 config.get("boot3", "none"),
                 config.get("boot4", "none"),
-            ],
-            acpi=self._flag(config, "acpi", True),
-            ioapic=self._flag(config, "ioapic"),
+            ]
         )
 
         # Parse disks and storage controllers
@@ -378,12 +338,12 @@ class VirtualBoxParser:
             # Map the reported chipset to a bus type. An unrecognised chipset
             # must not silently become SATA: that made a floppy controller
             # (I82078) claim to be SATA and absorb disk attachments (F-15).
-            sc_type = self.CONTROLLER_TYPES.get(controller_type.strip().lower())
+            sc_type = CONTROLLER_CHIPSETS.get(controller_type.strip().lower())
             if sc_type is None:
                 raise ProviderError(
                     f"Unknown storage controller type {controller_type!r} on "
                     f"controller {name!r}. Known types: "
-                    f"{', '.join(sorted(self.CONTROLLER_TYPES))}."
+                    f"{', '.join(sorted(CONTROLLER_CHIPSETS))}."
                 )
 
             sc = StorageControllerConfig(
@@ -525,7 +485,7 @@ class VirtualBoxParser:
                 )
                 networks.append(network)
 
-        return VMConfig(
+        vm = VMConfig(
             name=vm_name,
             cpu=cpu,
             memory=memory,
@@ -534,14 +494,11 @@ class VirtualBoxParser:
             networks=networks,
             boot=boot,
             storage_controllers=storage_controllers,
-            ostype=config.get("ostype", "Ubuntu_64"),
-            description=config.get("description"),
-            # `audio` names the *driver* (VirtualBox 7.x reports
-            # audio="default" even when sound is off), so it says nothing about
-            # whether audio is enabled. The playback/recording flags do (F-21).
+            # `audio` names the driver (VirtualBox 7.x reports audio="default"
+            # even when sound is off), so the playback/recording flags decide
+            # it, not the driver name (F-21).
             audio_enabled=(self._flag(config, "audio_out") or self._flag(config, "audio_in")),
             usb_enabled=self._flag(config, "usb"),
-            rtc_utc=self._flag(config, "rtcuseutc", True),
-            clipboard_mode=config.get("clipboard", "disabled"),
-            draganddrop=config.get("draganddrop", "disabled"),
         )
+        read_into(vm, config, FIELDS)
+        return vm

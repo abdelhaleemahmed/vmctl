@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from collections import OrderedDict
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from ...core.vmconfig import (
     VMConfig,
     DiskFormat,
@@ -20,6 +20,9 @@ from ...core.vmconfig import (
     resolve_controller,
 )
 from ...core.exceptions import ProviderError
+from ...core.mapping import changed_flags, emit_flags
+from ...core.plan import Plan
+from .tables import FIELDS, MODIFIABLE
 
 
 class VirtualBoxEmitter:
@@ -56,8 +59,16 @@ class VirtualBoxEmitter:
         """Join a medium path using the *target* host's separator."""
         return self.path_sep.join([self.machine_folder.rstrip("/\\"), *parts])
 
-    def emit_create_vm(self, vm: VMConfig) -> List[List[str]]:
-        """Generate commands to create a VM from VMConfig"""
+    def emit_create_vm(self, vm: VMConfig) -> Plan:
+        """Generate the plan that creates a VM from a VMConfig.
+
+        Args:
+            vm: Configuration to realise.
+
+        Returns:
+            Plan: The steps to run, each with a human-readable description.
+        """
+        plan = Plan("virtualbox")
         commands: List[List[str]] = []
 
         # Map display names to internal VirtualBox OS type names
@@ -109,44 +120,10 @@ class VirtualBoxEmitter:
             ["VBoxManage", "createvm", "--name", vm.name, "--ostype", ostype, "--register"]
         )
 
-        # Basic configuration. Every field below used to be parsed, exported to
-        # YAML, and then silently dropped on create (F-05).
-        basic = [
-            "VBoxManage",
-            "modifyvm",
-            vm.name,
-            "--memory",
-            str(vm.memory.mb),
-            "--vram",
-            str(vm.memory.vram_mb),
-            "--cpus",
-            str(vm.cpu.count),
-            "--firmware",
-            vm.firmware.type.value,
-            "--acpi",
-            "on" if vm.boot.acpi else "off",
-            "--ioapic",
-            "on" if vm.boot.ioapic else "off",
-            "--rtcuseutc",
-            "on" if vm.rtc_utc else "off",
-            "--pae",
-            "on" if vm.cpu.pae else "off",
-            "--nested-hw-virt",
-            "on" if vm.cpu.nested_virt else "off",
-            "--cpuhotplug",
-            "on" if vm.cpu.hotplug else "off",
-            "--pagefusion",
-            "on" if vm.memory.page_fusion else "off",
-            "--hpet",
-            "on" if vm.boot.hpet else "off",
-        ]
-        if vm.cpu.execution_cap != 100:
-            basic += ["--cpuexecutioncap", str(vm.cpu.execution_cap)]
-        if vm.clipboard_mode:
-            basic += ["--clipboard-mode", vm.clipboard_mode]
-        if vm.draganddrop:
-            basic += ["--draganddrop", vm.draganddrop]
-        commands.append(basic)
+        # Basic configuration. Every flag below comes from the shared field
+        # table, so a setting is declared once and read and written by the same
+        # declaration (A-11). Table order is the emission order.
+        commands.append(["VBoxManage", "modifyvm", vm.name] + emit_flags(vm, FIELDS))
 
         # TPM. VirtualBox 7.x spells this --tpm-type; there is no boolean form.
         if vm.firmware.tpm:
@@ -274,11 +251,31 @@ class VirtualBoxEmitter:
         if vm.usb_enabled:
             commands.append(["VBoxManage", "modifyvm", vm.name, "--usb", "on", "--usbehci", "on"])
 
-        # Description
-        if vm.description:
-            commands.append(["VBoxManage", "modifyvm", vm.name, "--description", vm.description])
+        for cmd in commands:
+            plan.exec(cmd, self._describe(cmd))
+        return plan
 
-        return commands
+    @staticmethod
+    def _describe(cmd: List[str]) -> str:
+        """Return a one-line description of a VBoxManage command."""
+        verb = cmd[1] if len(cmd) > 1 else "?"
+        labels = {
+            "createvm": "register the VM",
+            "modifyvm": "apply VM settings",
+            "storagectl": "add a storage controller",
+            "createmedium": "create a medium",
+            "storageattach": "attach a device",
+            "modifynvram": "enrol secure-boot keys",
+            "unregistervm": "unregister the VM",
+            "controlvm": "change the VM's run state",
+            "startvm": "start the VM",
+        }
+        detail = ""
+        for flag in ("--name", "--storagectl", "--filename"):
+            if flag in cmd:
+                detail = f" ({cmd[cmd.index(flag) + 1]})"
+                break
+        return f"{labels.get(verb, verb)}{detail}"
 
     # -- storage topology ----------------------------------------------------
 
@@ -408,31 +405,6 @@ class VirtualBoxEmitter:
 
     # -- editing an existing VM ---------------------------------------------
 
-    #: Settings that can be changed with a single ``modifyvm`` flag, as
-    #: (dotted config path, flag, renderer). Driving edits from a table means a
-    #: field is supported in one place rather than in a hand-written if-chain,
-    #: and read/write cannot drift apart. A-11 generalises this to both
-    #: directions for every provider.
-    MODIFIABLE = (
-        ("memory.mb", "--memory", str),
-        ("memory.vram_mb", "--vram", str),
-        ("cpu.count", "--cpus", str),
-        ("cpu.execution_cap", "--cpuexecutioncap", str),
-        ("cpu.pae", "--pae", lambda v: "on" if v else "off"),
-        ("cpu.nested_virt", "--nested-hw-virt", lambda v: "on" if v else "off"),
-        ("cpu.hotplug", "--cpuhotplug", lambda v: "on" if v else "off"),
-        ("memory.page_fusion", "--pagefusion", lambda v: "on" if v else "off"),
-        ("boot.acpi", "--acpi", lambda v: "on" if v else "off"),
-        ("boot.ioapic", "--ioapic", lambda v: "on" if v else "off"),
-        ("boot.hpet", "--hpet", lambda v: "on" if v else "off"),
-        ("rtc_utc", "--rtcuseutc", lambda v: "on" if v else "off"),
-        ("usb_enabled", "--usb", lambda v: "on" if v else "off"),
-        ("clipboard_mode", "--clipboard-mode", str),
-        ("draganddrop", "--draganddrop", str),
-        ("firmware.type", "--firmware", lambda v: v.value),
-        ("description", "--description", str),
-    )
-
     #: Changes vmctl cannot apply in place, reported rather than silently ignored.
     UNSUPPORTED_EDITS = (
         ("disks", "storage layout"),
@@ -441,29 +413,23 @@ class VirtualBoxEmitter:
         ("ostype", "guest OS type"),
     )
 
-    @staticmethod
-    def _get(obj: Any, dotted: str) -> Any:
-        for part in dotted.split("."):
-            obj = getattr(obj, part)
-        return obj
-
-    def emit_modify_vm(self, current: VMConfig, desired: VMConfig):
-        """Generate the commands that turn *current* into *desired*.
+    def emit_modify_vm(self, current: VMConfig, desired: VMConfig) -> Plan:
+        """Generate the plan that turns *current* into *desired*.
 
         Only differences are emitted, so editing one setting produces one
-        command rather than re-applying everything.
+        command rather than re-applying everything. Requested changes that
+        cannot be applied in place land in :attr:`Plan.warnings` rather than
+        being dropped silently.
 
         Args:
             current: The VM as it exists now.
             desired: The VM as it should be.
 
         Returns:
-            tuple: ``(commands, unsupported)`` where ``commands`` is a list of
-            argv lists and ``unsupported`` is a list of human-readable
-            descriptions of requested changes that cannot be applied in place.
+            Plan: The steps to run, possibly empty, plus any warnings.
         """
+        plan = Plan("virtualbox")
         commands = []
-        unsupported = []
 
         # Renaming first: every later command addresses the VM by its new name
         # only if the rename has already happened.
@@ -472,22 +438,21 @@ class VirtualBoxEmitter:
             commands.append(["VBoxManage", "modifyvm", current.name, "--name", desired.name])
             target = desired.name
 
-        changed = []
-        for path, flag, render in self.MODIFIABLE:
-            old = self._get(current, path)
-            new = self._get(desired, path)
-            if new is None or new == old:
-                continue
-            changed += [flag, render(new)]
-
+        changed = changed_flags(current, desired, MODIFIABLE)
         if changed:
             commands.append(["VBoxManage", "modifyvm", target] + changed)
 
+        for cmd in commands:
+            plan.exec(cmd, self._describe(cmd))
+
         for attr, label in self.UNSUPPORTED_EDITS:
             if getattr(current, attr) != getattr(desired, attr):
-                unsupported.append(label)
+                plan.warn(
+                    f"{label} differs from the VM but cannot be changed in "
+                    f"place; it was left alone"
+                )
 
-        return commands, unsupported
+        return plan
 
     def _configure_network_adapter(self, adapter_num: int, network: NetworkConfig) -> List[str]:
         """Generate command to configure network adapter"""

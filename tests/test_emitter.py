@@ -148,14 +148,14 @@ def test_full_matches_golden():
 
 
 def test_first_command_registers_the_vm(vm_full):
-    cmds = VirtualBoxEmitter(vm_full.name).emit_create_vm(vm_full)
+    cmds = VirtualBoxEmitter(vm_full.name).emit_create_vm(vm_full).as_argv_lists()
     assert cmds[0][:2] == ["VBoxManage", "createvm"]
     assert "--register" in cmds[0]
 
 
 def test_every_command_targets_this_vm(vm_full):
     """No command may reference a VM other than the one being created."""
-    cmds = VirtualBoxEmitter(vm_full.name).emit_create_vm(vm_full)
+    cmds = VirtualBoxEmitter(vm_full.name).emit_create_vm(vm_full).as_argv_lists()
     for cmd in cmds:
         if cmd[1] in ("modifyvm", "storagectl", "storageattach", "createvm"):
             assert vm_full.name in cmd, cmd
@@ -165,12 +165,12 @@ def test_display_ostype_names_are_mapped_to_internal_ids():
     """The parser reads 'Red Hat (64-bit)'; createvm needs 'RedHat_64'."""
     vm = parse_label("multidisk")
     assert vm.ostype == "Red Hat (64-bit)"
-    cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm)
+    cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
     assert cmds[0][cmds[0].index("--ostype") + 1] == "RedHat_64"
 
 
 def test_internal_ostype_ids_pass_through(vm_minimal):
-    cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal)
+    cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal).as_argv_lists()
     assert cmds[0][cmds[0].index("--ostype") + 1] == "Ubuntu_64"
 
 
@@ -178,20 +178,26 @@ def test_raw_format_is_forced_to_fixed_allocation():
     vm = build_minimal()
     vm.disks[0].format = DiskFormat.RAW
     vm.disks[0].variant = DiskVariant.THIN
-    create = [c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm) if c[1] == "createmedium"][0]
+    create = [
+        c
+        for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+        if c[1] == "createmedium"
+    ][0]
     assert create[create.index("--variant") + 1] == "Fixed"
     assert create[create.index("--filename") + 1].endswith(".img")
 
 
 def test_promiscuous_and_mac_are_emitted():
     vm = build_full()
-    nic = [c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm) if "--nic2" in c][0]
+    nic = [
+        c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists() if "--nic2" in c
+    ][0]
     assert "--promiscuous2" in nic
     assert nic[nic.index("--macaddress2") + 1] == "080027AA0001"
 
 
 def test_none_boot_slots_are_not_emitted(vm_minimal):
-    cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal)
+    cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal).as_argv_lists()
     import re as _re
 
     boot_flags = [tok for c in cmds for tok in c if _re.fullmatch(r"--boot\d", tok)]
@@ -205,7 +211,7 @@ def test_none_boot_slots_are_not_emitted(vm_minimal):
 
 def test_minimal_config_creates_its_controller_before_attaching():
     """F-01 — the README's own example config cannot be imported."""
-    cmds = VirtualBoxEmitter("minimal-vm").emit_create_vm(build_minimal())
+    cmds = VirtualBoxEmitter("minimal-vm").emit_create_vm(build_minimal()).as_argv_lists()
     verbs = [c[1] for c in cmds]
     assert "storagectl" in verbs, "storageattach has no controller to attach to"
     assert verbs.index("storagectl") < verbs.index("storageattach")
@@ -220,7 +226,7 @@ def test_optical_drive_does_not_create_a_hard_disk():
     VBoxManage rejects for ``--type dvddrive``.
     """
     vm = parse_label("iso_attached")
-    cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm)
+    cmds = VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
 
     created = [c[c.index("--filename") + 1] for c in cmds if c[1] == "createmedium"]
     assert len(created) == 1, f"a medium was created for the optical drive: {created}"
@@ -248,14 +254,22 @@ def test_every_configured_field_reaches_a_command(flag):
     vm = build_full()
     vm.clipboard_mode = "bidirectional"
     vm.draganddrop = "bidirectional"
-    flat = {token for cmd in VirtualBoxEmitter(vm.name).emit_create_vm(vm) for token in cmd}
+    flat = {
+        token
+        for cmd in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+        for token in cmd
+    }
     assert flag in flat
 
 
 def test_description_is_not_double_quoted():
     vm = build_minimal()
     vm.description = "a lab vm"
-    desc = [c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm) if "--description" in c][0]
+    desc = [
+        c
+        for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+        if "--description" in c
+    ][0]
     assert desc[desc.index("--description") + 1] == "a lab vm"
 
 
@@ -280,9 +294,11 @@ def test_disk_is_attached_to_the_controller_it_was_parsed_from():
     controller.
     """
     vm = parse_label("floppy_first")
-    attach = [c for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm) if c[1] == "storageattach"][
-        0
-    ]
+    attach = [
+        c
+        for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
+        if c[1] == "storageattach"
+    ][0]
     assert attach[attach.index("--storagectl") + 1] == "SATA"
 
 
@@ -290,7 +306,7 @@ def test_floppy_controller_is_not_created_as_sata():
     vm = parse_label("floppy_first")
     ctl = [
         c
-        for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm)
+        for c in VirtualBoxEmitter(vm.name).emit_create_vm(vm).as_argv_lists()
         if c[1] == "storagectl" and "Floppy" in c
     ][0]
     assert ctl[ctl.index("--add") + 1] != "sata"

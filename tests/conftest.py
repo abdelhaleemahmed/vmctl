@@ -271,8 +271,15 @@ def vm_full() -> VMConfig:
 # ---------------------------------------------------------------------------
 
 
-def render_commands(commands: List[List[str]]) -> str:
-    """Render emitted commands the way a golden file stores them."""
+def render_commands(commands) -> str:
+    """Render emitted commands the way a golden file stores them.
+
+    Accepts a Plan or a plain list of argv lists, so the golden files stay
+    byte-identical across the Plan migration (A-01) -- which is the evidence
+    that the migration changed no behaviour.
+    """
+    if hasattr(commands, "as_argv_lists"):
+        commands = commands.as_argv_lists()
     return "\n".join(" ".join(cmd) for cmd in commands) + "\n"
 
 

@@ -6,13 +6,14 @@ this abstract base class to ensure consistent API across providers.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import Any, Callable, Dict, List, Optional
 
 try:  # pragma: no cover - typing_extensions fallback for older interpreters
     from typing import Protocol, runtime_checkable
 except ImportError:  # pragma: no cover
     from typing_extensions import Protocol, runtime_checkable  # type: ignore
 
+from ..core.plan import Plan
 from ..core.vmconfig import VMConfig
 
 
@@ -71,16 +72,17 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def create_vm(self, vm: VMConfig, execute: bool = True) -> List[List[str]]:
+    def create_vm(self, vm: VMConfig, execute: bool = True) -> Plan:
         """
         Create a new VM from configuration.
 
         Args:
             vm: VMConfig object defining the VM
-            execute: If True, actually create the VM. If False, return commands only (dry-run)
+            execute: If True, actually create the VM. If False, return the plan
+                without running it (dry-run)
 
         Returns:
-            List of commands that were/would be executed
+            Plan: the steps that were, or would be, run
 
         Raises:
             ProviderError: If VM creation fails
@@ -165,18 +167,25 @@ class BaseProvider(ABC):
         """
         return vm_name in self.list_vms()
 
-    def edit_vm(self, vm_name: str, new_config: VMConfig, execute: bool = True) -> List[List[str]]:
+    def edit_vm(
+        self,
+        vm_name: str,
+        new_config: VMConfig,
+        execute: bool = True,
+        on_warning: Optional[Callable[[str], None]] = None,
+    ) -> Plan:
         """
         Edit an existing VM's configuration.
 
         Args:
             vm_name: Name of the VM to edit
             new_config: New configuration to apply
-            execute: If True, apply the change. If False, return the commands
-                that would be run (dry-run).
+            execute: If True, apply the change. If False, return the plan
+                without running it (dry-run).
+            on_warning: Where to report changes that cannot be applied in place.
 
         Returns:
-            List of commands that were, or would be, executed
+            Plan: the steps that were, or would be, run
 
         Raises:
             NotImplementedError: If the provider does not implement editing.
