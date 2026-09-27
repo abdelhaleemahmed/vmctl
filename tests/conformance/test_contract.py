@@ -6,6 +6,7 @@ checker while getting the shape wrong in ways that only showed up in production.
 A provider that fails any of these is not finished.
 """
 
+import copy
 import inspect
 
 import pytest
@@ -59,6 +60,54 @@ def test_editing_never_destroys_the_vm(backend):
     """
     source = inspect.getsource(type(backend).edit_vm)
     assert "delete_vm" not in source
+
+
+def test_editing_never_re_creates_a_disk_the_vm_already_has(backend, vm_minimal, caps, monkeypatch):
+    """F-39: the same trap one level down, and this one destroyed data.
+
+    Three of the four providers keep a VM's configuration *in a file*, so changing one
+    means writing that file again -- and the shortest way to write it is the code that
+    creates a VM, whose plan also **makes the disks**. ``vmctl edit --memory`` on a QEMU
+    VM therefore ran ``qemu-img create`` over the VM's own image. Measured, not
+    theorised: a pattern written into the image did not survive the edit.
+
+    The rule is checked without knowing any provider's path conventions. Emitting the
+    same VM twice, once with its image already there and once without, isolates exactly
+    the work a provider does to *make* a disk; none of it may appear in a plan that
+    changes a VM which already has one.
+    """
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.native_format
+
+    def words(plan):
+        found = set()
+        for step in plan:
+            found |= set(step.argv or [])
+            if step.path is not None:
+                found.add(str(step.path))
+        return found
+
+    attached = copy.deepcopy(vm_minimal)
+    attached.storage[0].source = "/conformance/images/the-only-copy.img"
+    making_the_disk = words(backend.create_vm(vm_minimal, execute=False)) - words(
+        backend.create_vm(attached, execute=False)
+    )
+
+    current = copy.deepcopy(vm_minimal)
+    current.storage[0].disk_path = "/conformance/images/the-only-copy.img"
+    monkeypatch.setattr(type(backend), "vm_exists", lambda self, name: True)
+    monkeypatch.setattr(type(backend), "read_vm", lambda self, name: current)
+    monkeypatch.setattr(type(backend), "get_vm_status", lambda self, name: "poweroff")
+    desired = copy.deepcopy(current)
+    desired.memory.mb += 128
+
+    try:
+        plan = backend.edit_vm(current.name, desired, execute=False)
+    except NotImplementedError:
+        pytest.skip(f"{backend.name} does not edit in place")
+
+    overlap = making_the_disk & words(plan)
+    assert not overlap, f"{backend.name} would make the disk again: {sorted(overlap)}"
 
 
 # ---------------------------------------------------------------------------

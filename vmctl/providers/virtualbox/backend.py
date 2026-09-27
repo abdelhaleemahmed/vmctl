@@ -301,8 +301,9 @@ class VirtualBoxBackend(BaseProvider):
             vm_name: The VM to change.
             new_config: Desired configuration.
             execute: Apply the change. False returns the commands only.
-            on_warning: Where to report requested changes that cannot be applied
-                in place (storage and network layout).
+            on_warning: Where the engine reports validation warnings. Requested
+                changes that cannot be applied in place (storage and network
+                layout) are on the returned plan's ``warnings``.
 
         Returns:
             Plan: The steps that were, or would be, run.
@@ -335,10 +336,6 @@ class VirtualBoxBackend(BaseProvider):
             capabilities=self._capabilities,
         )
         plan = emitter.emit_modify_vm(current, new_config)
-
-        if on_warning:
-            for message in plan.warnings:
-                on_warning(message)
 
         if execute:
             self.run_plan(plan)

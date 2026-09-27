@@ -28,7 +28,12 @@ from ...core.platform import describe_topology
 from ...core.slots import place
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy, Substitution, TranslationReport, Translator
-from ...core.vmconfig import DEFAULT_DISK_MB, NetworkConfig, VMConfig
+from ...core.vmconfig import (
+    DEFAULT_DISK_MB,
+    NetworkConfig,
+    VMConfig,
+    keeping_existing_images,
+)
 from .capabilities import VMwareCapabilities
 from .tables import (
     ALLOCATION_TO_DISK_TYPE,
@@ -381,6 +386,7 @@ class VMwareEmitter:
         for line in translator.report.lines():
             plan.warn(line)
         self.report = translator.report
+        plan.report = translator.report
         return plan
 
     def emit_modify_vm(self, current: VMConfig, desired: VMConfig) -> Plan:
@@ -389,7 +395,8 @@ class VMwareEmitter:
         As with QEMU there is nothing to modify in place -- the file *is* the
         configuration -- and as with libvirt the change takes effect at next boot.
         """
-        plan = self.emit_create_vm(desired)
+        # Never over the VM's own disks: the creation plan makes them (F-39).
+        plan = self.emit_create_vm(keeping_existing_images(current, desired))
         if (current.memory.mb, current.cpu.count) != (desired.memory.mb, desired.cpu.count):
             plan.warn(
                 "the definition changed; VMware reads it at power-on, so a running "

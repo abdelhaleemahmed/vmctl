@@ -708,6 +708,40 @@ class BootConfig:
         return asdict(self)
 
 
+def keeping_existing_images(current: "VMConfig", desired: "VMConfig") -> "VMConfig":
+    """Return *desired* with every disk it already has attached rather than created.
+
+    For the three providers whose configuration *is* a file -- libvirt's domain XML,
+    the QEMU command line, the ``.vmx`` -- changing a VM means writing that file
+    again, and the shortest way to write it is the same code that creates one. That
+    shortcut destroyed data (F-39): the creation plan also *makes the disks*, so
+    ``vmctl edit --memory`` on a QEMU VM ran ``qemu-img create`` over the VM's own
+    image and the guest's filesystem was gone.
+
+    Setting ``source`` is all it takes, because every emitter already knows that a
+    device with a source is attached rather than created -- the path a migration
+    needs. So this is the one rule rather than three careful loops.
+
+    A rename is deliberately left alone: on those providers a new name is a new VM,
+    and it must not claim the old one's images.
+
+    Args:
+        current: The VM as it is now, from the provider's own parser.
+        desired: The VM as it should be.
+
+    Returns:
+        VMConfig: a copy safe to emit a definition from; neither argument is changed.
+    """
+    if desired.name != current.name:
+        return desired
+    result = copy.deepcopy(desired)
+    for device in result.storage:
+        if device.is_removable or device.source or not device.disk_path:
+            continue
+        device.source = device.disk_path
+    return result
+
+
 def resolve_controller(
     device: "StorageDevice",
     by_id: Dict[str, "StorageController"],

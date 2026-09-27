@@ -178,6 +178,46 @@ vmctl edit my-vm --new-name renamed-vm
 
 ---
 
+## Keeping a VM Matching Its File
+
+`vmctl edit` changes one setting at a time from the command line. `vmctl apply` does
+the declarative version: it takes the file as the description of how the VM should be
+and makes reality match it.
+
+```bash
+vmctl apply web-01.yaml            # show what it would do
+vmctl apply web-01.yaml --execute  # do it
+vmctl apply web-01.yaml            # "already matches the file; nothing to do"
+```
+
+The name inside the file says which VM it is about. If there is no such VM it is
+created; if there is, only what drifted is changed.
+
+Three rules are worth knowing, because they are what make it safe to run repeatedly:
+
+- **Only what the file states is applied.** A file that mentions just the CPU count
+  changes just that. A default in the model is not a request, so nothing you did not
+  write down gets reset.
+- **What the file cannot know is kept.** The path an image has on this host, the MAC
+  the hypervisor generated for an adapter, a libvirt domain's UUID: all carried over
+  from the VM, because dropping them would detach a disk or give the guest a new
+  network card.
+- **Disks are never created, resized or removed on an existing VM.** A definition is
+  cheap to rewrite; an image is not. If the file asks for a size that does not match,
+  or adds a disk with no image behind it, `apply` says so and leaves the data alone.
+
+With `--execute` the VM is read back afterwards and anything that did not converge is
+listed; that exits 1, so a pipeline notices. A setting this hypervisor cannot express
+at all is reported once, by the translator, and not counted as a failure to converge.
+
+Use `vmctl diff` when you only want to look:
+
+```bash
+vmctl diff web-01 web-01.yaml || vmctl apply web-01.yaml --execute
+```
+
+---
+
 ## Validating Configuration Files
 
 Check a YAML/JSON file for errors before using it:

@@ -398,9 +398,6 @@ class LibvirtBackend(BaseProvider):
             raise VMNotFoundError(vm_name)
         current = self.read_vm(vm_name)
         plan = self._emitter(vm_name).emit_modify_vm(current, new_config)
-        if on_warning:
-            for message in plan.warnings:
-                on_warning(message)
         if execute:
             self.run_plan(plan)
         return plan

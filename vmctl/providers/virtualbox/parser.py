@@ -19,12 +19,21 @@ from ...core.vmconfig import (
     VMConfig,
     default_controller_id,
 )
-from ...core.exceptions import DependencyError, ProviderError
+from ...core.exceptions import DependencyError, ProviderError, VMNotFoundError
 from ...core.capabilities import Capabilities
 from ...core.mapping import read_into
 from ..base import MediumProbe
 from .capabilities import VirtualBoxCapabilities
 from .tables import CONTROLLER_CHIPSETS, FIELDS, NIC_MODEL_FROM_VBOX, NIC_MODEL_TO_VBOX
+
+#: What VirtualBox says when a VM does not exist, measured on 7.1.18:
+#:
+#:     VBoxManage.exe: error: Could not find a registered machine named 'x'
+#:     VBoxManage.exe: error: Details: code VBOX_E_OBJECT_NOT_FOUND (0x80bb0001), ...
+#:
+#: The code rather than the sentence: the sentence is prose and may be translated,
+#: while the code is part of VirtualBox's API.
+NOT_FOUND_CODE = "VBOX_E_OBJECT_NOT_FOUND"
 
 
 class VirtualBoxParser:
@@ -60,7 +69,13 @@ class VirtualBoxParser:
         }
 
     def get_vm_info(self, vm_name: str) -> str:
-        """Get raw VM info from VirtualBox"""
+        """Get raw VM info from VirtualBox.
+
+        Raises:
+            VMNotFoundError: If there is no such VM.
+            ProviderError: If VirtualBox failed for any other reason.
+            DependencyError: If VBoxManage is not installed.
+        """
         try:
             result = subprocess.run(
                 [self.vboxmanage_cmd, "showvminfo", vm_name, "--machinereadable"],
@@ -70,6 +85,12 @@ class VirtualBoxParser:
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
+            # "There is no such VM" and "VirtualBox failed" are different answers,
+            # and only one of them is an error for a caller like `apply`, whose
+            # whole job is to create the VM when it is missing. Every other provider
+            # already said so; VirtualBox reported both as a provider failure (F-40).
+            if NOT_FOUND_CODE in (e.stderr or ""):
+                raise VMNotFoundError(vm_name)
             raise ProviderError(f"Failed to get VM info for {vm_name}: {e}")
         except FileNotFoundError:
             raise DependencyError(

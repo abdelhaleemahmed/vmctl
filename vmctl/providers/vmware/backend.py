@@ -330,9 +330,6 @@ class VMwareBackend(BaseProvider):
                 f"{vm_name} is running; VMware reads the .vmx at power-on, so the "
                 f"changes take effect when it is restarted"
             )
-        if on_warning:
-            for message in plan.warnings:
-                on_warning(message)
         if execute:
             self.run_plan(plan)
         return plan

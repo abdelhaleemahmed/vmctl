@@ -421,6 +421,73 @@ re-measured by starting a domain per model.
 One provider's table is not evidence for another's, even when one of them is a
 manager of the other.
 
+### F-39 — Editing a VM re-created its disks, destroying the data · **L** *(fixed)*
+`vmctl/providers/{qemu,vmware,libvirt}/emitter.py`, `vmctl/core/vmconfig.py`
+
+The worst finding in this plan, and it was in shipped code for three providers.
+
+Three of the four keep a VM's configuration *in a file* -- libvirt's domain XML, the
+QEMU command line, the `.vmx` -- so changing a VM means writing that file again. All
+three implemented `emit_modify_vm` as `emit_create_vm(desired)`, and a **create plan
+also makes the disks**. So `vmctl edit my-vm --memory 320 --execute` on a QEMU VM ran
+
+    qemu-img create -f qcow2 /.../my-vm_root.qcow2 1024M
+
+over the VM's own image. `qemu-img create` truncates what is already there.
+
+Measured, not reasoned about: a `0x5a` pattern written into a running-VM-sized image
+did not survive the edit -- `qemu-io read -P 0x5a` answered *"Pattern verification
+failed at offset 0"* and the file had shrunk from 1376256 bytes to 196624, the size of
+an empty qcow2. VMware would have run `vmware-vdiskmanager -c` over its `.vmdk` the
+same way. libvirt's variant is quieter and still wrong: it recomputed each disk's path
+from the VM's name, so a domain whose image was migrated or attached by hand would be
+silently repointed at a file that does not exist.
+
+The fix is one rule in one place, `keeping_existing_images(current, desired)`: a disk
+the VM already has is *attached* rather than created, which every emitter already knew
+how to do -- `source` has meant "attach this existing image" since M-05. A rename is
+left alone deliberately: on these providers a new name is a new VM, and it must not
+claim the old one's images.
+
+This is the same shape as `F-11`, where `BaseProvider.edit_vm` defaulted to delete +
+create and lost the disks. That one was caught by a conformance rule reading the
+source for `delete_vm`; a rule that reads source cannot see this. The suite now has a
+**behavioural** rule instead: emit the same VM twice, once with its image already
+there and once without, which isolates exactly the work a provider does to *make* a
+disk, and assert that none of it appears in a plan that changes a VM which already has
+one. Verified to fail for QEMU and VMware before the fix and to pass after it, with
+libvirt's quieter variant pinned by a test on the emitted XML.
+
+### F-40 — "No such VM" reported as a hypervisor failure · S *(fixed)*
+`vmctl/providers/virtualbox/parser.py`
+
+`read_vm` on a VM that does not exist raised `VMNotFoundError` on libvirt, QEMU and
+VMware, and a generic `ProviderError` on VirtualBox -- so a caller could not tell "there
+is no such VM" from "VirtualBox is broken". `apply`, whose whole job is to create the
+VM when it is missing, therefore failed on VirtualBox with *"Failed to get VM info"*
+instead of creating anything.
+
+The discriminator is measured rather than matched on prose: VirtualBox prints
+`Details: code VBOX_E_OBJECT_NOT_FOUND (0x80bb0001)`, and a code is part of its API
+while the sentence above it is English.
+
+### F-41 — A file with no `storage:` section read as "remove every disk" · M *(fixed)*
+`vmctl/core/diff.py`
+
+E-01 established that *a setting* a file does not state is not drift. It applied that
+to settings only: a file with no `storage:` section reported every disk as "only on
+the VM", and one with no `networks:` every adapter. For `diff` that was noise; for
+`apply` it was a VM that had "drifted" in its hardware on every run, reported and never
+converged. An absent section is not a request for none, which is the same rule one
+level up.
+
+Found in the same file: `stated_paths` translated 1.1.x names in one flat pass, so a
+*VM's* `name:` was rewritten to `native_name` -- the 1.1.x spelling of a **controller's**
+name -- and the VM's own name was left out of every comparison. It is now treated the
+way `controller` already was: a key that could mean two of today's fields is taken to
+mean both, because being generous costs one compared field while guessing wrong drops a
+field silently.
+
 ### F-38 — A cloned disk whose contents did not match its name · M *(fixed)*
 `vmctl/core/clone.py`, `vmctl/cli/main.py`
 
@@ -2200,11 +2267,46 @@ the model (E-03, E-05) want Phase 5 first.
   > while every parser produced four, so a VM differed from the file it was made from
   > in a field neither had mentioned. The model now pads to the four slots providers
   > actually address.
-- **E-02 `vmctl apply <file>` (idempotent converge) · L.** Create when absent,
+- **E-02 `vmctl apply <file>` (idempotent converge) · L. *(done)*** Create when absent,
   otherwise emit only the `modifyvm`/`storageattach` calls needed to reconcile.
   Dry-run by default, printing the plan like `import` does. This is the real
   endgame: `apply` makes the tool declarative rather than one-shot. Depends on
   E-01 and F-10.
+
+  > Done, in `core/apply.py`, and it is almost entirely made of what was already here:
+  > `E-01` says what differs, `F-10`'s `emit_modify_vm` says how to change it. What
+  > `apply` adds is one rule -- **what a file is allowed to decide** -- and the rule is
+  > the reason it is safe to run in a cron job:
+  >
+  > * **Only what the file states is applied.** E-01 needed this to be readable; here
+  >   it is the difference between converging and destroying. A `VMConfig` loaded from
+  >   a file is full of defaults, so applying it wholesale would reset every setting
+  >   the file never mentioned.
+  > * **The fields a diff will not report are the fields an apply will not change.**
+  >   `core/diff.py`'s ignore lists are exactly the things only the hypervisor can know
+  >   -- an image's path on this host, a generated MAC, a libvirt UUID -- so they are
+  >   carried over from the live VM. Not tidiness: libvirt and QEMU redefine a VM
+  >   wholesale, so a dropped `disk_path` detaches the data and a dropped MAC gives the
+  >   guest a new network card.
+  > * **Disks are never created, resized or removed on an existing VM.** A definition
+  >   is cheap to rewrite and an image is not, so what cannot be converged is reported
+  >   with the reason rather than attempted.
+  >
+  > With `--execute` it **reads the VM back and re-diffs**, which is the same habit
+  > every measured table in this plan came out of: a setting a hypervisor accepted and
+  > did not keep is otherwise invisible. What the provider *said* it could not express
+  > is excluded -- that needed `Plan` to carry the translation report as data rather
+  > than prose, or VMware's one-id-per-family guest OS would have made `apply` exit 1
+  > for ever on a VM that was as close to the file as VMware can get.
+  >
+  > Three findings came out of running it: `F-39` (editing re-created the disks and
+  > destroyed data -- the worst bug in this plan so far), `F-40` and `F-41`. Verified
+  > on all four providers: QEMU and libvirt locally, and on the Windows host VirtualBox
+  > (create, converge, and a NIC added and removed again) and VMware Workstation.
+  > Measuring VirtualBox rather than assuming also *removed* two entries from its
+  > "cannot be changed in place" list: `--ostype` and `--nicN` work fine on a stopped
+  > VM, so `apply` converges the guest OS type and the network adapters instead of
+  > reporting drift it could have fixed.
 - **E-03 `--clone-disks` on `import`/`create` · M. *(done)*** Every doc warns that disk
   contents are not copied. `VBoxManage clonemedium` can copy them when the
   source is local. Opt-in, with a clear size/time warning up front.
@@ -2540,6 +2642,9 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-36 conversions ran before the directory existed
          [x] F-37 a NIC table copied from another provider
          [x] F-38 a cloned disk whose contents did not match its name
+         [x] F-39 editing a VM re-created its disks, destroying the data
+         [x] F-40 "no such VM" reported as a hypervisor failure
+         [x] F-41 a file with no storage section read as "remove every disk"
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2569,5 +2674,5 @@ Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
 Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [x] E-03 clone-disks  [x] E-05 capability probing
-         [ ] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C
+         [x] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C
 ```

@@ -783,3 +783,44 @@ def test_only_the_formats_this_build_can_write_are_creatable():
     assert not caps.format_spec(DiskFormat.QED).support.usable
     # Still attachable, which is what makes converting one possible.
     assert caps.format_spec(DiskFormat.VMDK).support.usable
+
+
+# ---------------------------------------------------------------------------
+# F-39: a redefinition keeps the disks the domain has
+# ---------------------------------------------------------------------------
+
+
+def test_redefining_a_domain_keeps_the_image_it_has(emitter, vm):
+    """libvirt has no per-setting edit: the domain is redefined from a new document.
+    Recomputing each disk's path while doing so would silently repoint the domain at a
+    file named after the VM -- which is not where a migrated or hand-attached image is,
+    so the guest would boot from a path that does not exist (F-39)."""
+    import copy
+
+    current = copy.deepcopy(vm)
+    current.storage[0].disk_path = "/srv/elsewhere/original.qcow2"
+    desired = copy.deepcopy(current)
+    desired.memory.mb = 1024
+
+    plan = emitter.emit_modify_vm(current, desired)
+    document = [step for step in plan if step.kind is StepKind.WRITE_FILE][0].content
+    sources = [el.get("file") for el in ET.fromstring(document).iter("source") if el.get("file")]
+
+    assert "/srv/elsewhere/original.qcow2" in sources
+
+
+def test_a_renamed_domain_does_not_claim_the_old_ones_images(emitter, vm):
+    """A rename defines a *separate* domain, and two domains sharing one image file is
+    how both of them get a corrupted filesystem."""
+    import copy
+
+    current = copy.deepcopy(vm)
+    current.storage[0].disk_path = "/images/demo_root.qcow2"
+    desired = copy.deepcopy(current)
+    desired.name = "renamed"
+
+    plan = emitter.emit_modify_vm(current, desired)
+    document = [step for step in plan if step.kind is StepKind.WRITE_FILE][0].content
+    sources = [el.get("file") for el in ET.fromstring(document).iter("source") if el.get("file")]
+
+    assert "/images/demo_root.qcow2" not in sources

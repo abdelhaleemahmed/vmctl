@@ -21,7 +21,10 @@ import shlex
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:  # pragma: no cover - a plan carries a report, it does not use one
+    from .translate import TranslationReport
 
 
 class StepKind(Enum):
@@ -133,6 +136,12 @@ class Plan:
     provider: str
     steps: List[Step] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    #: What did not carry over exactly, as data rather than prose -- the same
+    #: findings ``warnings`` renders for a person. A caller that has to act on them
+    #: needs the fields: ``apply`` checks a VM against its file afterwards, and a
+    #: setting the provider *said* it could not express is explained rather than an
+    #: unexplained failure to converge.
+    report: Optional["TranslationReport"] = None
 
     def __len__(self) -> int:
         return len(self.steps)

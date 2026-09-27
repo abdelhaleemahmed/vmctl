@@ -96,6 +96,34 @@ things prevented that:
 
 ### Added
 
+- **`vmctl apply <file>`** makes the hypervisor match a configuration file, and is
+  meant to be run repeatedly: it creates the VM when there is none, changes only what
+  drifted when there is, and says "already matches the file" when there is nothing to
+  do. Dry-run by default. Only what the file states is applied — a file that mentions
+  the CPU count changes only that — and anything the file cannot know is kept, such as
+  where an image lives on this host, the MAC the hypervisor generated, or a libvirt
+  domain's UUID. Disks on an existing VM are never created, resized or removed; what
+  cannot be converged is reported with the reason. With `--execute` the VM is read
+  back afterwards and anything that did not converge is listed, which exits 1.
+- On VirtualBox, `apply` and `edit` now change the guest OS type and the network
+  adapters too — including adding one and removing one — because measuring
+  `VBoxManage` rather than assuming showed that `--ostype`, `--nicN` and `--nictypeN`
+  all work on a stopped VM. They used to be reported as changes vmctl could not make.
+- **Fixed, and the most serious bug in this release: editing a VM destroyed its
+  disks.** On QEMU, libvirt and VMware, changing a setting rewrote the VM's definition
+  using the same code that creates a VM — which also *creates the disks*. So
+  `vmctl edit my-vm --memory 512 --execute` ran `qemu-img create` over the VM's own
+  image and the guest's filesystem was gone (verified by writing a pattern into an
+  image and watching it not survive). A disk the VM already has is now attached, never
+  re-created, and the provider conformance suite has a rule that fails any provider
+  whose edit plan would make a disk again.
+- Fixed: on VirtualBox, a VM that does not exist was reported as a failure to talk to
+  VirtualBox rather than as a missing VM, so `apply` refused to create it.
+- Fixed: a config file with no `storage:` section was read as asking for a VM with no
+  disks, so `vmctl diff` reported every disk as drift and `apply` reported drift it
+  would never converge. An absent section is not a request, the same rule that already
+  applied to individual settings.
+- Fixed: every warning from `vmctl edit` was printed twice.
 - **`--clone-disks` on `import` and `create`** copies a VM's disk contents, not just
   its shape. Opt-in, because it is the slow and space-hungry part, and it says how
   many images and roughly how much data before it starts. An image this machine

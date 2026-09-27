@@ -184,6 +184,33 @@ boots. Devices are matched by where they are rather than by name, because most
 hypervisors have nowhere to store a device's name. It is also the quickest way to
 check that an export and re-import was faithful.
 
+### Make It Match the File
+
+`vmctl apply` is the other half of `diff`: run it against the same file as often as
+you like, and it creates the VM when there is none, changes what drifted when there
+is, and does nothing when the two agree. Dry-run by default, like every other
+mutating command.
+
+```
+$ vmctl apply web-01.yaml
+web-01 differs from the file in 2 place(s)
+  ~ cpu.count  vm 2  file 4
+  ~ memory.mb  vm 2048  file 4096
+Dry-run mode.  Commands that would be executed:
+    1: VBoxManage modifyvm web-01 --memory 4096 --cpus 4
+
+$ vmctl apply web-01.yaml --execute
+...
+$ vmctl apply web-01.yaml
+web-01 already matches the file; nothing to do
+```
+
+Only what the file states is applied — a file that mentions the CPU count changes
+only that — and anything the file cannot know is kept: the path an image has on this
+host, the MAC the hypervisor generated, a libvirt domain's UUID. Disks on an existing
+VM are never created, resized or removed; `apply` says what it left alone instead. It
+reads the VM back afterwards and lists anything that did not converge, which exits 1.
+
 ### What Can This Hypervisor Do?
 
 `vmctl capabilities` prints the declaration the validator and the translator read,
@@ -369,6 +396,7 @@ VM — set it in the config file.
 | `vmctl export --all -d <dir>` | Export every VM, one file each, plus a manifest |
 | `vmctl schema [-o <file>]` | JSON Schema for config files, generated from the model |
 | `vmctl diff <vm> <file>` | Show how a VM differs from a config file (exit 1 when it does) |
+| `vmctl apply <file> [--execute] [--out PATH]` | Create the VM, or change only what drifted from the file |
 | `vmctl capabilities [--format json]` | Print what this hypervisor supports: formats, buses, the attach matrix, limits — and where each figure was measured |
 | `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute] [--out PATH]` | Recreate a VM on another hypervisor |
 | `vmctl convert <src> <dst> [--to FMT] [--execute]` | Convert a disk image between formats |

@@ -495,3 +495,25 @@ def test_a_version_vmware_does_record_is_not_reported(emitter, vm):
     translator = Translator(VMwareCapabilities.get(), Policy.NEAREST)
     emitter.build_vmx(vm, translator)
     assert not [s for s in translator.report.substitutions if s.field == "guest_os"]
+
+
+# ---------------------------------------------------------------------------
+# F-39: editing must not make the disks again
+# ---------------------------------------------------------------------------
+
+
+def test_editing_does_not_run_vdiskmanager_over_an_existing_disk(emitter, vm):
+    """The `.vmx` *is* the configuration, so changing a VM means writing it again --
+    and the plan that writes it also created the disks (F-39)."""
+    import copy
+
+    current = copy.deepcopy(vm)
+    current.storage[0].disk_path = "/vms/demo/demo_system.vmdk"
+    desired = copy.deepcopy(current)
+    desired.memory.mb = 1024
+
+    plan = emitter.emit_modify_vm(current, desired)
+
+    assert not [step for step in plan if "vmware-vdiskmanager" in " ".join(step.argv or [])]
+    # ...and the file is still written, because that is the actual change.
+    assert [step for step in plan if step.kind is StepKind.WRITE_FILE]

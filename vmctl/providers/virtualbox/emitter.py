@@ -3,6 +3,7 @@
 Emit VirtualBox commands from VMConfig
 """
 import os
+import re
 import sys
 from collections import OrderedDict
 from typing import List, Dict, Optional
@@ -18,6 +19,7 @@ from ...core.vmconfig import (
     default_controller_id,
     resolve_controller,
 )
+from ...core.diff import diff
 from ...core.exceptions import ProviderError
 from ...core.mapping import changed_flags, emit_flags
 from ...core.naming import check_name, safe_filename
@@ -274,6 +276,7 @@ class VirtualBoxEmitter:
         for line in translator.report.lines():
             plan.warn(line)
         self.report = translator.report
+        plan.report = translator.report
         return plan
 
     @staticmethod
@@ -464,12 +467,18 @@ class VirtualBoxEmitter:
 
     # -- editing an existing VM ---------------------------------------------
 
-    #: Changes vmctl cannot apply in place, reported rather than silently ignored.
+    #: Changes ``modifyvm`` cannot make, reported rather than silently ignored.
+    #:
+    #: Two things left this list once they were measured on 7.1.18 rather than
+    #: assumed: ``--ostype`` changes the guest OS type of a stopped VM, and
+    #: ``--nicN``/``--nictypeN``/``--nicN none`` reconfigure, add and remove an
+    #: adapter. Declaring them unchangeable meant ``apply`` reported drift it could
+    #: have fixed, run after run. Storage really is separate -- it is attached with
+    #: ``storagectl`` and ``storageattach``, which is a different operation from
+    #: changing a setting.
     UNSUPPORTED_EDITS = (
         ("storage", "storage layout"),
         ("storage_controllers", "storage controllers"),
-        ("networks", "network adapters"),
-        ("ostype", "guest OS type"),
     )
 
     def emit_modify_vm(self, current: VMConfig, desired: VMConfig) -> Plan:
@@ -501,17 +510,57 @@ class VirtualBoxEmitter:
         if changed:
             commands.append(["VBoxManage", "modifyvm", target] + changed)
 
+        translator = Translator(self.capabilities, self.policy)
+        if desired.guest_os != current.guest_os:
+            commands.append(
+                ["VBoxManage", "modifyvm", target, "--ostype", self._ostype(desired, translator)]
+            )
+        commands += self._network_changes(target, current, desired, translator)
+
         for cmd in commands:
             plan.exec(cmd, self._describe(cmd))
+        for line in translator.report.lines():
+            plan.warn(line)
+        plan.report = translator.report
 
+        # What *genuinely* differs, by the one comparison vmctl has (`core/diff.py`),
+        # rather than by comparing whole objects: a device's name and the path its
+        # image happens to have are things only one side can know, so an equality
+        # test reported "storage layout differs" for every VM whose config named its
+        # disk `system` while VirtualBox called it `disk_SATA Controller_0_0`. A
+        # warning that fires when nothing is wrong is one people learn to ignore.
+        drifted = {_head(change.path) for change in diff(current, desired)}
         for attr, label in self.UNSUPPORTED_EDITS:
-            if getattr(current, attr) != getattr(desired, attr):
+            if attr in drifted:
                 plan.warn(
                     f"{label} differs from the VM but cannot be changed in "
                     f"place; it was left alone"
                 )
 
         return plan
+
+    def _network_changes(
+        self, target: str, current: VMConfig, desired: VMConfig, translator: Translator
+    ) -> List[List[str]]:
+        """Return the ``modifyvm`` calls that reconcile the network adapters.
+
+        Only the adapters that differ, and by the same comparison ``diff`` uses -- so
+        a MAC the hypervisor generated does not count as a change and a whole adapter
+        is not rewritten because of it. An adapter the configuration no longer has is
+        switched off with ``--nicN none``, which is how VirtualBox removes one.
+        """
+        changes = [c for c in diff(current, desired) if c.path.startswith("networks[")]
+        commands: List[List[str]] = []
+        for index in sorted({int(re.findall(r"\[(\d+)\]", c.path)[0]) for c in changes}):
+            if index < len(desired.networks):
+                commands.append(
+                    self._configure_network_adapter(
+                        index + 1, desired.networks[index], translator, vm_name=target
+                    )
+                )
+            else:
+                commands.append(["VBoxManage", "modifyvm", target, f"--nic{index + 1}", "none"])
+        return commands
 
     def _nictype(self, network: NetworkConfig, where: str, translator: Translator) -> str:
         """Return the ``--nictype`` value for a NIC model.
@@ -557,8 +606,17 @@ class VirtualBoxEmitter:
         adapter_num: int,
         network: NetworkConfig,
         translator: Translator,
+        vm_name: Optional[str] = None,
     ) -> List[str]:
-        """Generate command to configure network adapter"""
+        """Generate command to configure network adapter.
+
+        Args:
+            adapter_num: VirtualBox's 1-based adapter number.
+            network: The adapter to express.
+            translator: Records a chipset VirtualBox does not have.
+            vm_name: The VM to address, when it is not the emitter's own -- an edit
+                that renames the VM has to name the new one.
+        """
         # Map our NetworkType to VirtualBox network type names
         network_type_map = {
             NetworkType.NAT: "nat",
@@ -572,7 +630,7 @@ class VirtualBoxEmitter:
         cmd = [
             "VBoxManage",
             "modifyvm",
-            self.vm_name,
+            vm_name or self.vm_name,
             f"--nic{adapter_num}",
             vbox_net_type,
             f"--nictype{adapter_num}",
@@ -598,3 +656,9 @@ class VirtualBoxEmitter:
             cmd.extend([f"--promiscuous{adapter_num}", "allow-all"])
 
         return cmd
+
+
+def _head(path: str) -> str:
+    """Return the top-level field a diff path is about: ``storage[sata/0].size_mb``
+    is about ``storage``."""
+    return path.split("[")[0].split(".")[0]

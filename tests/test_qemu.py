@@ -9,6 +9,8 @@ or only about managers of them. QEMU keeps no state: a VM is a directory with a 
 script in it, and reading a VM means parsing the command line that starts it.
 """
 
+import copy
+
 import pytest
 
 from vmctl.core.devices import BusType, DeviceKind, DiskFormat
@@ -536,3 +538,48 @@ def test_a_machine_type_this_build_lacks_is_substituted_and_reported(emitter, vm
     argv = emitter.build_argv(vm, translator)
     assert argv[argv.index("-machine") + 1] == "q35"
     assert any(s.field == "machine" for s in translator.report.substitutions)
+
+
+# ---------------------------------------------------------------------------
+# F-39: editing must not make the disks again
+# ---------------------------------------------------------------------------
+
+
+def test_editing_does_not_create_the_image_again(emitter, vm):
+    """Measured on a real VM before it was fixed: a pattern written into the image did
+    not survive `vmctl edit --memory`, because the modify plan was the create plan and
+    `qemu-img create` truncates whatever is already there."""
+    current = copy.deepcopy(vm)
+    current.storage[0].disk_path = "/vms/demo/demo_root.qcow2"
+    desired = copy.deepcopy(current)
+    desired.memory.mb = 1024
+
+    plan = emitter.emit_modify_vm(current, desired)
+
+    assert not [step for step in plan if (step.argv or [None])[0] == "qemu-img"]
+
+
+def test_editing_still_attaches_the_image_the_vm_has(emitter, vm):
+    """A hand-edited script is the normal way to use plain QEMU, so the image may not
+    be where vmctl would have put it. Recomputing the path would detach the data."""
+    current = copy.deepcopy(vm)
+    current.storage[0].disk_path = "/srv/elsewhere/original.qcow2"
+    desired = copy.deepcopy(current)
+    desired.memory.mb = 1024
+
+    plan = emitter.emit_modify_vm(current, desired)
+    script = [step for step in plan if step.kind is StepKind.WRITE_FILE][0]
+
+    assert "file=/srv/elsewhere/original.qcow2" in script.content
+
+
+def test_renaming_does_not_claim_the_old_vms_images(emitter, vm):
+    """A new name is a new VM here -- its own directory -- so it gets its own disks."""
+    current = copy.deepcopy(vm)
+    current.storage[0].disk_path = "/vms/demo/demo_root.qcow2"
+    desired = copy.deepcopy(current)
+    desired.name = "renamed"
+
+    plan = emitter.emit_modify_vm(current, desired)
+
+    assert [step for step in plan if (step.argv or [None])[0] == "qemu-img"]

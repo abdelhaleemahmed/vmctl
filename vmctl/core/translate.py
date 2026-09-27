@@ -27,7 +27,7 @@ The policy decides what happens when a value is unsupported:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Set
 
 from .capabilities import Capabilities
 from .exceptions import ValidationError
@@ -144,6 +144,20 @@ class TranslationReport:
     def lossy(self) -> bool:
         """True when something was changed or left out."""
         return bool(self.substitutions or self.drops)
+
+    def paths(self) -> Set[str]:
+        """Return the field paths this report is about.
+
+        Prose is for people; a caller that has to *act* on a report needs the paths.
+        ``apply`` reads the VM back afterwards and compares it to the file: a field
+        the provider already said it could not express is explained, not an
+        unexplained failure to converge, and reporting it again on every run would
+        make the command permanently look broken on a VM that is perfectly fine.
+        """
+        found: Set[str] = set()
+        for item in list(self.substitutions) + list(self.drops):
+            found.add(item.field)
+        return found
 
     def lines(self) -> List[str]:
         """Return one line per finding, for ``Plan.warnings``.

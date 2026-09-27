@@ -258,7 +258,10 @@ class BaseProvider(ABC):
             new_config: New configuration to apply
             execute: If True, apply the change. If False, return the plan
                 without running it (dry-run).
-            on_warning: Where to report changes that cannot be applied in place.
+            on_warning: Where the engine reports *validation* warnings. What could
+                not be applied in place rides on the returned plan's
+                ``warnings``, which is the single carrier -- forwarding those here
+                as well printed every one of them twice.
 
         Returns:
             Plan: the steps that were, or would be, run

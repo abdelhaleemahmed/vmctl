@@ -13,6 +13,7 @@ from typing import List, Optional
 from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
+from vmctl.core.apply import Action, plan_convergence
 from vmctl.core.clone import Origin, plan_clone
 from vmctl.core.convert import convert as plan_convert, plan_conversions
 from vmctl.core.plan import Plan
@@ -26,6 +27,7 @@ from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 from vmctl.core.batch import BatchCreator
 from vmctl.core.exceptions import (
     BatchError,
+    VMNotFoundError,
     ProviderError,
     ValidationError,
     VMAlreadyExistsError,
@@ -1434,6 +1436,187 @@ def cmd_diff(ctx, vm_name, config_file):
     click.echo(f"{vm_name} vs {config_file}: {summarise(changes)}")
     for change in changes:
         click.echo(f"  {change.render()}")
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# apply (E-02)
+# ---------------------------------------------------------------------------
+
+
+@cli.command("apply")
+@click.argument("config_file", type=click.Path(exists=True, path_type=Path))
+@click.option("--execute", is_flag=True, help="Actually apply it (dry-run by default).")
+@click.option(
+    "--policy",
+    type=click.Choice([p.value for p in Policy]),
+    default=Policy.STRICT.value,
+    help="What to do about values this hypervisor cannot express.",
+)
+@click.option(
+    "--clone-disks",
+    is_flag=True,
+    help="When the VM has to be created, also copy the disk images the file names. "
+    "Ignored when the VM already exists: apply never creates or destroys disks on one.",
+)
+@click.option(
+    "--out",
+    default=None,
+    metavar="PATH",
+    help="Also write the plan out. A plain path gets a shell script; a path ending "
+    "in / (or an existing directory) gets plan.sh plus the provider's own artifact.",
+)
+@click.pass_context
+def cmd_apply(ctx, config_file, execute, policy, clone_disks, out):
+    """Make the hypervisor match a configuration file.
+
+    Run it as often as you like against the same file: it creates the VM when there
+    is none, changes what drifted when there is, and does nothing when the two
+    already agree. The name in the file says which VM it is about.
+
+    Only what the file actually states is applied -- a default is not a request, so a
+    file that mentions only the CPU count changes only that. Anything the file cannot
+    know (where an image lives on this host, the MAC the hypervisor generated, a
+    libvirt domain's UUID) is kept as it is.
+
+    Disks on an existing VM are never created, resized or removed; what cannot be
+    converged is reported instead. With --execute the VM is read back afterwards and
+    anything that did not converge is listed, which exits 1.
+
+    \b
+    Examples:
+      vmctl apply web-01.yaml
+      vmctl apply web-01.yaml --execute
+      vmctl diff web-01 web-01.yaml || vmctl apply web-01.yaml --execute
+    """
+    try:
+        engine = _engine(ctx)
+        desired = engine.import_vm(config_file)
+        stated = stated_paths(_read_mapping(config_file))
+        origins = _origins(desired)
+        live = _live_or_none(engine, desired.name)
+
+        convergence = plan_convergence(live, desired, stated)
+        click.echo(convergence.describe())
+        for change in convergence.changes:
+            click.echo(f"  {change.render()}")
+        for message in convergence.warnings:
+            _warn(message)
+
+        if convergence.action is Action.NOTHING:
+            return
+
+        if convergence.action is Action.CREATE:
+            copies = _clone_disks(engine, convergence.vm, origins) if clone_disks else None
+            plan = engine.create_vm(
+                convergence.vm, execute=execute, on_warning=_warn, policy=Policy(policy)
+            )
+            if copies is not None:
+                plan = _with_copies_first(copies, plan)
+                if execute:
+                    engine.backend.run_plan(copies)
+            done = f"Created VM '{convergence.vm.name}' from {config_file}"
+        else:
+            if clone_disks:
+                _warn(
+                    f"{convergence.vm.name} already exists, so --clone-disks was not "
+                    f"used: apply does not create or replace disks on an existing VM"
+                )
+            plan = engine.edit_vm(
+                convergence.vm.name, convergence.vm, execute=execute, on_warning=_warn
+            )
+            done = (
+                f"Applied {config_file} to '{convergence.vm.name}'"
+                if plan
+                else f"Nothing to change on '{convergence.vm.name}'"
+            )
+
+        _show_plan(plan, execute, done, out)
+        _say_if_that_is_as_close_as_it_gets(convergence, plan)
+        if execute:
+            _report_what_did_not_converge(engine, desired, stated, plan)
+    except VMToolError as e:
+        _fail(e)
+
+
+def _say_if_that_is_as_close_as_it_gets(convergence, plan) -> None:
+    """Say so when every difference left is one this hypervisor cannot express.
+
+    Otherwise ``apply`` reports the same drift on every run with no explanation of
+    why it never goes away: VMware has one guest-OS id per family, so a file asking
+    for ``ubuntu22.04`` will always differ from a VM that can only say ``ubuntu``.
+    The drift is real and worth printing; what was missing was the sentence that
+    tells a user it is not going to change.
+    """
+    if not convergence.changes or plan.report is None:
+        return
+    explained = plan.report.paths()
+    if all(
+        change.path in explained or _head(change.path) in explained
+        for change in convergence.changes
+    ):
+        click.echo("That is as close as this hypervisor gets; the warnings above say why.")
+
+
+def _head(path: str) -> str:
+    """Return the top-level field a diff path is about.
+
+    ``storage[sata/0].size_mb`` is about ``storage``, which is the level a
+    translation report names a loss at.
+    """
+    return path.split("[")[0].split(".")[0]
+
+
+def _live_or_none(engine, name: str):
+    """Return a VM as the hypervisor reports it, or None when there is no such VM.
+
+    Absence is the ordinary case for ``apply`` -- it is how "create it" is spelled --
+    so it must not read as a failure. Any other error still does.
+
+    The registry is asked first, because that is the same question the provider's own
+    ``edit_vm`` asks. Deciding existence a different way let ``apply`` announce that a
+    VM had drifted and then hand the backend a name it said did not exist.
+    """
+    try:
+        if name not in engine.list_vms():
+            return None
+    except ProviderError:
+        pass  # cannot list; let reading it answer instead
+    try:
+        return engine.read_vm(name)
+    except VMNotFoundError:
+        return None
+
+
+def _report_what_did_not_converge(engine, desired, stated, plan) -> None:
+    """Read the VM back and report anything the file asked for that did not happen.
+
+    Asking again is the only honest way to know a converge worked, and it is the
+    habit every measured table in this project came out of: a setting a hypervisor
+    accepted and did not keep is otherwise invisible, and an ``apply`` that quietly
+    fails to converge is worse than one that refuses.
+
+    What the provider *said* it could not express is not reported again. VMware has
+    one guest-OS id per family, so ``ubuntu22.04`` is recorded as ``ubuntu`` and the
+    translator says so -- listing it here as well would make ``apply`` exit 1 on
+    every run, for a VM that is exactly as close to the file as that hypervisor can
+    get. That is the difference between a check and noise.
+    """
+    try:
+        live = engine.read_vm(desired.name)
+    except VMToolError:
+        return  # the create or edit already reported whatever went wrong
+    explained = plan.report.paths() if plan.report is not None else set()
+    remaining = [
+        change
+        for change in diff(live, desired, stated)
+        if change.path not in explained and _head(change.path) not in explained
+    ]
+    if not remaining:
+        return
+    click.echo(f"Not converged: {summarise(remaining)}", err=True)
+    for change in remaining:
+        click.echo(f"  {change.render()}", err=True)
     sys.exit(1)
 
 

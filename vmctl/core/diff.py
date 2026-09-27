@@ -41,11 +41,18 @@ from .vmconfig import (
     VMConfig,
 )
 
-#: ``controller`` is the one key a name alone cannot place: in 1.1.x it meant the bus
-#: and today it means the controller, and only the *value* tells them apart. Since
-#: being generous here costs one compared field rather than a wrong answer, a file that
-#: says ``controller`` is taken to be talking about both.
-_AMBIGUOUS_NAMES = {"controller": ("controller", "bus")}
+#: Keys that could be talking about more than one of today's fields, taken to be
+#: talking about all of them: being generous costs one compared field, while guessing
+#: wrong drops a field from the comparison entirely.
+#:
+#: ``controller`` in 1.1.x meant the bus and today means the controller, and only the
+#: *value* tells them apart. ``name`` is the sharper case: 1.1.x called a controller's
+#: native name ``name``, so translating it everywhere quietly renamed a *VM's* ``name``
+#: to ``native_name`` and left the VM's own name out of every comparison.
+_AMBIGUOUS_NAMES = {
+    "controller": ("controller", "bus"),
+    "name": ("name", "native_name"),
+}
 
 #: Every 1.1.x name, so an older file's paths line up with today's fields. Flattened
 #: across levels because the rest are unambiguous on their own.
@@ -142,8 +149,8 @@ def stated_paths(data: Any, prefix: str = "") -> Set[str]:
     found: Set[str] = set()
     if isinstance(data, dict):
         for key, value in data.items():
-            name = _LEGACY_NAMES.get(str(key), str(key))
-            for reading in _AMBIGUOUS_NAMES.get(name, (name,)):
+            readings = _AMBIGUOUS_NAMES.get(str(key)) or (_LEGACY_NAMES.get(str(key), str(key)),)
+            for reading in readings:
                 path = f"{prefix}.{reading}" if prefix else reading
                 found.add(path)
                 found |= stated_paths(value, path)
@@ -153,8 +160,13 @@ def stated_paths(data: Any, prefix: str = "") -> Set[str]:
     return found
 
 
-def _stated(stated: Optional[Set[str]], path: str) -> bool:
-    """Whether the file said anything about this path."""
+def mentions(stated: Optional[Set[str]], path: str) -> bool:
+    """Whether the file said anything about this path.
+
+    Public because ``apply`` asks the same question for the opposite reason: what a
+    file does not mention is not drift, and it is also not something to change
+    (E-02). One rule, one implementation.
+    """
     if stated is None:
         return True
     return _without_indices(path) in stated
@@ -193,7 +205,7 @@ def _walk(
         if isinstance(mine, dict) and isinstance(theirs, dict):
             _walk(path, mine, theirs, ignored, changes, stated)
             continue
-        if not _stated(stated, path):
+        if not mentions(stated, path):
             continue
         changes += _compare(path, mine, theirs)
 
@@ -205,8 +217,14 @@ def _devices(live: VMConfig, desired: VMConfig, stated: Optional[Set[str]] = Non
     leaves the position to vmctl -- position in the list is the fallback, which is
     also the order the allocator would place them in.
     """
-    on_vm = _by_address(live.storage)
-    in_file = _by_address(desired.storage)
+    if not mentions(stated, "storage"):
+        # A file with no storage section says nothing about devices, which is not the
+        # same as asking for none. Reporting every disk as "only on the VM" made a
+        # file that sets the memory disagree with the VM about its hardware, and
+        # `apply` then reported drift it would never converge (E-02 found this).
+        return []
+    on_vm = by_address(live.storage)
+    in_file = by_address(desired.storage)
     changes: List[Change] = []
     for address in sorted(set(on_vm) | set(in_file), key=str):
         where = f"storage[{address}]"
@@ -221,7 +239,7 @@ def _devices(live: VMConfig, desired: VMConfig, stated: Optional[Set[str]] = Non
         left = vm_device.to_dict()
         right = file_device.to_dict()
         for key in sorted(set(left) | set(right)):
-            if key in IGNORED_DEVICE_FIELDS or not _stated(stated, f"storage.{key}"):
+            if key in IGNORED_DEVICE_FIELDS or not mentions(stated, f"storage.{key}"):
                 continue
             changes += _compare(f"{where}.{key}", left.get(key, _ABSENT), right.get(key, _ABSENT))
     return changes
@@ -229,6 +247,8 @@ def _devices(live: VMConfig, desired: VMConfig, stated: Optional[Set[str]] = Non
 
 def _networks(live: VMConfig, desired: VMConfig, stated: Optional[Set[str]] = None) -> List[Change]:
     """Compare adapters by position, which is what every provider numbers them by."""
+    if not mentions(stated, "networks"):
+        return []  # as with devices: an absent section is not a request for none
     changes: List[Change] = []
     for index in range(max(len(live.networks), len(desired.networks))):
         where = f"networks[{index}]"
@@ -242,7 +262,7 @@ def _networks(live: VMConfig, desired: VMConfig, stated: Optional[Set[str]] = No
             continue
         left, right = vm_nic.to_dict(), file_nic.to_dict()
         for key in sorted(set(left) | set(right)):
-            if key in IGNORED_NETWORK_FIELDS or not _stated(stated, f"networks.{key}"):
+            if key in IGNORED_NETWORK_FIELDS or not mentions(stated, f"networks.{key}"):
                 continue
             changes += _compare(f"{where}.{key}", left.get(key, _ABSENT), right.get(key, _ABSENT))
     return changes
@@ -262,7 +282,7 @@ def _compare(path: str, left: Any, right: Any) -> List[Change]:
     return [Change(path, ChangeKind.CHANGED, live=left, desired=right)]
 
 
-def _by_address(devices: List[StorageDevice]) -> Dict[str, StorageDevice]:
+def by_address(devices: List[StorageDevice]) -> Dict[str, StorageDevice]:
     """Return devices keyed by bus and their order on it.
 
     Not by the raw address: a provider that assigns addresses itself reports none, so

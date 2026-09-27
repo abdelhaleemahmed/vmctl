@@ -212,8 +212,24 @@ def test_the_summary_counts_each_kind():
     live = _vm()
     live.cpu.count = 8
     live.storage.append(StorageDevice(name="extra", size_mb=1, bus=BusType.SCSI))
-    changes = diff(live, _vm(), stated=_paths("cpu", "cpu.count"))
+    changes = diff(live, _vm(), stated=_paths("cpu", "cpu.count", "storage", "storage.size_mb"))
     assert summarise(changes) == "1 changed, 1 removed"
+
+
+def test_a_file_with_no_storage_section_is_not_asking_for_no_disks():
+    """An absent section is not a request, the same rule as for a setting.
+
+    Found while building `apply` (E-02): a file that sets only the memory reported
+    every disk as "only on the VM", so the VM looked as though it had drifted in its
+    hardware and `apply` reported drift it was never going to converge.
+    """
+    live = _vm()
+    live.storage.append(StorageDevice(name="extra", size_mb=1, bus=BusType.SCSI))
+    live.networks.append(NetworkConfig())
+
+    changes = diff(live, _vm(), stated=_paths("memory", "memory.mb"))
+
+    assert changes == []
 
 
 # ---------------------------------------------------------------------------

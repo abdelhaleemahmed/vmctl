@@ -31,7 +31,13 @@ from ...core.platform import CPU_HOST_MODEL, CPU_HOST_PASSTHROUGH
 from ...core.slots import place
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy, Substitution, TranslationReport, Translator
-from ...core.vmconfig import DEFAULT_DISK_MB, DeviceKind, NetworkConfig, VMConfig
+from ...core.vmconfig import (
+    DEFAULT_DISK_MB,
+    DeviceKind,
+    NetworkConfig,
+    VMConfig,
+    keeping_existing_images,
+)
 from .capabilities import QemuCapabilities
 from .tables import (
     BOOT_LETTER,
@@ -439,6 +445,7 @@ class QemuEmitter:
         for line in translator.report.lines():
             plan.warn(line)
         self.report = translator.report
+        plan.report = translator.report
         return plan
 
     def emit_modify_vm(self, current: VMConfig, desired: VMConfig) -> Plan:
@@ -448,7 +455,8 @@ class QemuEmitter:
         editing means writing a new one. Unlike VirtualBox, that costs nothing --
         and unlike libvirt, it does not even need the hypervisor's agreement.
         """
-        plan = self.emit_create_vm(desired)
+        # Never over the VM's own images: the creation plan makes disks (F-39).
+        plan = self.emit_create_vm(keeping_existing_images(current, desired))
         if _running_shape(current) != _running_shape(desired):
             plan.warn(
                 "the command line changed; the VM has to be restarted for it to "

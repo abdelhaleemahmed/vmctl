@@ -403,9 +403,6 @@ class QemuBackend(BaseProvider):
                 f"{vm_name} is running on the previous command line; the changes "
                 f"take effect when it is stopped and started again"
             )
-        if on_warning:
-            for message in plan.warnings:
-                on_warning(message)
         if execute:
             self.run_plan(plan)
         return plan

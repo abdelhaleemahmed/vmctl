@@ -31,7 +31,12 @@ from ...core.plan import Plan, Step, StepKind
 from ...core.platform import CPU_HOST_MODEL, CPU_HOST_PASSTHROUGH, CPU_MODEL_KEYWORDS
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy, Substitution, Translator
-from ...core.vmconfig import DEFAULT_DISK_MB, DeviceKind, VMConfig
+from ...core.vmconfig import (
+    DEFAULT_DISK_MB,
+    DeviceKind,
+    VMConfig,
+    keeping_existing_images,
+)
 from .capabilities import LibvirtCapabilities
 from .tables import (
     BOOT_DEVICE,
@@ -563,6 +568,7 @@ class LibvirtEmitter:
         for line in translator.report.lines():
             plan.warn(line)
         self.report = translator.report
+        plan.report = translator.report
         return plan
 
     def emit_modify_vm(self, current: VMConfig, desired: VMConfig) -> Plan:
@@ -592,7 +598,10 @@ class LibvirtEmitter:
             desired = copy.deepcopy(desired)
             desired.metadata.pop("libvirt_uuid", None)
 
-        xml = self.build_domain_xml(desired)
+        # The domain keeps the images it has: recomputing their paths would
+        # quietly repoint it at files named after the VM, which is not where a
+        # hand-attached or migrated image lives (F-39).
+        xml = self.build_domain_xml(keeping_existing_images(current, desired))
         definition = Path(self.definition_dir) / f"{desired.name}.xml"
         plan.add(
             Step(

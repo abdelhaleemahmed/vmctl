@@ -943,3 +943,128 @@ def test_create_names_the_source_image_not_the_renamed_one(runner, vbox, monkeyp
 def test_clone_disks_is_off_by_default_for_create(runner, vbox):
     result = runner.invoke(cli, ["create", "bios-minimal", "--new-name", "clone"])
     assert "clonemedium" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# apply (E-02)
+# ---------------------------------------------------------------------------
+
+
+def test_apply_creates_a_vm_that_does_not_exist(runner, vbox, tmp_path):
+    result = runner.invoke(cli, ["apply", str(_write_config(tmp_path))])
+    assert result.exit_code == 0
+    assert "does not exist; it will be created" in result.output
+    assert "VBoxManage createvm" in result.output
+
+
+def test_apply_is_dry_run_by_default(runner, vbox, tmp_path):
+    result = runner.invoke(cli, ["apply", str(_write_config(tmp_path))])
+    assert result.exit_code == 0
+    assert "Dry-run" in result.output
+    assert not any(c[1] == "createvm" for c in vbox)
+
+
+def test_apply_does_nothing_when_the_vm_already_matches(runner, vbox, tmp_path):
+    """Exported, then applied: the round trip is the strictest test of idempotence,
+    and the one a user will actually run."""
+    exported = tmp_path / "vm.yaml"
+    assert runner.invoke(cli, ["export", "vmctl-t-bios", "-o", str(exported)]).exit_code == 0
+
+    result = runner.invoke(cli, ["apply", str(exported)])
+
+    assert result.exit_code == 0
+    assert "already matches the file; nothing to do" in result.output
+    assert "VBoxManage" not in result.output
+
+
+def test_apply_emits_only_what_drifted(runner, vbox, tmp_path):
+    exported = tmp_path / "vm.yaml"
+    runner.invoke(cli, ["export", "vmctl-t-bios", "-o", str(exported)])
+    exported.write_text(exported.read_text().replace("mb: 128", "mb: 512"))
+
+    result = runner.invoke(cli, ["apply", str(exported)])
+
+    assert result.exit_code == 0
+    assert "differs from the file in 1 place(s)" in result.output
+    assert "~ memory.mb" in result.output
+    commands = [line for line in result.output.splitlines() if "VBoxManage" in line]
+    assert len(commands) == 1
+    assert "--memory 512" in commands[0]
+
+
+def test_apply_does_not_reset_what_the_file_never_mentions(runner, vbox, tmp_path):
+    """The destructive reading of a config file: a minimal file must change what it
+    states and nothing else, or `apply` is a way to lose settings."""
+    minimal = tmp_path / "small.yaml"
+    minimal.write_text("name: vmctl-t-bios\ncpu:\n  count: 4\n")
+
+    result = runner.invoke(cli, ["apply", str(minimal)])
+
+    assert result.exit_code == 0
+    commands = [line for line in result.output.splitlines() if "VBoxManage" in line]
+    assert len(commands) == 1
+    assert "--cpus 4" in commands[0]
+    for flag in ("--memory", "--vram", "--firmware", "--nic1"):
+        assert flag not in commands[0]
+
+
+def test_apply_says_when_clone_disks_does_not_apply(runner, vbox, tmp_path):
+    exported = tmp_path / "vm.yaml"
+    runner.invoke(cli, ["export", "vmctl-t-bios", "-o", str(exported)])
+    exported.write_text(exported.read_text().replace("mb: 128", "mb: 512"))
+
+    result = runner.invoke(cli, ["apply", str(exported), "--clone-disks"])
+
+    assert result.exit_code == 0
+    assert "already exists" in result.output
+    assert "does not create or replace disks" in result.output
+
+
+def test_apply_reports_a_disk_the_file_adds_with_no_image(runner, vbox, tmp_path):
+    exported = tmp_path / "vm.yaml"
+    runner.invoke(cli, ["export", "vmctl-t-bios", "-o", str(exported)])
+    text = exported.read_text()
+    assert "storage:" in text
+    exported.write_text(
+        text.replace("storage:\n", "storage:\n- name: added\n  size_mb: 4096\n  bus: scsi\n", 1)
+    )
+
+    result = runner.invoke(cli, ["apply", str(exported)])
+
+    assert result.exit_code == 0, result.output
+    assert "no image behind it" in result.output
+
+
+def test_reading_a_vm_that_does_not_exist_says_so(runner, vbox, monkeypatch):
+    """F-40: VirtualBox reported "no such VM" as a generic provider failure, so
+    `apply` could not tell it apart from a broken hypervisor and refused to create."""
+    from vmctl.core.exceptions import VMNotFoundError
+    from vmctl.providers.virtualbox.parser import VirtualBoxParser
+
+    def fake_run(cmd, *args, **kwargs):
+        raise subprocess.CalledProcessError(
+            1,
+            cmd,
+            stderr=(
+                "VBoxManage.exe: error: Could not find a registered machine named 'gone'\n"
+                "VBoxManage.exe: error: Details: code VBOX_E_OBJECT_NOT_FOUND (0x80bb0001)\n"
+            ),
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(VMNotFoundError):
+        VirtualBoxParser().get_vm_info("gone")
+
+
+def test_a_real_virtualbox_failure_is_still_a_provider_error(monkeypatch):
+    """The other half: a broken hypervisor must not look like an absent VM, or
+    `apply` would cheerfully try to create a VM that is already there."""
+    from vmctl.core.exceptions import ProviderError
+    from vmctl.providers.virtualbox.parser import VirtualBoxParser
+
+    def fake_run(cmd, *args, **kwargs):
+        raise subprocess.CalledProcessError(1, cmd, stderr="VBoxManage.exe: error: E_FAIL\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(ProviderError):
+        VirtualBoxParser().get_vm_info("broken")
