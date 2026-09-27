@@ -4,8 +4,9 @@ Base provider interface for hypervisor backends.
 All hypervisor providers (VirtualBox, libvirt, QEMU, etc.) must implement
 this abstract base class to ensure consistent API across providers.
 """
+
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 
 try:  # pragma: no cover - typing_extensions fallback for older interpreters
     from typing import Protocol, runtime_checkable
@@ -164,8 +165,7 @@ class BaseProvider(ABC):
         """
         return vm_name in self.list_vms()
 
-    def edit_vm(self, vm_name: str, new_config: VMConfig,
-                execute: bool = True) -> List[List[str]]:
+    def edit_vm(self, vm_name: str, new_config: VMConfig, execute: bool = True) -> List[List[str]]:
         """
         Edit an existing VM's configuration.
 
@@ -187,6 +187,4 @@ class BaseProvider(ABC):
             disks -- a data-loss trap for any provider that simply did not
             override it (F-11). Providers must implement editing explicitly.
         """
-        raise NotImplementedError(
-            f"{self.name} does not support editing VMs in place"
-        )
+        raise NotImplementedError(f"{self.name} does not support editing VMs in place")

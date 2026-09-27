@@ -1,4 +1,5 @@
 """Serializer tests — file in, file out, no surprises."""
+
 import json
 
 import pytest
@@ -17,8 +18,7 @@ def serializer(request):
 
 
 def test_save_then_load_is_stable(serializer, tmp_path, vm_full):
-    path = tmp_path / ("cfg.yaml" if isinstance(serializer, YAMLSerializer)
-                       else "cfg.json")
+    path = tmp_path / ("cfg.yaml" if isinstance(serializer, YAMLSerializer) else "cfg.json")
     serializer.save(vm_full, path)
     loaded = serializer.load(path)
     assert serializer.to_dict(loaded) == serializer.to_dict(vm_full)

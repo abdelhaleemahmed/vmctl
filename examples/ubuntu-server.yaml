@@ -1,0 +1,21 @@
+# The example from the README. Committed so CI validates it on every push --
+# this exact config used to be impossible to import, because nothing created the
+# storage controller it referenced (F-01 in PLAN.md).
+name: ubuntu-server
+ostype: Ubuntu_64
+cpu:
+  count: 4
+memory:
+  mb: 8192
+boot:
+  # VirtualBox requires I/O APIC for more than one CPU.
+  ioapic: true
+disks:
+  - name: system
+    size_mb: 51200
+    type: hdd
+    controller: sata
+    bootable: true
+networks:
+  - network_type: bridged
+    adapter_name: eth0

@@ -4,6 +4,18 @@
 يدعم vmctl الإكمال التلقائي لجميع الأوامر وأسماء الأجهزة الافتراضية في
 **bash** و**zsh** و**fish**.
 
+أبسط طريقة هي الأمر ``vmctl completion``، الذي يطبع سكربت الإكمال الخاص
+بطرفيتك:
+
+.. code-block:: bash
+
+   eval "$(vmctl completion bash)"     # bash
+   eval "$(vmctl completion zsh)"      # zsh
+   vmctl completion fish | source      # fish
+
+التعليمات التالية لكل طرفية تُنفّذ الأمر نفسه يدوياً، وهي مفيدة إن أردت حفظ
+السكربت المُولَّد في ملف بدلاً من توليده عند بدء كل جلسة.
+
 Bash
 ----
 

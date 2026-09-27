@@ -1,10 +1,11 @@
 """
 Core engine coordinating all components
 """
+
 from pathlib import Path
-from typing import Callable, Optional, List, Dict, Any
+from typing import Callable, List, Optional
 from .vmconfig import VMConfig
-from .exceptions import ValidationError, SerializationError, ProviderError
+from .exceptions import ValidationError, SerializationError
 from ..validators.vm_validator import VMValidator
 from ..serializers.base import VMConfigSerializer
 from ..serializers.json_serializer import JSONSerializer
@@ -31,10 +32,7 @@ class VMCtlEngine:
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
-        self.serializers = {
-            'json': JSONSerializer(),
-            'yaml': YAMLSerializer()
-        }
+        self.serializers = {"json": JSONSerializer(), "yaml": YAMLSerializer()}
 
     def read_vm(self, vm_name: str) -> VMConfig:
         """Read VM configuration from provider"""
@@ -90,9 +88,7 @@ class VMCtlEngine:
             if on_warning:
                 on_warning(warning)
 
-        return self.backend.edit_vm(
-            vm_name, new_config, execute=execute, on_warning=on_warning
-        )
+        return self.backend.edit_vm(vm_name, new_config, execute=execute, on_warning=on_warning)
 
     def delete_vm(self, vm_name: str) -> bool:
         """Delete a VM"""
@@ -133,10 +129,10 @@ class VMCtlEngine:
         """Import VM configuration from file"""
         # Detect format from extension
         suffix = config_path.suffix.lower()
-        if suffix == '.json':
-            serializer = self.serializers['json']
-        elif suffix in ('.yaml', '.yml'):
-            serializer = self.serializers['yaml']
+        if suffix == ".json":
+            serializer = self.serializers["json"]
+        elif suffix in (".yaml", ".yml"):
+            serializer = self.serializers["yaml"]
         else:
             raise SerializationError(f"Unsupported file format: {suffix}")
 

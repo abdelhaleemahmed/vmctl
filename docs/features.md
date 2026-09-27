@@ -110,17 +110,22 @@ Each entry in the `disks` list:
 | `format` | enum | `VDI` | — | Disk image format (see below) |
 | `variant` | enum | `THIN` | — | Allocation type (see below) |
 | `controller` | enum | `SATA` | — | Storage controller type |
-| `controller_name` | string | `SATA` | — | Exact VirtualBox controller name |
+| `controller_name` | string | `null` | — | Exact controller name; `null` means "whichever controller serves `controller`", and one is created if the config declares none |
 | `port` | int | `0` | 0–port max | Controller port number |
-| `device` | int | `0` | 0–1 | Device on port |
-| `bootable` | bool | `false` | — | Mark as boot device |
+| `device` | int | `0` | 0–1 on IDE, 0 elsewhere | Device on port |
+| `bootable` | bool | `false` | — | Informational only: VirtualBox has no per-disk bootable flag, boot selection is `boot.order` plus the controller's bootable setting |
 
 #### Disk Types
+
+`DVD` and `FLOPPY` are removable: no medium is created for them, `size_mb` is
+ignored, and `source` names an existing image to insert (an ISO path for a DVD).
+
 | Value | Description |
 |-------|-------------|
 | `HDD` | Hard disk drive |
 | `SSD` | Solid state drive (same performance as HDD in VBox) |
 | `DVD` | Optical drive / ISO image |
+| `FLOPPY` | Floppy drive |
 
 #### Disk Formats
 | Value | Extension | Notes |
@@ -204,12 +209,24 @@ Normally auto-populated by `vmctl export`. Define manually when creating from sc
 | `bootable` | bool | `false` | Mark controller as bootable |
 
 #### Controller Types and Limits
-| Type | VBox Chipset | Max Ports | Use Case |
-|------|-------------|-----------|----------|
-| `IDE` | PIIX4 | 2 | Legacy, CD-ROM |
-| `SATA` | IntelAHCI | 30 | Standard disks |
-| `SCSI` | LsiLogic | 254 | High port count |
-| `SAS` | LsiLogicSas | 255 | Enterprise storage |
+
+Every row below was verified against VirtualBox 7.1.18 by creating the controller
+on a live host.
+
+| Type | `--add` | VBox Chipset | Ports | Use Case |
+|------|---------|--------------|-------|----------|
+| `ide` | `ide` | PIIX4 | 2 | Legacy disks, optical drives |
+| `sata` | `sata` | IntelAhci | 30 | Standard disks |
+| `scsi` | `scsi` | LSILogic | 16 | High port count |
+| `sas` | `sas` | LSILogicSAS | 255 | Enterprise storage |
+| `nvme` | `pcie` | NVMe | 255 | Fast virtual NVMe (VirtualBox 6.0+) |
+| `virtio-scsi` | `virtio-scsi` | VirtIO | 256 | Paravirtualised, VirtualBox 7.x |
+| `usb` | `usb` | USB | 8 (exactly) | USB mass storage |
+| `floppy` | `floppy` | I82078 | 1 | Floppy drives; one controller per VM |
+
+Two of these are not obvious from `VBoxManage storagectl --help`: `virtio-scsi`
+is a valid `--add` value even though the help text omits it, and a USB controller
+accepts *only* 8 ports (`Invalid port count: 1 (must be in range [8, 8])`).
 
 ---
 

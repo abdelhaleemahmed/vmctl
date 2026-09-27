@@ -15,6 +15,7 @@ The fake :class:`~vmctl.providers.base.MediumProbe` decodes its fixture text
 with the *production* decoder (``VirtualBoxParser.parse_medium_info``) rather
 than a reimplementation, so the tests cannot drift from the real behaviour.
 """
+
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Dict, List
@@ -22,9 +23,20 @@ from typing import Any, Callable, Dict, List
 import pytest
 
 from vmctl.core.vmconfig import (
-    BootConfig, CPUConfig, DiskConfig, DiskFormat, DiskType, DiskVariant,
-    FirmwareConfig, FirmwareType, MemoryConfig, NetworkConfig, NetworkType,
-    StorageControllerConfig, StorageControllerType, VMConfig,
+    BootConfig,
+    CPUConfig,
+    DiskConfig,
+    DiskFormat,
+    DiskType,
+    DiskVariant,
+    FirmwareConfig,
+    FirmwareType,
+    MemoryConfig,
+    NetworkConfig,
+    NetworkType,
+    StorageControllerConfig,
+    StorageControllerType,
+    VMConfig,
 )
 from vmctl.providers.virtualbox.parser import VirtualBoxParser
 
@@ -50,6 +62,7 @@ VM_LABELS = [
 # ---------------------------------------------------------------------------
 # Fixture-file access
 # ---------------------------------------------------------------------------
+
 
 def read_fixture(name: str) -> str:
     """Return the contents of ``tests/fixtures/<name>``."""
@@ -91,8 +104,7 @@ def make_fixture_probe(label: str, strict: bool = True) -> Callable[[str], Dict[
                     f"No showmediuminfo fixture for {path!r} (label {label!r}). "
                     f"Known: {sorted(table)}"
                 )
-            return {"size_mb": 20480, "format": default_format,
-                    "variant": DiskVariant.THIN}
+            return {"size_mb": 20480, "format": default_format, "variant": DiskVariant.THIN}
         return parser.parse_medium_info(table[path], default_format)
 
     return probe
@@ -101,6 +113,7 @@ def make_fixture_probe(label: str, strict: bool = True) -> Callable[[str], Dict[
 # ---------------------------------------------------------------------------
 # Hermeticity guard
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def no_hypervisor(request, monkeypatch):
@@ -125,6 +138,7 @@ def no_hypervisor(request, monkeypatch):
 # ---------------------------------------------------------------------------
 # Parsed-fixture fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def parser() -> VirtualBoxParser:
@@ -156,6 +170,7 @@ def parsed(request) -> Callable[[str], VMConfig]:
 # Hand-built VMConfig objects (for emitter tests that need a precise shape)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def vm_minimal() -> VMConfig:
     """The smallest config a user could hand-write (as in the README)."""
@@ -176,46 +191,69 @@ def vm_full() -> VMConfig:
     """A config exercising every field the model has."""
     return VMConfig(
         name="full-vm",
-        cpu=CPUConfig(count=8, hotplug=True, execution_cap=90, pae=True,
-                      nested_virt=True),
-        memory=MemoryConfig(mb=16384, vram_mb=128, page_fusion=True,
-                            ballooning=True),
-        firmware=FirmwareConfig(type=FirmwareType.EFI64, secure_boot=True,
-                                tpm=True),
+        cpu=CPUConfig(count=8, hotplug=True, execution_cap=90, pae=True, nested_virt=True),
+        memory=MemoryConfig(mb=16384, vram_mb=128, page_fusion=True, ballooning=True),
+        firmware=FirmwareConfig(type=FirmwareType.EFI64, secure_boot=True, tpm=True),
         disks=[
-            DiskConfig(name="system", size_mb=51200, type=DiskType.HDD,
-                       format=DiskFormat.VDI, variant=DiskVariant.THIN,
-                       controller=StorageControllerType.SATA,
-                       controller_name="SATA Controller", port=0, device=0,
-                       bootable=True),
-            DiskConfig(name="data", size_mb=102400, type=DiskType.SSD,
-                       format=DiskFormat.VMDK, variant=DiskVariant.THICK,
-                       controller=StorageControllerType.SAS,
-                       controller_name="SAS Controller", port=1, device=0),
-            DiskConfig(name="cd", size_mb=700, type=DiskType.DVD,
-                       controller=StorageControllerType.IDE,
-                       controller_name="IDE Controller", port=1, device=0),
+            DiskConfig(
+                name="system",
+                size_mb=51200,
+                type=DiskType.HDD,
+                format=DiskFormat.VDI,
+                variant=DiskVariant.THIN,
+                controller=StorageControllerType.SATA,
+                controller_name="SATA Controller",
+                port=0,
+                device=0,
+                bootable=True,
+            ),
+            DiskConfig(
+                name="data",
+                size_mb=102400,
+                type=DiskType.SSD,
+                format=DiskFormat.VMDK,
+                variant=DiskVariant.THICK,
+                controller=StorageControllerType.SAS,
+                controller_name="SAS Controller",
+                port=1,
+                device=0,
+            ),
+            DiskConfig(
+                name="cd",
+                size_mb=700,
+                type=DiskType.DVD,
+                controller=StorageControllerType.IDE,
+                controller_name="IDE Controller",
+                port=1,
+                device=0,
+            ),
         ],
         networks=[
             NetworkConfig(network_type=NetworkType.NAT),
-            NetworkConfig(network_type=NetworkType.BRIDGED,
-                          adapter_name="eth0", mac_address="080027AA0001",
-                          promiscuous_mode=True),
-            NetworkConfig(network_type=NetworkType.INTERNAL,
-                          adapter_name="lab-net"),
+            NetworkConfig(
+                network_type=NetworkType.BRIDGED,
+                adapter_name="eth0",
+                mac_address="080027AA0001",
+                promiscuous_mode=True,
+            ),
+            NetworkConfig(network_type=NetworkType.INTERNAL, adapter_name="lab-net"),
         ],
-        boot=BootConfig(order=["disk", "dvd", "network", "none"], acpi=True,
-                        ioapic=True, hpet=True),
+        boot=BootConfig(
+            order=["disk", "dvd", "network", "none"], acpi=True, ioapic=True, hpet=True
+        ),
         storage_controllers=[
-            StorageControllerConfig(name="SATA Controller",
-                                    controller_type=StorageControllerType.SATA,
-                                    port_count=2, bootable=True),
-            StorageControllerConfig(name="SAS Controller",
-                                    controller_type=StorageControllerType.SAS,
-                                    port_count=16),
-            StorageControllerConfig(name="IDE Controller",
-                                    controller_type=StorageControllerType.IDE,
-                                    port_count=2),
+            StorageControllerConfig(
+                name="SATA Controller",
+                controller_type=StorageControllerType.SATA,
+                port_count=2,
+                bootable=True,
+            ),
+            StorageControllerConfig(
+                name="SAS Controller", controller_type=StorageControllerType.SAS, port_count=16
+            ),
+            StorageControllerConfig(
+                name="IDE Controller", controller_type=StorageControllerType.IDE, port_count=2
+            ),
         ],
         ostype="Ubuntu_64",
         description="every field set",
@@ -231,6 +269,7 @@ def vm_full() -> VMConfig:
 # ---------------------------------------------------------------------------
 # Golden-file helpers
 # ---------------------------------------------------------------------------
+
 
 def render_commands(commands: List[List[str]]) -> str:
     """Render emitted commands the way a golden file stores them."""

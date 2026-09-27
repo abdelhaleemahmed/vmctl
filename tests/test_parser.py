@@ -4,10 +4,15 @@ These pin *current* behaviour, including the bugs the audit found. Tests that
 document a bug are marked ``documents_bug`` and carry a strict xfail, so the
 Phase 1 fix flips them green and they can never silently regress afterwards.
 """
+
 import pytest
 
 from vmctl.core.vmconfig import (
-    DiskFormat, DiskType, DiskVariant, FirmwareType, NetworkType,
+    DiskFormat,
+    DiskType,
+    DiskVariant,
+    FirmwareType,
+    NetworkType,
     StorageControllerType,
 )
 
@@ -17,6 +22,7 @@ from conftest import parse_label, read_fixture
 # ---------------------------------------------------------------------------
 # Decoding the machine-readable key/value format
 # ---------------------------------------------------------------------------
+
 
 def test_decodes_simple_and_quoted_keys(parser):
     raw = 'cpus=4\nmemory="2048"\n"SATA Controller-0-0"="/vms/d.vdi"\n'
@@ -40,6 +46,7 @@ def test_decodes_hyphenated_keys(parser):
 # ---------------------------------------------------------------------------
 # Whole-VM parsing, per captured fixture
 # ---------------------------------------------------------------------------
+
 
 def test_every_capture_parses(vbox_capture, parser):
     label, raw, probe = vbox_capture
@@ -141,12 +148,11 @@ def test_rtc_localtime_is_read():
 # Known-broken: firmware and nested virtualisation
 # ---------------------------------------------------------------------------
 
+
 def test_efi_vm_is_parsed_as_efi():
     """F-02 — an EFI VM currently round-trips as BIOS and will not boot."""
     vm = parse_label("efi_secureboot")
     assert vm.firmware.type in (FirmwareType.EFI, FirmwareType.EFI64)
-
-
 
 
 def test_nested_virt_is_read():
@@ -169,24 +175,26 @@ def test_secure_boot_cannot_be_read_from_virtualbox():
 # Medium decoding (pure)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("path,expected", [
-    ("/x/d.vdi", DiskFormat.VDI),
-    ("/x/d.vmdk", DiskFormat.VMDK),
-    ("/x/d.vhd", DiskFormat.VHD),
-    ("/x/d.raw", DiskFormat.RAW),
-    ("/x/d.img", DiskFormat.RAW),
-    ("/x/noext", DiskFormat.VDI),
-    ("/x/d.iso", DiskFormat.VDI),  # no ISO format in the model yet
-])
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("/x/d.vdi", DiskFormat.VDI),
+        ("/x/d.vmdk", DiskFormat.VMDK),
+        ("/x/d.vhd", DiskFormat.VHD),
+        ("/x/d.raw", DiskFormat.RAW),
+        ("/x/d.img", DiskFormat.RAW),
+        ("/x/noext", DiskFormat.VDI),
+        ("/x/d.iso", DiskFormat.VDI),  # no ISO format in the model yet
+    ],
+)
 def test_default_format_from_extension(parser, path, expected):
     assert parser.default_format_for(path) == expected
 
 
 def test_medium_info_decodes_capacity_format_and_variant(parser):
     """VirtualBox 7.x prints "Format variant:", not "Variant:" (F-20)."""
-    info = parser.parse_medium_info(
-        read_fixture("showmediuminfo_multidisk_0.txt"), DiskFormat.VDI
-    )
+    info = parser.parse_medium_info(read_fixture("showmediuminfo_multidisk_0.txt"), DiskFormat.VDI)
     assert info == {
         "size_mb": 128,
         "format": DiskFormat.VHD,
@@ -213,9 +221,9 @@ def test_medium_info_falls_back_to_the_supplied_default(parser):
 def test_parser_never_touches_the_hypervisor(parser):
     """The guard in conftest would fail this test if parse_text shelled out."""
     vm = parser.parse_text(
-        "x", read_fixture("showvminfo_bios_minimal.txt"),
-        probe=lambda p: {"size_mb": 1, "format": DiskFormat.VDI,
-                         "variant": DiskVariant.THIN},
+        "x",
+        read_fixture("showvminfo_bios_minimal.txt"),
+        probe=lambda p: {"size_mb": 1, "format": DiskFormat.VDI, "variant": DiskVariant.THIN},
     )
     assert vm.disks[0].size_mb == 1
 
@@ -223,6 +231,7 @@ def test_parser_never_touches_the_hypervisor(parser):
 # ---------------------------------------------------------------------------
 # Determinism and controller typing (found by the golden tests, see PLAN.md)
 # ---------------------------------------------------------------------------
+
 
 def test_controller_order_is_deterministic():
     """F-14 — controller order was set-iteration order, so it varied per process.
@@ -248,20 +257,22 @@ def test_floppy_controller_is_not_typed_as_sata():
     assert floppy.controller_type != StorageControllerType.SATA
 
 
-
-
 # ---------------------------------------------------------------------------
 # Findings from testing against a real host (VirtualBox 7.1.18)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("reported,expected", [
-    ("BIOS", FirmwareType.BIOS),
-    ("EFI", FirmwareType.EFI),
-    ("EFI32", FirmwareType.EFI32),
-    ("EFI64", FirmwareType.EFI64),
-    ("bios", FirmwareType.BIOS),
-    ("efi64", FirmwareType.EFI64),
-])
+
+@pytest.mark.parametrize(
+    "reported,expected",
+    [
+        ("BIOS", FirmwareType.BIOS),
+        ("EFI", FirmwareType.EFI),
+        ("EFI32", FirmwareType.EFI32),
+        ("EFI64", FirmwareType.EFI64),
+        ("bios", FirmwareType.BIOS),
+        ("efi64", FirmwareType.EFI64),
+    ],
+)
 def test_every_firmware_value_virtualbox_reports(parser, reported, expected):
     """F-02 - VirtualBox reports these four, upper case. All must map."""
     vm = parser.parse_text("x", f'firmware="{reported}"\ncpus=1\nmemory=128\n')
@@ -275,8 +286,10 @@ def test_unknown_firmware_falls_back_to_bios(parser):
 
 def test_windows_paths_are_unescaped(parser):
     r"""F-16 - machine-readable output escapes '\' as '\\'."""
-    raw = ('storagecontrollername0="SATA"\nstoragecontrollertype0="IntelAhci"\n'
-           r'"SATA-0-0"="C:\\vms\\disk.vdi"' + "\n")
+    raw = (
+        'storagecontrollername0="SATA"\nstoragecontrollertype0="IntelAhci"\n'
+        r'"SATA-0-0"="C:\\vms\\disk.vdi"' + "\n"
+    )
     decoded = parser._parse_machinereadable(raw)
     assert decoded["SATA-0-0"] == r"C:\vms\disk.vdi"
 
@@ -286,19 +299,22 @@ def test_escaped_quotes_in_values_are_decoded(parser):
     assert decoded["IDE-0-0"] == r"C:\a b\x.vdi"
 
 
-@pytest.mark.parametrize("chipset,expected", [
-    ("PIIX3", StorageControllerType.IDE),
-    ("PIIX4", StorageControllerType.IDE),
-    ("ICH6", StorageControllerType.IDE),
-    ("IntelAhci", StorageControllerType.SATA),
-    ("LsiLogic", StorageControllerType.SCSI),
-    ("BusLogic", StorageControllerType.SCSI),
-    ("LsiLogicSas", StorageControllerType.SAS),
-    ("NVMe", StorageControllerType.NVME),
-    ("I82078", StorageControllerType.FLOPPY),
-    ("USB", StorageControllerType.USB),
-    ("VirtioSCSI", StorageControllerType.VIRTIO_SCSI),
-])
+@pytest.mark.parametrize(
+    "chipset,expected",
+    [
+        ("PIIX3", StorageControllerType.IDE),
+        ("PIIX4", StorageControllerType.IDE),
+        ("ICH6", StorageControllerType.IDE),
+        ("IntelAhci", StorageControllerType.SATA),
+        ("LsiLogic", StorageControllerType.SCSI),
+        ("BusLogic", StorageControllerType.SCSI),
+        ("LsiLogicSas", StorageControllerType.SAS),
+        ("NVMe", StorageControllerType.NVME),
+        ("I82078", StorageControllerType.FLOPPY),
+        ("USB", StorageControllerType.USB),
+        ("VirtioSCSI", StorageControllerType.VIRTIO_SCSI),
+    ],
+)
 def test_every_controller_chipset_virtualbox_offers(parser, chipset, expected):
     """F-15 - the full chipset set from `storagectl --help` on 7.1.18."""
     raw = f'storagecontrollername0="C0"\nstoragecontrollertype0="{chipset}"\n'
@@ -309,6 +325,7 @@ def test_every_controller_chipset_virtualbox_offers(parser, chipset, expected):
 def test_unknown_controller_chipset_is_reported_not_guessed(parser):
     """F-15 - silently calling an unknown controller SATA caused disk mis-attachment."""
     from vmctl.core.exceptions import ProviderError
+
     raw = 'storagecontrollername0="C0"\nstoragecontrollertype0="FutureBus9000"\n'
     with pytest.raises(ProviderError, match="FutureBus9000"):
         parser.parse_text("x", raw)

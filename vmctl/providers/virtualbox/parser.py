@@ -4,19 +4,30 @@ Parse VirtualBox VM configuration into VMConfig
 """
 import subprocess
 import re
-from typing import Dict, Any, List, Optional
+from typing import Any, Callable, Dict, Optional
 from ...core.vmconfig import (
-    VMConfig, CPUConfig, MemoryConfig, FirmwareConfig, FirmwareType,
-    DiskConfig, DiskType, DiskFormat, DiskVariant, NetworkConfig, NetworkType,
-    BootConfig, StorageControllerConfig, StorageControllerType
+    VMConfig,
+    CPUConfig,
+    MemoryConfig,
+    FirmwareConfig,
+    FirmwareType,
+    DiskConfig,
+    DiskType,
+    DiskFormat,
+    DiskVariant,
+    NetworkConfig,
+    NetworkType,
+    BootConfig,
+    StorageControllerConfig,
+    StorageControllerType,
 )
-from ...core.exceptions import ProviderError
+from ...core.exceptions import DependencyError, ProviderError
 from ..base import MediumProbe
 
 
 class VirtualBoxParser:
     """Parse VirtualBox VM configuration"""
-    
+
     def __init__(self):
         """Initialise the parser.
 
@@ -24,7 +35,7 @@ class VirtualBoxParser:
         on the system ``PATH``.
         """
         self.vboxmanage_cmd = "VBoxManage"
-    
+
     def get_vm_info(self, vm_name: str) -> str:
         """Get raw VM info from VirtualBox"""
         try:
@@ -32,37 +43,41 @@ class VirtualBoxParser:
                 [self.vboxmanage_cmd, "showvminfo", vm_name, "--machinereadable"],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
             raise ProviderError(f"Failed to get VM info for {vm_name}: {e}")
         except FileNotFoundError:
-            raise ProviderError("VBoxManage not found. Is VirtualBox installed?")
+            raise DependencyError(
+                "VBoxManage",
+                reason="not found on PATH",
+                install_hint="Install VirtualBox and make sure VBoxManage is on " "your PATH.",
+            )
 
     # -- pure decoding -------------------------------------------------------
 
     EXTENSION_FORMATS = {
-        'vdi': DiskFormat.VDI,
-        'vmdk': DiskFormat.VMDK,
-        'vhd': DiskFormat.VHD,
-        'raw': DiskFormat.RAW,
-        'img': DiskFormat.RAW,
+        "vdi": DiskFormat.VDI,
+        "vmdk": DiskFormat.VMDK,
+        "vhd": DiskFormat.VHD,
+        "raw": DiskFormat.RAW,
+        "img": DiskFormat.RAW,
     }
 
     MEDIUM_FORMATS = {
-        'VDI': DiskFormat.VDI,
-        'VMDK': DiskFormat.VMDK,
-        'VHD': DiskFormat.VHD,
-        'RAW': DiskFormat.RAW,
-        'IMG': DiskFormat.RAW,
+        "VDI": DiskFormat.VDI,
+        "VMDK": DiskFormat.VMDK,
+        "VHD": DiskFormat.VHD,
+        "RAW": DiskFormat.RAW,
+        "IMG": DiskFormat.RAW,
     }
 
     FIRMWARE_TYPES = {
-        'bios': FirmwareType.BIOS,
-        'efi': FirmwareType.EFI,
-        'efi32': FirmwareType.EFI32,
-        'efi64': FirmwareType.EFI64,
+        "bios": FirmwareType.BIOS,
+        "efi": FirmwareType.EFI,
+        "efi32": FirmwareType.EFI32,
+        "efi64": FirmwareType.EFI64,
     }
 
     #: Reported controller chipset -> canonical bus type. Verified against
@@ -70,21 +85,21 @@ class VirtualBoxParser:
     #: set is BusLogic, I82078, ICH6, IntelAhci, LSILogic, LSILogicSAS, NVMe,
     #: PIIX3, PIIX4, USB, VirtIO.
     CONTROLLER_TYPES = {
-        'piix3': StorageControllerType.IDE,
-        'piix4': StorageControllerType.IDE,
-        'ich6': StorageControllerType.IDE,
-        'intelahci': StorageControllerType.SATA,
-        'lsilogic': StorageControllerType.SCSI,
-        'buslogic': StorageControllerType.SCSI,
-        'lsilogicsas': StorageControllerType.SAS,
-        'nvme': StorageControllerType.NVME,
-        'i82078': StorageControllerType.FLOPPY,
-        'usb': StorageControllerType.USB,
-        'virtioscsi': StorageControllerType.VIRTIO_SCSI,
+        "piix3": StorageControllerType.IDE,
+        "piix4": StorageControllerType.IDE,
+        "ich6": StorageControllerType.IDE,
+        "intelahci": StorageControllerType.SATA,
+        "lsilogic": StorageControllerType.SCSI,
+        "buslogic": StorageControllerType.SCSI,
+        "lsilogicsas": StorageControllerType.SAS,
+        "nvme": StorageControllerType.NVME,
+        "i82078": StorageControllerType.FLOPPY,
+        "usb": StorageControllerType.USB,
+        "virtioscsi": StorageControllerType.VIRTIO_SCSI,
     }
 
-    TRUTHY = {'on', 'true', 'yes', '1', 'enabled'}
-    FALSY = {'off', 'false', 'no', '0', 'disabled'}
+    TRUTHY = {"on", "true", "yes", "1", "enabled"}
+    FALSY = {"off", "false", "no", "0", "disabled"}
 
     @classmethod
     def _flag(cls, config: Dict[str, str], key: str, default: bool = False) -> bool:
@@ -119,7 +134,7 @@ class VirtualBoxParser:
         Returns:
             DiskFormat: The format implied by the extension, or VDI.
         """
-        ext = disk_path.lower().rsplit('.', 1)[-1] if '.' in disk_path else ''
+        ext = disk_path.lower().rsplit(".", 1)[-1] if "." in disk_path else ""
         return self.EXTENSION_FORMATS.get(ext, DiskFormat.VDI)
 
     def parse_medium_info(self, raw_info: str, default_format: DiskFormat) -> Dict[str, Any]:
@@ -137,32 +152,32 @@ class VirtualBoxParser:
             dict: ``size_mb``, ``format`` and ``variant`` keys.
         """
         disk_info = {
-            'size_mb': 20480,  # Default 20GB
-            'format': default_format,
-            'variant': DiskVariant.THIN
+            "size_mb": 20480,  # Default 20GB
+            "format": default_format,
+            "variant": DiskVariant.THIN,
         }
 
         for line in raw_info.splitlines():
             line = line.strip()
             lower = line.lower()
             # Capacity: 20480 MBytes
-            if lower.startswith('capacity:'):
-                match = re.search(r'(\d+)\s*MBytes', line)
+            if lower.startswith("capacity:"):
+                match = re.search(r"(\d+)\s*MBytes", line)
                 if match:
-                    disk_info['size_mb'] = int(match.group(1))
+                    disk_info["size_mb"] = int(match.group(1))
             # Storage format: VMDK or VDI
-            elif lower.startswith('storage format:'):
-                fmt_str = line.split(':', 1)[1].strip().upper()
+            elif lower.startswith("storage format:"):
+                fmt_str = line.split(":", 1)[1].strip().upper()
                 if fmt_str in self.MEDIUM_FORMATS:
-                    disk_info['format'] = self.MEDIUM_FORMATS[fmt_str]
+                    disk_info["format"] = self.MEDIUM_FORMATS[fmt_str]
             # VirtualBox 7.x prints "Format variant: fixed default"; older
             # releases printed "Variant: ...". Accept both (F-20).
-            elif lower.startswith('format variant:') or lower.startswith('variant:'):
-                variant_str = line.split(':', 1)[1].strip().lower()
-                if 'fixed' in variant_str:
-                    disk_info['variant'] = DiskVariant.THICK
+            elif lower.startswith("format variant:") or lower.startswith("variant:"):
+                variant_str = line.split(":", 1)[1].strip().lower()
+                if "fixed" in variant_str:
+                    disk_info["variant"] = DiskVariant.THICK
                 else:
-                    disk_info['variant'] = DiskVariant.THIN
+                    disk_info["variant"] = DiskVariant.THIN
 
         return disk_info
 
@@ -189,14 +204,14 @@ class VirtualBoxParser:
                 [self.vboxmanage_cmd, "showmediuminfo", disk_path],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
             return self.parse_medium_info(result.stdout, default_format)
         except subprocess.CalledProcessError:
             # If we can't get disk info, return defaults with format from extension
-            return {'size_mb': 20480, 'format': default_format, 'variant': DiskVariant.THIN}
+            return {"size_mb": 20480, "format": default_format, "variant": DiskVariant.THIN}
         except FileNotFoundError:
-            return {'size_mb': 20480, 'format': default_format, 'variant': DiskVariant.THIN}
+            return {"size_mb": 20480, "format": default_format, "variant": DiskVariant.THIN}
 
     def parse_vm(self, vm_name: str) -> VMConfig:
         """Read a VM from VirtualBox and parse it into a VMConfig.
@@ -237,7 +252,7 @@ class VirtualBoxParser:
         """
         config_dict = self._parse_machinereadable(raw_info)
         return self._dict_to_vmconfig(vm_name, config_dict, probe=probe)
-    
+
     @staticmethod
     def _unescape(value: str) -> str:
         """Undo the escaping VBoxManage applies inside quoted values.
@@ -246,7 +261,7 @@ class VirtualBoxParser:
         so a Windows path arrives as ``C:\\\\vms\\\\disk.vdi``. Taking the value
         verbatim doubles every separator (F-16).
         """
-        return value.replace('\\"', '"').replace('\\\\', '\\')
+        return value.replace('\\"', '"').replace("\\\\", "\\")
 
     def _parse_machinereadable(self, raw_info: str) -> Dict[str, str]:
         """Parse machine-readable output into dictionary"""
@@ -254,7 +269,7 @@ class VirtualBoxParser:
 
         for line in raw_info.splitlines():
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
             # Quoted key: "key"="value" -- disk attachments and anything whose
@@ -268,7 +283,7 @@ class VirtualBoxParser:
             # Bare key: key="value" or key=value. VirtualBox uses hyphens and
             # dots in several keys (nested-hw-virt, cpu-profile, tpm-type), so
             # the key class cannot be \w+ alone (F-03).
-            match = re.match(r'^([\w.\-]+)=(.*)$', line)
+            match = re.match(r"^([\w.\-]+)=(.*)$", line)
             if match:
                 key, value = match.groups()
                 if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
@@ -276,7 +291,7 @@ class VirtualBoxParser:
                 config[key] = value
 
         return config
-    
+
     def _dict_to_vmconfig(
         self,
         vm_name: str,
@@ -294,52 +309,50 @@ class VirtualBoxParser:
         Returns:
             VMConfig: The parsed configuration.
         """
-        if probe is None:
-            probe = self.get_disk_info
-        
+        lookup: Callable[[str], Dict[str, Any]] = probe if probe is not None else self.get_disk_info
+
         # CPU
         cpu = CPUConfig(
-            count=int(config.get('cpus', 2)),
-            pae=self._flag(config, 'pae'),
-            nested_virt=self._flag(config, 'nested-hw-virt')
+            count=int(config.get("cpus", 2)),
+            pae=self._flag(config, "pae"),
+            nested_virt=self._flag(config, "nested-hw-virt"),
         )
-        
+
         # Memory
         memory = MemoryConfig(
-            mb=int(config.get('memory', 2048)),
-            vram_mb=int(config.get('vram', 16))
+            mb=int(config.get("memory", 2048)), vram_mb=int(config.get("vram", 16))
         )
-        
+
         # Firmware. VirtualBox reports BIOS / EFI / EFI32 / EFI64 in upper case,
         # so the comparison must be case-insensitive and cover every value --
         # matching only lowercase 'efi' made every EFI VM look like BIOS (F-02).
         firmware = FirmwareConfig(
             type=self.FIRMWARE_TYPES.get(
-                config.get('firmware', 'bios').strip().lower(),
+                config.get("firmware", "bios").strip().lower(),
                 FirmwareType.BIOS,
             ),
             # VirtualBox 7.x does not report secure-boot state in
             # machine-readable output at all, so this is always False on read;
             # see F-17.
-            secure_boot=self._flag(config, 'secureboot'),
+            secure_boot=self._flag(config, "secureboot"),
         )
-        
+
         # Boot
         boot = BootConfig(
             order=[
-                config.get('boot1', 'disk'),
-                config.get('boot2', 'dvd'),
-                config.get('boot3', 'none'),
-                config.get('boot4', 'none')
+                config.get("boot1", "disk"),
+                config.get("boot2", "dvd"),
+                config.get("boot3", "none"),
+                config.get("boot4", "none"),
             ],
-            acpi=self._flag(config, 'acpi', True),
-            ioapic=self._flag(config, 'ioapic')
+            acpi=self._flag(config, "acpi", True),
+            ioapic=self._flag(config, "ioapic"),
         )
-        
+
         # Parse disks and storage controllers
         disks = []
         storage_controllers = []
-        
+
         # Parse storage controllers.
         #
         # Indices are collected into a *sorted* list, not a set: VirtualBox
@@ -348,7 +361,7 @@ class VirtualBoxParser:
         # strings varies with PYTHONHASHSEED, which made both the emitted
         # command order and the controller a disk got attached to
         # non-deterministic between runs (F-14 in PLAN.md).
-        controller_pattern = re.compile(r'^storagecontrollername(\d+)$')
+        controller_pattern = re.compile(r"^storagecontrollername(\d+)$")
         controller_indices = []
 
         for key, value in config.items():
@@ -357,11 +370,10 @@ class VirtualBoxParser:
                 controller_indices.append(match.group(1))
 
         controller_indices = sorted(set(controller_indices), key=int)
-        
 
         for idx in controller_indices:
-            name = config.get(f'storagecontrollername{idx}', f'Controller{idx}')
-            controller_type = config.get(f'storagecontrollertype{idx}', 'PIIX4')
+            name = config.get(f"storagecontrollername{idx}", f"Controller{idx}")
+            controller_type = config.get(f"storagecontrollertype{idx}", "PIIX4")
 
             # Map the reported chipset to a bus type. An unrecognised chipset
             # must not silently become SATA: that made a floppy controller
@@ -377,16 +389,16 @@ class VirtualBoxParser:
             sc = StorageControllerConfig(
                 name=name,
                 controller_type=sc_type,
-                port_count=int(config.get(f'storagecontrollerportcount{idx}', 30))
+                port_count=int(config.get(f"storagecontrollerportcount{idx}", 30)),
             )
             storage_controllers.append(sc)
-        
+
         # Parse disks - keys are stored without surrounding quotes
         # Match patterns like: "SATA Controller-0-0" stored as "SATA Controller-0-0"
         # VirtualBox outputs many metadata keys per disk (ImageUUID, nonrotational, discard, etc.)
         # We only want actual disk paths, so filter by checking the value looks like a path
-        disk_pattern = re.compile(r'^(.+)-(\d+)-(\d+)$')
-        disk_extensions = ('.vdi', '.vmdk', '.vhd', '.img', '.raw', '.iso')
+        disk_pattern = re.compile(r"^(.+)-(\d+)-(\d+)$")
+        disk_extensions = (".vdi", ".vmdk", ".vhd", ".img", ".raw", ".iso")
         disk_attachments = {}
 
         for key, value in config.items():
@@ -397,30 +409,30 @@ class VirtualBoxParser:
                 if value and value.lower().endswith(disk_extensions):
                     controller_name, port, device = match.groups()
                     # Skip floppy controller - not a real disk to recreate
-                    if controller_name.lower() == 'floppy':
+                    if controller_name.lower() == "floppy":
                         continue
                     disk_attachments[f"{controller_name}-{port}-{device}"] = value
-        
+
         # Build controller name to type mapping
         controller_name_to_type = {sc.name: sc.controller_type for sc in storage_controllers}
 
         # Create disk configurations
         for attachment, disk_path in disk_attachments.items():
             # Use rsplit to handle controller names with dashes (e.g., "SATA-II Controller-0-0")
-            ctrl_name, port, device = attachment.rsplit('-', 2)
+            ctrl_name, port, device = attachment.rsplit("-", 2)
 
             # Find controller type by name
             ctrl_type = controller_name_to_type.get(ctrl_name, StorageControllerType.SATA)
 
             # Skip empty/none attachments
-            if not disk_path or disk_path == 'none':
+            if not disk_path or disk_path == "none":
                 continue
 
             # Decide what kind of device this is before probing. A floppy
             # controller carries floppy drives; an .iso is an optical medium.
             if ctrl_type == StorageControllerType.FLOPPY:
                 disk_type = DiskType.FLOPPY
-            elif disk_path.lower().endswith('.iso'):
+            elif disk_path.lower().endswith(".iso"):
                 disk_type = DiskType.DVD
             else:
                 disk_type = DiskType.HDD
@@ -445,13 +457,13 @@ class VirtualBoxParser:
                     source=disk_path,
                 )
             else:
-                disk_info = probe(disk_path)
+                disk_info = lookup(disk_path)
                 disk = DiskConfig(
                     name=f"disk_{ctrl_name}_{port}_{device}",
-                    size_mb=disk_info['size_mb'],
+                    size_mb=disk_info["size_mb"],
                     type=disk_type,
-                    format=disk_info['format'],
-                    variant=disk_info['variant'],
+                    format=disk_info["format"],
+                    variant=disk_info["variant"],
                     controller=ctrl_type,
                     controller_name=ctrl_name,
                     port=int(port),
@@ -464,47 +476,44 @@ class VirtualBoxParser:
         # Mark only the first non-removable disk bootable, and only when the VM
         # boots from disk at all. Every disk used to be marked bootable whenever
         # boot1 was 'disk', including optical drives (L-03).
-        if 'disk' in boot.order:
+        if "disk" in boot.order:
             for disk in disks:
                 if not disk.is_removable:
                     disk.bootable = True
                     break
-        
+
         # Parse networks
         # Map VirtualBox network types to our NetworkType enum
         vbox_network_map = {
-            'nat': NetworkType.NAT,
-            'bridged': NetworkType.BRIDGED,
-            'hostonly': NetworkType.HOSTONLY,
-            'intnet': NetworkType.INTERNAL,
-            'natnetwork': NetworkType.NATNETWORK,
-            'none': None,
+            "nat": NetworkType.NAT,
+            "bridged": NetworkType.BRIDGED,
+            "hostonly": NetworkType.HOSTONLY,
+            "intnet": NetworkType.INTERNAL,
+            "natnetwork": NetworkType.NATNETWORK,
         }
 
         networks = []
         for i in range(8):  # VirtualBox supports up to 8 adapters
-            nic_type = config.get(f'nic{i+1}', 'none')
-            if nic_type != 'none':
+            nic_type = config.get(f"nic{i+1}", "none")
+            if nic_type != "none":
                 network_type = vbox_network_map.get(nic_type, NetworkType.NAT)
-                adapter_type = config.get(f'nictype{i+1}', '82540EM')
-                
+                adapter_type = config.get(f"nictype{i+1}", "82540EM")
+
                 # Read the adapter/network name from the correct key for each type
                 n = i + 1
-                if nic_type == 'bridged':
-                    adapter_name = config.get(f'bridgeadapter{n}')
-                elif nic_type == 'hostonly':
+                if nic_type == "bridged":
+                    adapter_name = config.get(f"bridgeadapter{n}")
+                elif nic_type == "hostonly":
                     # VirtualBox 7.1 emits hostonlyadapter<n>; hostonlyif<n> is
                     # kept as a fallback for older releases (F-19).
-                    adapter_name = (config.get(f'hostonlyadapter{n}')
-                                    or config.get(f'hostonlyif{n}'))
-                elif nic_type == 'intnet':
-                    adapter_name = config.get(f'intnet{n}')
-                elif nic_type == 'natnetwork':
+                    adapter_name = config.get(f"hostonlyadapter{n}") or config.get(f"hostonlyif{n}")
+                elif nic_type == "intnet":
+                    adapter_name = config.get(f"intnet{n}")
+                elif nic_type == "natnetwork":
                     # A plain NAT adapter reports natnet<n>="nat", so a NAT
                     # network reports its name there too; natnetwork<n> is a
                     # fallback (F-19).
-                    adapter_name = (config.get(f'natnet{n}')
-                                    or config.get(f'natnetwork{n}'))
+                    adapter_name = config.get(f"natnet{n}") or config.get(f"natnetwork{n}")
                 else:
                     adapter_name = None
 
@@ -512,10 +521,10 @@ class VirtualBoxParser:
                     adapter_type=adapter_type,
                     network_type=network_type,
                     adapter_name=adapter_name,
-                    mac_address=config.get(f'macaddress{i+1}')
+                    mac_address=config.get(f"macaddress{i+1}"),
                 )
                 networks.append(network)
-        
+
         return VMConfig(
             name=vm_name,
             cpu=cpu,
@@ -525,15 +534,14 @@ class VirtualBoxParser:
             networks=networks,
             boot=boot,
             storage_controllers=storage_controllers,
-            ostype=config.get('ostype', 'Ubuntu_64'),
-            description=config.get('description'),
+            ostype=config.get("ostype", "Ubuntu_64"),
+            description=config.get("description"),
             # `audio` names the *driver* (VirtualBox 7.x reports
             # audio="default" even when sound is off), so it says nothing about
             # whether audio is enabled. The playback/recording flags do (F-21).
-            audio_enabled=(self._flag(config, 'audio_out')
-                           or self._flag(config, 'audio_in')),
-            usb_enabled=self._flag(config, 'usb'),
-            rtc_utc=self._flag(config, 'rtcuseutc', True),
-            clipboard_mode=config.get('clipboard', 'disabled'),
-            draganddrop=config.get('draganddrop', 'disabled'),
+            audio_enabled=(self._flag(config, "audio_out") or self._flag(config, "audio_in")),
+            usb_enabled=self._flag(config, "usb"),
+            rtc_utc=self._flag(config, "rtcuseutc", True),
+            clipboard_mode=config.get("clipboard", "disabled"),
+            draganddrop=config.get("draganddrop", "disabled"),
         )

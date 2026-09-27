@@ -11,11 +11,11 @@ then *read the diff* before committing it.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))          # conftest helpers
-sys.path.insert(0, str(Path(__file__).parent.parent))   # the package
+sys.path.insert(0, str(Path(__file__).parent))  # conftest helpers
+sys.path.insert(0, str(Path(__file__).parent.parent))  # the package
 
 from conftest import GOLDEN, VM_LABELS, parse_label, render_commands  # noqa: E402
-from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter      # noqa: E402
+from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter  # noqa: E402
 
 
 def emit(vm):
@@ -33,6 +33,7 @@ def main() -> int:
 
     # Hand-built configs, imported lazily so this script has no pytest dependency.
     from test_emitter import build_minimal, build_full
+
     for name, vm in (("minimal", build_minimal()), ("full", build_full())):
         (GOLDEN / f"emit_{name}.txt").write_text(emit(vm))
         written.append(f"emit_{name}.txt")

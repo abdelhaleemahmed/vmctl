@@ -1,17 +1,22 @@
 """
 Command-line interface for vmctl — Click-based with shell completion.
 """
+
 import sys
 from pathlib import Path
-from typing import List, Optional
-
 import click
+
+from typing import List
 
 from vmctl import __version__
 from vmctl.core.engine import VMCtlEngine
 from vmctl.core.batch import BatchCreator
 from vmctl.core.exceptions import (
-    ProviderError, SerializationError, ValidationError, VMToolError,
+    BatchError,
+    ProviderError,
+    ValidationError,
+    VMAlreadyExistsError,
+    VMToolError,
     get_error_summary,
 )
 
@@ -20,13 +25,14 @@ from vmctl.core.exceptions import (
 # Shell-completion helpers
 # ---------------------------------------------------------------------------
 
+
 def _complete_vm_names(ctx, param, incomplete):
     """Return VirtualBox VM names that match *incomplete* for tab completion."""
     try:
         import subprocess
+
         result = subprocess.run(
-            ["VBoxManage", "list", "vms"],
-            capture_output=True, text=True, check=False
+            ["VBoxManage", "list", "vms"], capture_output=True, text=True, check=False
         )
         names = []
         for line in result.stdout.strip().splitlines():
@@ -42,6 +48,7 @@ def _complete_vm_names(ctx, param, incomplete):
 # ---------------------------------------------------------------------------
 # Error reporting
 # ---------------------------------------------------------------------------
+
 
 def _warn(message: str) -> None:
     """Print a validation warning to stderr, so stdout stays pipeable."""
@@ -59,12 +66,7 @@ def _require_absent(engine, name: str) -> None:
     except ProviderError:
         return  # cannot check; let the provider report its own error
     if name in existing:
-        _fail(ValidationError(
-            f"A VM named {name!r} already exists",
-            field="name", value=name,
-            recovery_hint="Choose another name with --new-name, or delete the "
-                          "existing VM first.",
-        ))
+        _fail(VMAlreadyExistsError(name))
 
 
 def _fail(exc: Exception) -> None:
@@ -80,7 +82,7 @@ def _fail(exc: Exception) -> None:
 
     click.echo(get_error_summary(exc), err=True)
 
-    detail = []
+    detail: List[str] = []
     for key, value in exc.context.items():
         if key == "constraints" and isinstance(value, list):
             detail.extend(str(item) for item in value)
@@ -103,6 +105,7 @@ def _fail(exc: Exception) -> None:
 # ---------------------------------------------------------------------------
 # Root group
 # ---------------------------------------------------------------------------
+
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(__version__, "-V", "--version")
@@ -127,9 +130,11 @@ def cli():
 # list
 # ---------------------------------------------------------------------------
 
+
 @cli.command("list")
 @click.option(
-    "--format", "fmt",
+    "--format",
+    "fmt",
     type=click.Choice(["table", "simple"]),
     default="table",
     show_default=True,
@@ -164,13 +169,14 @@ def cmd_list(fmt):
                 except ProviderError:
                     status = "unknown"
                 click.echo(f"{vm:<30} {status:<12}")
-    except ProviderError as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # status
 # ---------------------------------------------------------------------------
+
 
 @cli.command("status")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
@@ -188,13 +194,14 @@ def cmd_status(vm_name):
         engine = VMCtlEngine()
         status = engine.get_vm_status(vm_name)
         click.echo(status)
-    except ProviderError as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # start
 # ---------------------------------------------------------------------------
+
 
 @cli.command("start")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
@@ -212,7 +219,7 @@ def cmd_start(vm_name):
         engine = VMCtlEngine()
         engine.start_vm(vm_name)
         click.echo(f"Started VM '{vm_name}'")
-    except ProviderError as e:
+    except VMToolError as e:
         _fail(e)
 
 
@@ -220,15 +227,20 @@ def cmd_start(vm_name):
 # stop
 # ---------------------------------------------------------------------------
 
+
 @cli.command("stop")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
 @click.option(
-    "--force", "-f",
+    "--force",
+    "-f",
     is_flag=True,
     help="Force power-off (equivalent to pulling the power cord).",
 )
 @click.option(
-    "--wait", type=int, default=0, metavar="SECONDS",
+    "--wait",
+    type=int,
+    default=0,
+    metavar="SECONDS",
     help="Wait up to SECONDS for the VM to actually stop.",
 )
 def cmd_stop(vm_name, force, wait):
@@ -248,7 +260,7 @@ def cmd_stop(vm_name, force, wait):
         engine.stop_vm(vm_name, force=force, wait=wait)
         action = "Powered off" if force else "Stopped" if wait else "Sent shutdown signal to"
         click.echo(f"{action} VM '{vm_name}'")
-    except ProviderError as e:
+    except VMToolError as e:
         _fail(e)
 
 
@@ -256,10 +268,12 @@ def cmd_stop(vm_name, force, wait):
 # read
 # ---------------------------------------------------------------------------
 
+
 @cli.command("read")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
 @click.option(
-    "--format", "fmt",
+    "--format",
+    "fmt",
     type=click.Choice(["yaml", "json"]),
     default="yaml",
     show_default=True,
@@ -281,7 +295,7 @@ def cmd_read(vm_name, fmt):
         vm = engine.read_vm(vm_name)
         serializer = engine.get_serializer(fmt)
         click.echo(serializer.to_string(vm))
-    except (ProviderError, SerializationError) as e:
+    except VMToolError as e:
         _fail(e)
 
 
@@ -289,16 +303,19 @@ def cmd_read(vm_name, fmt):
 # export
 # ---------------------------------------------------------------------------
 
+
 @cli.command("export")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(path_type=Path),
     required=True,
     help="Output file path (.yaml or .json).",
 )
 @click.option(
-    "--format", "fmt",
+    "--format",
+    "fmt",
     type=click.Choice(["yaml", "json"]),
     default="yaml",
     show_default=True,
@@ -318,13 +335,14 @@ def cmd_export(vm_name, output, fmt):
         engine = VMCtlEngine()
         engine.export_vm(vm_name, output, fmt)
         click.echo(f"Exported '{vm_name}' → {output}")
-    except (ProviderError, SerializationError) as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # import
 # ---------------------------------------------------------------------------
+
 
 @cli.command("import")
 @click.argument("config_file", type=click.Path(exists=True, path_type=Path))
@@ -361,13 +379,14 @@ def cmd_import(config_file, new_name, execute):
             for i, cmd in enumerate(commands, 1):
                 click.echo(f"  {i:3d}: {' '.join(cmd)}")
             click.echo("\nRun with --execute to apply.")
-    except (ProviderError, SerializationError, ValidationError) as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # create
 # ---------------------------------------------------------------------------
+
 
 @cli.command("create")
 @click.argument("source_vm", shell_complete=_complete_vm_names)
@@ -410,13 +429,14 @@ def cmd_create(source_vm, new_name, memory, cpus, execute):
             for i, cmd in enumerate(commands, 1):
                 click.echo(f"  {i:3d}: {' '.join(cmd)}")
             click.echo("\nRun with --execute to apply.")
-    except (ProviderError, ValidationError) as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # edit
 # ---------------------------------------------------------------------------
+
 
 @cli.command("edit")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
@@ -469,7 +489,7 @@ def cmd_edit(vm_name, new_name, memory, vram, cpus, execute):
             for i, cmd in enumerate(commands, 1):
                 click.echo(f"  {i:3d}: {' '.join(cmd)}")
             click.echo("\nRun with --execute to apply.")
-    except (ProviderError, SerializationError, ValidationError) as e:
+    except VMToolError as e:
         _fail(e)
 
 
@@ -477,10 +497,12 @@ def cmd_edit(vm_name, new_name, memory, vram, cpus, execute):
 # delete
 # ---------------------------------------------------------------------------
 
+
 @cli.command("delete")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
 @click.option(
-    "--force", "-f",
+    "--force",
+    "-f",
     is_flag=True,
     help="Skip confirmation prompt.",
 )
@@ -506,13 +528,14 @@ def cmd_delete(vm_name, force):
         # "deleted successfully" (L-01).
         click.echo("Deletion cancelled.", err=True)
         sys.exit(1)
-    except ProviderError as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # validate
 # ---------------------------------------------------------------------------
+
 
 @cli.command("validate")
 @click.argument("config_file", type=click.Path(exists=True, path_type=Path))
@@ -537,13 +560,14 @@ def cmd_validate(config_file):
         click.echo(f"  CPU:     {vm.cpu.count} cores")
         click.echo(f"  Memory:  {vm.memory.mb} MB")
         click.echo(f"  Disks:   {len(vm.disks)}")
-    except (ValidationError, SerializationError, ProviderError) as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # batch group
 # ---------------------------------------------------------------------------
+
 
 @cli.group("batch")
 def batch():
@@ -585,12 +609,13 @@ def batch_create(batch_file, execute, continue_on_error):
 
         clashes = creator.preflight(vms)
         if clashes:
-            _fail(ValidationError(
-                f"{len(clashes)} VM name(s) in {batch_file} already exist: "
-                f"{', '.join(clashes)}",
-                recovery_hint="Rename those instances, or delete the existing "
-                              "VMs first.",
-            ))
+            _fail(
+                ValidationError(
+                    f"{len(clashes)} VM name(s) in {batch_file} already exist: "
+                    f"{', '.join(clashes)}",
+                    recovery_hint="Rename those instances, or delete the existing " "VMs first.",
+                )
+            )
 
         if not execute:
             click.echo(f"Would create {len(vms)} VMs:")
@@ -616,37 +641,49 @@ def batch_create(batch_file, execute, continue_on_error):
 
         # Always report what actually happened: a partially created cluster is
         # the thing a user most needs to know about (F-12).
-        click.echo(
-            f"\nCreated {len(created)} of {len(vms)} VMs from {batch_file}"
-        )
+        click.echo(f"\nCreated {len(created)} of {len(vms)} VMs from {batch_file}")
         if failed:
             click.echo(f"Failed: {', '.join(name for name, _ in failed)}", err=True)
-        skipped = [vm.name for vm in vms
-                   if vm.name not in created
-                   and vm.name not in {n for n, _ in failed}]
+        skipped = [
+            vm.name
+            for vm in vms
+            if vm.name not in created and vm.name not in {n for n, _ in failed}
+        ]
         if skipped:
             click.echo(
                 f"Not attempted: {', '.join(skipped)}"
-                + ("" if continue_on_error else " (stopped at the first failure; "
-                                                "use --continue-on-error to go on)"),
+                + (
+                    ""
+                    if continue_on_error
+                    else " (stopped at the first failure; " "use --continue-on-error to go on)"
+                ),
                 err=True,
             )
         if failed:
-            sys.exit(1)
-    except (ValidationError, SerializationError, ProviderError) as e:
+            _fail(
+                BatchError(
+                    f"{len(failed)} of {len(vms)} VMs could not be created",
+                    batch_file=str(batch_file),
+                    failed_vms=[name for name, _ in failed],
+                    successful_vms=created,
+                )
+            )
+    except VMToolError as e:
         _fail(e)
 
 
 @batch.command("template")
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(path_type=Path),
     default=Path("batch-template.yaml"),
     show_default=True,
     help="Output file path.",
 )
 @click.option(
-    "--format", "fmt",
+    "--format",
+    "fmt",
     type=click.Choice(["yaml", "json"]),
     default="yaml",
     show_default=True,
@@ -667,13 +704,14 @@ def batch_template(output, fmt):
         creator = BatchCreator(engine, on_warning=_warn)
         creator.generate_batch_template(output, fmt)
         click.echo(f"Generated batch template → {output}")
-    except (ValidationError, SerializationError) as e:
+    except VMToolError as e:
         _fail(e)
 
 
 # ---------------------------------------------------------------------------
 # completion
 # ---------------------------------------------------------------------------
+
 
 @cli.command("completion")
 @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
@@ -713,6 +751,7 @@ def cmd_completion(shell):
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main():
     """Main CLI entry point registered by pyproject.toml."""

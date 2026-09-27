@@ -4,7 +4,7 @@
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyPI version](https://img.shields.io/badge/pypi-v1.1.8-blue)](https://pypi.org/project/vmctl/)
+[![PyPI version](https://img.shields.io/pypi/v/vmctl)](https://pypi.org/project/vmctl/)
 
 Export VM configurations to YAML or JSON, recreate identical VMs anywhere, and spin up entire clusters with one command. Think of it as Infrastructure as Code for your local VirtualBox lab.
 
@@ -16,7 +16,7 @@ Export VM configurations to YAML or JSON, recreate identical VMs anywhere, and s
 pip install vmctl
 ```
 
-Requires VirtualBox and `VBoxManage` in your PATH.
+Requires VirtualBox **7.0 or later** and `VBoxManage` in your PATH.
 
 ---
 
@@ -51,6 +51,8 @@ cpu:
   count: 4
 memory:
   mb: 8192
+boot:
+  ioapic: true      # VirtualBox needs I/O APIC for more than one CPU
 disks:
   - name: system
     size_mb: 51200
@@ -62,6 +64,9 @@ networks:
     adapter_name: eth0
 ```
 
+This file lives in the repo as [`examples/ubuntu-server.yaml`](examples/ubuntu-server.yaml)
+and CI validates it on every push, so it cannot drift from what vmctl accepts.
+
 ### Dry-Run Mode
 Every create/import/batch command shows you the exact `VBoxManage` commands it would run before touching anything:
 
@@ -72,7 +77,7 @@ Dry-run mode. Commands that would be executed:
   1: VBoxManage createvm --name dev-server --ostype Ubuntu_64 --register
   2: VBoxManage modifyvm dev-server --memory 8192 --vram 16 --cpus 4 ...
   3: VBoxManage storagectl dev-server --name SATA Controller --add sata ...
-  4: VBoxManage createmedium --filename ...dev-server_system.vdi --size 51200 ...
+  4: VBoxManage createmedium disk --filename ...dev-server_system.vdi --size 51200 ...
   5: VBoxManage storageattach dev-server --storagectl SATA Controller --port 0 ...
 
 Run with --execute to apply.
@@ -138,9 +143,10 @@ vmctl delete <vm>           # Unregister and delete disk files
 | VDI    | VirtualBox native (default) |
 | VMDK   | VMware-compatible |
 | VHD    | Microsoft Virtual Hard Disk |
-| RAW    | Raw disk image |
+| RAW    | Raw disk image (always fixed-size) |
 
-Controllers: IDE, SATA, SCSI, SAS. Thin (dynamic) and thick (fixed) allocation.
+Controllers: IDE, SATA, SCSI, SAS, NVMe, virtio-scsi, USB and floppy. Thin
+(dynamic) and thick (fixed) allocation.
 CD-ROM drives with ISO images are correctly identified as optical media.
 
 ### Network Adapter Types
@@ -153,10 +159,16 @@ CD-ROM drives with ISO images are correctly identified as optical media.
 | Internal | VM-to-VM isolated network |
 | NatNetwork | NAT with DHCP (multi-VM) |
 
-Up to 8 adapters per VM.
+Up to 8 adapters per VM. Bridged, host-only and NAT-network adapters keep the
+interface or network they are attached to.
 
 ### Firmware Options
-BIOS, EFI, EFI64, EFI32. Optional secure boot and TPM support.
+BIOS, EFI, EFI64 and EFI32, with TPM 2.0.
+
+Secure boot is enrolled with `VBoxManage modifynvram` and requires an EFI
+firmware type. Note that VirtualBox does not report secure-boot state in its
+machine-readable output, so `vmctl export` cannot capture it from an existing
+VM — set it in the config file.
 
 ---
 
@@ -198,6 +210,10 @@ See [docs/features.md](docs/features.md) for the complete field reference.
 See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for step-by-step workflows.
 
 ---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Author
 

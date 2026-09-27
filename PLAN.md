@@ -655,6 +655,32 @@ no rollback.
 
 ## Phase 4 — Repo, release and dependency hygiene
 
+> **Status: complete.** H-01…H-08 are done. All four quality gates are clean and
+> **blocking** in CI: 218 tests, black, flake8, and **mypy at zero errors** (it
+> had 23). Both Sphinx trees build with `-W`. Nothing in CI needs a hypervisor.
+>
+> Notes on the judgement calls:
+>
+> * **mypy is blocking, not advisory.** The plan allowed for making it
+>   non-blocking; it reached zero instead, so there was no reason to. Fixing it
+>   surfaced a real latent bug: `vbox_network_map` mapped `"none"` to `None`, so
+>   the lookup's value type admitted `None` where a `NetworkType` was required.
+> * **mypy targets 3.9, the tests target 3.8.** Modern mypy refuses to
+>   type-check anything below 3.9, while `pyproject` still declares 3.8 support,
+>   so CI runs the suite on 3.8–3.12 and types on 3.9. Worth deciding separately
+>   whether to keep 3.8 at all — it went end-of-life in October 2024.
+> * **The version floor is 7.0**, because the emitter depends on `modifynvram
+>   enrollmssignatures`, `--tpm-type` and the `virtio-scsi` bus, none of which
+>   exist earlier. `check_supported()` runs on execute paths only, and declines
+>   to block when it cannot parse a version rather than guessing "too old".
+> * **`BMR.yaml` is still ignored.** The narrowed rule `/*.yaml` covers
+>   root-level scratch files, which is what it was ignored as before. If it is
+>   meant to be part of the project, it needs an explicit negation.
+> * **The README's example config is now `examples/ubuntu-server.yaml`**, checked
+>   by CI on every push. Writing it revealed that the documented example asked
+>   for 4 CPUs with I/O APIC off — the validator's own warning caught the
+>   project's documentation, and both are fixed.
+
 ### H-01 — `.gitignore` ignores all YAML · S
 `.gitignore:47` has `*.yaml` / `*.yml` globally. `BMR.yaml` is untracked because
 of it, and `.github/workflows/ci.yml` would be too — which is likely why there
@@ -1579,10 +1605,10 @@ Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
          [x] F-11 neuter BaseProvider.edit_vm
          [x] F-12 batch names + preflight + failure handling
          [x] L-01..L-07 small CLI/model cleanups (all done)
-Phase 4  [ ] H-01 .gitignore              [ ] H-02 drop _build from git
-         [ ] H-03 single-source version   [ ] H-04 CI
-         [ ] H-05 CHANGELOG + release.sh  [ ] H-06 docs truth pass
-         [ ] H-07 VBox version floor      [ ] H-08 prune exceptions
+Phase 4  [x] H-01 .gitignore              [x] H-02 drop _build from git
+         [x] H-03 single-source version   [x] H-04 CI
+         [x] H-05 CHANGELOG + release.sh  [x] H-06 docs truth pass
+         [x] H-07 VBox version floor      [x] H-08 prune exceptions
 Phase 5  [ ] M-01 DeviceKind/BusType/DiskFormat/Allocation split
          [ ] M-02 StorageDevice + StorageController (id vs native_name)
          [ ] M-03 support matrix incl. (kind x bus) attach table  + PROBE it

@@ -2,12 +2,17 @@
 """
 VirtualBox backend implementation
 """
+import re
 import subprocess
 import time
-from pathlib import Path
-from typing import Callable, List, Optional, Dict, Any
+from typing import Any, Callable, Dict, List, Optional, cast
 from ...core.vmconfig import VMConfig
-from ...core.exceptions import ProviderError
+from ...core.exceptions import (
+    DependencyError,
+    ProviderError,
+    VMNotFoundError,
+    VMStateError,
+)
 from ..base import BaseProvider
 from .parser import VirtualBoxParser
 from .emitter import VirtualBoxEmitter
@@ -17,7 +22,7 @@ from .capabilities import VirtualBoxCapabilities
 class VirtualBoxBackend(BaseProvider):
     """VirtualBox provider backend"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialise the VirtualBox backend.
 
         Creates a :class:`VirtualBoxParser` instance for reading VM
@@ -28,9 +33,10 @@ class VirtualBoxBackend(BaseProvider):
             ProviderError: If ``VBoxManage`` is not found during the first
                 operation (deferred until actual use).
         """
-        self.parser = VirtualBoxParser()
-        self._capabilities = VirtualBoxCapabilities.get_capabilities()
-        self._machine_folder = None
+        self.parser: VirtualBoxParser = VirtualBoxParser()
+        self._capabilities: Dict[str, Any] = VirtualBoxCapabilities.get_capabilities()
+        self._machine_folder: Optional[str] = None
+        self._version: Optional[str] = None
 
     @property
     def machine_folder(self) -> Optional[str]:
@@ -54,7 +60,9 @@ class VirtualBoxBackend(BaseProvider):
         try:
             result = subprocess.run(
                 ["VBoxManage", "list", "systemproperties"],
-                capture_output=True, text=True, check=False
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.returncode != 0:
                 return ""
@@ -64,6 +72,68 @@ class VirtualBoxBackend(BaseProvider):
         except (FileNotFoundError, OSError):
             pass
         return ""
+
+    def version(self) -> str:
+        """Return the VirtualBox version, e.g. ``"7.1.18"``.
+
+        Cached after the first call.
+
+        Raises:
+            DependencyError: If ``VBoxManage`` cannot be run.
+        """
+        if self._version is None:
+            try:
+                result = subprocess.run(
+                    ["VBoxManage", "--version"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+            except FileNotFoundError:
+                raise DependencyError(
+                    "VBoxManage",
+                    reason="not found on PATH",
+                    install_hint="Install VirtualBox and make sure VBoxManage is " "on your PATH.",
+                )
+            if result.returncode != 0:
+                raise DependencyError(
+                    f"VBoxManage --version failed with exit code " f"{result.returncode}",
+                    dependency="VBoxManage",
+                    context={"stderr": result.stderr.strip()},
+                )
+            # "7.1.18r173720" -> "7.1.18"
+            match = re.match(r"(\d+\.\d+\.\d+)", result.stdout.strip())
+            self._version = match.group(1) if match else result.stdout.strip()
+        return cast(str, self._version)
+
+    def check_supported(self) -> None:
+        """Verify the installed VirtualBox meets this provider's floor.
+
+        Raises:
+            DependencyError: If VBoxManage is missing or older than the declared
+                ``min_version``. Failing here, with the version in the message,
+                beats failing later on an option that release does not have
+                (H-07).
+        """
+        floor = self._capabilities.get("min_version")
+        if not floor:
+            return
+        found = self.version()
+
+        def parts(v):
+            return tuple(int(x) for x in re.findall(r"\d+", v)[:3])
+
+        if not parts(found):
+            return  # unrecognised version string; let the provider speak for itself
+
+        if parts(found) < parts(floor):
+            raise DependencyError(
+                f"VirtualBox {found} is older than the required {floor}",
+                dependency="VirtualBox",
+                version_required=floor,
+                version_found=found,
+                install_command=f"Upgrade VirtualBox to {floor} or later",
+            )
 
     @property
     def name(self) -> str:
@@ -79,10 +149,7 @@ class VirtualBoxBackend(BaseProvider):
         """List all VMs managed by VirtualBox."""
         try:
             result = subprocess.run(
-                ["VBoxManage", "list", "vms"],
-                capture_output=True,
-                text=True,
-                check=True
+                ["VBoxManage", "list", "vms"], capture_output=True, text=True, check=True
             )
             vms = []
             for line in result.stdout.strip().splitlines():
@@ -96,16 +163,23 @@ class VirtualBoxBackend(BaseProvider):
         except subprocess.CalledProcessError as e:
             raise ProviderError(f"Failed to list VMs: {e.stderr}")
         except FileNotFoundError:
-            raise ProviderError("VBoxManage not found. Is VirtualBox installed?")
+            raise DependencyError(
+                "VBoxManage is not available",
+                dependency="VBoxManage",
+                install_command="Install VirtualBox and ensure VBoxManage is on your PATH",
+            )
 
     def read_vm(self, vm_name: str) -> VMConfig:
         """Read VM configuration from VirtualBox."""
-        return self.parser.parse_vm(vm_name)
+        vm: VMConfig = self.parser.parse_vm(vm_name)
+        return vm
 
     def create_vm(self, vm: VMConfig, execute: bool = True) -> List[List[str]]:
         """Create a new VM from VMConfig."""
+        if execute:
+            self.check_supported()
         emitter = VirtualBoxEmitter(vm.name, machine_folder=self.machine_folder)
-        commands = emitter.emit_create_vm(vm)
+        commands: List[List[str]] = emitter.emit_create_vm(vm)
 
         if execute:
             for cmd in commands:
@@ -139,20 +213,26 @@ class VirtualBoxBackend(BaseProvider):
             ProviderError: If the VM does not exist, is running, or a command
                 fails.
         """
+        if execute:
+            self.check_supported()
+
         if not self.vm_exists(vm_name):
-            raise ProviderError(f"VM '{vm_name}' does not exist")
+            raise VMNotFoundError(vm_name)
 
         # VirtualBox refuses most modifyvm settings on a running VM, and the
         # ones it accepts are silently deferred. Refuse rather than half-apply.
         status = self.get_vm_status(vm_name)
         if status == "running":
-            raise ProviderError(
-                f"VM '{vm_name}' is running; stop it before editing "
-                f"(vmctl stop {vm_name} --wait 60)"
+            raise VMStateError(
+                f"VM '{vm_name}' is running; it must be stopped before editing",
+                vm_name=vm_name,
+                current_state="running",
+                required_state="stopped",
             )
 
         current = self.read_vm(vm_name)
         emitter = VirtualBoxEmitter(vm_name, machine_folder=self.machine_folder)
+        commands: List[List[str]]
         commands, unsupported = emitter.emit_modify_vm(current, new_config)
 
         if unsupported and on_warning:
@@ -173,7 +253,7 @@ class VirtualBoxBackend(BaseProvider):
         try:
             # Check if VM exists
             if not self.vm_exists(vm_name):
-                raise ProviderError(f"VM '{vm_name}' does not exist")
+                raise VMNotFoundError(vm_name)
 
             # Stop VM if running
             status = self.get_vm_status(vm_name)
@@ -190,13 +270,17 @@ class VirtualBoxBackend(BaseProvider):
             return True
 
         except FileNotFoundError:
-            raise ProviderError("VBoxManage not found")
+            raise DependencyError(
+                "VBoxManage is not available",
+                dependency="VBoxManage",
+                install_command="Install VirtualBox and ensure VBoxManage is on your PATH",
+            )
 
     def start_vm(self, vm_name: str) -> bool:
         """Start a VM."""
         try:
             if not self.vm_exists(vm_name):
-                raise ProviderError(f"VM '{vm_name}' does not exist")
+                raise VMNotFoundError(vm_name)
 
             status = self.get_vm_status(vm_name)
             if status == "running":
@@ -211,10 +295,13 @@ class VirtualBoxBackend(BaseProvider):
             return True
 
         except FileNotFoundError:
-            raise ProviderError("VBoxManage not found")
+            raise DependencyError(
+                "VBoxManage is not available",
+                dependency="VBoxManage",
+                install_command="Install VirtualBox and ensure VBoxManage is on your PATH",
+            )
 
-    def stop_vm(self, vm_name: str, force: bool = False,
-                wait: int = 0) -> bool:
+    def stop_vm(self, vm_name: str, force: bool = False, wait: int = 0) -> bool:
         """Stop a running VM.
 
         Args:
@@ -233,7 +320,7 @@ class VirtualBoxBackend(BaseProvider):
         """
         try:
             if not self.vm_exists(vm_name):
-                raise ProviderError(f"VM '{vm_name}' does not exist")
+                raise VMNotFoundError(vm_name)
 
             status = self.get_vm_status(vm_name)
             if status != "running":
@@ -263,7 +350,11 @@ class VirtualBoxBackend(BaseProvider):
             return True
 
         except FileNotFoundError:
-            raise ProviderError("VBoxManage not found")
+            raise DependencyError(
+                "VBoxManage is not available",
+                dependency="VBoxManage",
+                install_command="Install VirtualBox and ensure VBoxManage is on your PATH",
+            )
 
     def get_vm_status(self, vm_name: str) -> str:
         """Get current VM status."""
@@ -272,11 +363,11 @@ class VirtualBoxBackend(BaseProvider):
                 ["VBoxManage", "showvminfo", vm_name, "--machinereadable"],
                 capture_output=True,
                 text=True,
-                check=False
+                check=False,
             )
 
             if result.returncode != 0:
-                raise ProviderError(f"VM '{vm_name}' not found")
+                raise VMNotFoundError(vm_name)
 
             # Parse VMState from output
             for line in result.stdout.splitlines():
@@ -297,17 +388,16 @@ class VirtualBoxBackend(BaseProvider):
             return "unknown"
 
         except FileNotFoundError:
-            raise ProviderError("VBoxManage not found")
+            raise DependencyError(
+                "VBoxManage is not available",
+                dependency="VBoxManage",
+                install_command="Install VirtualBox and ensure VBoxManage is on your PATH",
+            )
 
     def _run_command(self, command: List[str]) -> str:
         """Run a VBoxManage command."""
         try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
             return result.stdout
         except subprocess.CalledProcessError as e:
             raise ProviderError(f"Command failed: {' '.join(command)}\nError: {e.stderr}")

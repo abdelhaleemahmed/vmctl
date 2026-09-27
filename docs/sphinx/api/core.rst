@@ -10,7 +10,7 @@ VMConfig — Data Models
 .. automodule:: vmctl.core.vmconfig
    :members:
    :show-inheritance:
-   :no-index-entry:
+   :no-index:
 
 Engine
 ------

@@ -4,6 +4,19 @@ Shell Tab Completion
 vmctl supports tab completion for all commands and VM names in **bash**,
 **zsh**, and **fish**.
 
+The simplest way is the ``vmctl completion`` command, which prints the script for
+your shell:
+
+.. code-block:: bash
+
+   eval "$(vmctl completion bash)"     # bash
+   eval "$(vmctl completion zsh)"      # zsh
+   vmctl completion fish | source      # fish
+
+The per-shell instructions below set the same thing up by hand, and are useful if
+you want to cache the generated script in a file instead of regenerating it on
+every shell start.
+
 Bash
 ----
 

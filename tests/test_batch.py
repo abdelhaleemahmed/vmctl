@@ -1,4 +1,5 @@
 """Batch creation: resolve and check everything before creating anything."""
+
 import pytest
 
 from vmctl.core.batch import BatchCreator
@@ -21,6 +22,7 @@ class FakeEngine:
         self.existing = list(existing)
         from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
         from vmctl.validators.vm_validator import VMValidator
+
         self._validator = VMValidator(VirtualBoxCapabilities.get_capabilities())
 
     def list_vms(self):
@@ -46,11 +48,10 @@ def test_instances_are_built_in_file_order(tmp_path):
 
 
 def test_overrides_apply_per_instance(tmp_path):
-    path = write(tmp_path, BASE + (
-        "instances:\n"
-        "  - name: a\n    memory: 2048\n    cpu: 4\n"
-        "  - name: b\n"
-    ))
+    path = write(
+        tmp_path,
+        BASE + ("instances:\n" "  - name: a\n    memory: 2048\n    cpu: 4\n" "  - name: b\n"),
+    )
     a, b = BatchCreator(FakeEngine()).create_from_file(path)
     assert (a.memory.mb, a.cpu.count) == (2048, 4)
     assert (b.memory.mb, b.cpu.count) == (512, 1)
@@ -83,9 +84,9 @@ def test_non_mapping_instance_is_rejected(tmp_path):
 
 def test_a_bad_last_instance_stops_the_whole_batch(tmp_path):
     """The point of resolving everything first: no VM exists yet when this fails."""
-    path = write(tmp_path, BASE + (
-        "instances:\n  - name: good\n  - name: bad\n    memory: {mb: -5}\n"
-    ))
+    path = write(
+        tmp_path, BASE + ("instances:\n  - name: good\n  - name: bad\n    memory: {mb: -5}\n")
+    )
     with pytest.raises(ValidationError):
         BatchCreator(FakeEngine()).create_from_file(path)
 

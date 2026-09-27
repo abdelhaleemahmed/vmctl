@@ -1,0 +1,31 @@
+# Batch example from the README, validated by CI.
+name: lab-cluster
+base_vm:
+  name: ubuntu-template
+  ostype: Ubuntu_64
+  cpu:
+    count: 2
+  memory:
+    mb: 2048
+  boot:
+    # VirtualBox requires I/O APIC for more than one CPU.
+    ioapic: true
+  disks:
+    - name: system
+      size_mb: 20480
+      bootable: true
+  networks:
+    - network_type: nat
+
+instances:
+  - name: web-01
+    cpu: 4
+    memory: 4096
+  - name: web-02
+    cpu: 4
+    memory: 4096
+  - name: db-01
+    cpu: 8
+    memory: 16384
+    disks:
+      - size_mb: 102400

@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vmctl"
-version = "1.1.9"
+# Single-sourced from vmctl/__init__.py; see [tool.setuptools.dynamic] below.
+# Both files used to hardcode it and scripts/release.sh sed-patched each (H-03).
+dynamic = ["version"]
 description = "A comprehensive virtual machine management tool with config-as-code support"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -51,6 +53,7 @@ dev = [
     "black>=22.0",
     "flake8>=5.0",
     "mypy>=0.991",
+    "types-PyYAML",
     "build",
     "twine",
 ]
@@ -74,6 +77,9 @@ Issues = "https://github.com/ahmedhal/vmctl/issues"
 [project.scripts]
 vmctl = "vmctl.cli.main:main"
 
+[tool.setuptools.dynamic]
+version = {attr = "vmctl.__version__"}
+
 [tool.setuptools.packages.find]
 where = ["."]
 exclude = ["tests", "tests.*", "venv", "venv.*"]
@@ -93,6 +99,8 @@ line-length = 100
 target-version = ["py38", "py39", "py310", "py311", "py312"]
 
 [tool.mypy]
-python_version = "3.8"
+# The package supports 3.8 at runtime (CI runs the tests there), but modern mypy
+# will not target anything below 3.9, so type-check against 3.9.
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true

@@ -3,6 +3,7 @@
 Every test here mocks ``subprocess.run``, so they carry ``allow_subprocess`` to
 opt out of the hermeticity guard while still never needing a hypervisor.
 """
+
 import subprocess
 
 import pytest
@@ -38,8 +39,9 @@ def vbox(monkeypatch):
         if verb == "list":
             return FakeCompleted(stdout=read_fixture("list_vms.txt"))
         if verb == "showvminfo":
-            label = {"bios-minimal": "bios_minimal",
-                     "multi-disk": "multidisk"}.get(cmd[2], "bios_minimal")
+            label = {"bios-minimal": "bios_minimal", "multi-disk": "multidisk"}.get(
+                cmd[2], "bios_minimal"
+            )
             return FakeCompleted(stdout=read_fixture(f"showvminfo_{label}.txt"))
         if verb == "showmediuminfo":
             return FakeCompleted(stdout=read_fixture("showmediuminfo_bios_minimal_0.txt"))
@@ -53,19 +55,33 @@ def vbox(monkeypatch):
 # Read-only commands
 # ---------------------------------------------------------------------------
 
+
 def test_version(runner):
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
     from vmctl import __version__
+
     assert __version__ in result.output
 
 
 def test_help_lists_every_command(runner):
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
-    for command in ("list", "status", "start", "stop", "read", "export",
-                    "import", "create", "edit", "delete", "validate", "batch",
-                    "completion"):
+    for command in (
+        "list",
+        "status",
+        "start",
+        "stop",
+        "read",
+        "export",
+        "import",
+        "create",
+        "edit",
+        "delete",
+        "validate",
+        "batch",
+        "completion",
+    ):
         assert command in result.output
 
 
@@ -87,6 +103,7 @@ def test_read_outputs_yaml(runner, vbox):
     result = runner.invoke(cli, ["read", "bios-minimal"])
     assert result.exit_code == 0
     import yaml
+
     assert yaml.safe_load(result.output)["name"] == "bios-minimal"
 
 
@@ -94,6 +111,7 @@ def test_read_outputs_json(runner, vbox):
     result = runner.invoke(cli, ["read", "bios-minimal", "--format", "json"])
     assert result.exit_code == 0
     import json
+
     assert json.loads(result.output)["cpu"]["count"] == 1
 
 
@@ -107,6 +125,7 @@ def test_export_writes_a_file(runner, vbox, tmp_path):
 # ---------------------------------------------------------------------------
 # Dry-run is the default for everything that mutates
 # ---------------------------------------------------------------------------
+
 
 def _write_config(tmp_path):
     path = tmp_path / "vm.yaml"
@@ -130,9 +149,7 @@ def test_import_is_dry_run_by_default(runner, vbox, tmp_path):
 
 
 def test_import_new_name_overrides_the_file(runner, vbox, tmp_path):
-    result = runner.invoke(
-        cli, ["import", str(_write_config(tmp_path)), "--new-name", "renamed"]
-    )
+    result = runner.invoke(cli, ["import", str(_write_config(tmp_path)), "--new-name", "renamed"])
     assert result.exit_code == 0
     assert "--name renamed" in result.output
 
@@ -164,6 +181,7 @@ def test_validate_accepts_a_good_config(runner, vbox, tmp_path):
 # Failure paths
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_command_exits_nonzero(runner):
     assert runner.invoke(cli, ["nope"]).exit_code != 0
 
@@ -190,7 +208,6 @@ def test_delete_asks_before_destroying(runner, vbox):
 # ---------------------------------------------------------------------------
 # Known-broken behaviour, pinned
 # ---------------------------------------------------------------------------
-
 
 
 def test_delete_abort_exits_nonzero(runner, vbox):
@@ -264,7 +281,7 @@ def test_edit_renames_before_other_changes(runner, vbox):
     result = runner.invoke(
         cli, ["edit", "vmctl-t-bios", "--new-name", "newname", "--memory", "512"]
     )
-    lines = [l for l in result.output.splitlines() if "modifyvm" in l]
+    lines = [ln for ln in result.output.splitlines() if "modifyvm" in ln]
     assert "--name newname" in lines[0]
     assert "newname --memory 512" in lines[1]
 
@@ -272,6 +289,7 @@ def test_edit_renames_before_other_changes(runner, vbox):
 def test_edit_refuses_a_running_vm(runner, monkeypatch, vbox):
     """VirtualBox defers or rejects modifyvm on a running VM."""
     from vmctl.providers.virtualbox.backend import VirtualBoxBackend
+
     monkeypatch.setattr(VirtualBoxBackend, "get_vm_status", lambda self, n: "running")
     result = runner.invoke(cli, ["edit", "vmctl-t-bios", "--cpus", "2", "--execute"])
     assert result.exit_code == 1
@@ -282,15 +300,21 @@ def test_edit_refuses_a_running_vm(runner, monkeypatch, vbox):
 # Error and warning reporting (Phase 2)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("body,needle", [
-    ("", "empty"),
-    ("name: v\nunknown_field: 5\n", "Unknown field 'unknown_field'"),
-    ("name: v\ncpu:\n  cont: 2\n", "Did you mean 'count'?"),
-    ("name: v\ncpu:\n  count: four\n", "must be a number"),
-    ("disks: []\n", "missing required field 'name'"),
-    ("name: v\ndisks:\n  - name: d\n    controller: fibrechannel\n",
-     "not a valid value for disks[0].controller"),
-])
+
+@pytest.mark.parametrize(
+    "body,needle",
+    [
+        ("", "empty"),
+        ("name: v\nunknown_field: 5\n", "Unknown field 'unknown_field'"),
+        ("name: v\ncpu:\n  cont: 2\n", "Did you mean 'count'?"),
+        ("name: v\ncpu:\n  count: four\n", "must be a number"),
+        ("disks: []\n", "missing required field 'name'"),
+        (
+            "name: v\ndisks:\n  - name: d\n    controller: fibrechannel\n",
+            "not a valid value for disks[0].controller",
+        ),
+    ],
+)
 def test_malformed_configs_report_the_field(runner, vbox, tmp_path, body, needle):
     """F-06 - each of these used to be a raw TypeError or enum ValueError."""
     path = tmp_path / "bad.yaml"

@@ -1,0 +1,22 @@
+[flake8]
+# Match black's line length (configured in pyproject.toml).
+max-line-length = 100
+
+# Black owns whitespace and line breaks; these rules fight it.
+#   E203 whitespace before ':'      -- black's slice formatting
+#   W503 line break before binary operator -- black's preferred style
+extend-ignore = E203, W503
+
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    build,
+    dist,
+    docs/sphinx/_build,
+    docs/sphinx-ar/_build,
+    *.egg-info
+
+per-file-ignores =
+    # Tests import fixtures for their side effects and shadow names freely.
+    tests/conftest.py: F401

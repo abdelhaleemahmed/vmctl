@@ -1,13 +1,21 @@
 """
 Core VM configuration models - the center of gravity
 """
+
 import copy
 import difflib
 from dataclasses import dataclass, field, asdict, fields, is_dataclass, MISSING
 from enum import Enum
 from functools import lru_cache
 from typing import (
-    Any, Dict, List, Optional, Union, get_args, get_origin, get_type_hints,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
 )
 
 from .exceptions import ValidationError
@@ -49,8 +57,8 @@ class DiskVariant(Enum):
     RAW format always uses THICK regardless of this setting.
     """
 
-    THIN = "thin"      # Dynamic/Standard - grows as needed
-    THICK = "thick"    # Fixed - preallocated
+    THIN = "thin"  # Dynamic/Standard - grows as needed
+    THICK = "thick"  # Fixed - preallocated
 
 
 class DiskFormat(Enum):
@@ -61,10 +69,10 @@ class DiskFormat(Enum):
     Hyper-V respectively. RAW produces a flat binary image with no metadata.
     """
 
-    VDI = "vdi"        # VirtualBox native format
-    VMDK = "vmdk"      # VMware format (also supported by VirtualBox)
-    VHD = "vhd"        # Microsoft Virtual Hard Disk
-    RAW = "raw"        # Raw disk image
+    VDI = "vdi"  # VirtualBox native format
+    VMDK = "vmdk"  # VMware format (also supported by VirtualBox)
+    VHD = "vhd"  # Microsoft Virtual Hard Disk
+    RAW = "raw"  # Raw disk image
 
 
 class NetworkType(Enum):
@@ -184,7 +192,7 @@ class FirmwareConfig:
             dict: Fields with ``type`` as a string value.
         """
         result = asdict(self)
-        result['type'] = self.type.value
+        result["type"] = self.type.value
         return result
 
 
@@ -246,16 +254,16 @@ class DiskConfig:
             dict: Exportable fields with enum values as strings.
         """
         result = asdict(self)
-        result['type'] = self.type.value
-        result['format'] = self.format.value
-        result['variant'] = self.variant.value
-        result['controller'] = self.controller.value
+        result["type"] = self.type.value
+        result["format"] = self.format.value
+        result["variant"] = self.variant.value
+        result["controller"] = self.controller.value
         # Don't include disk_path in export (it's system-specific)
-        result.pop('disk_path', None)
+        result.pop("disk_path", None)
         # `source` is only meaningful for removable media; omit it otherwise so
         # exports of ordinary disks keep their 1.1.x shape.
         if not self.is_removable or self.source is None:
-            result.pop('source', None)
+            result.pop("source", None)
         return result
 
 
@@ -286,7 +294,9 @@ class NetworkConfig:
         unnamed internal network to ``intnet``, which works.
         """
         return self.network_type in (
-            NetworkType.BRIDGED, NetworkType.HOSTONLY, NetworkType.NATNETWORK,
+            NetworkType.BRIDGED,
+            NetworkType.HOSTONLY,
+            NetworkType.NATNETWORK,
         )
 
     def to_dict(self) -> dict:
@@ -296,7 +306,7 @@ class NetworkConfig:
             dict: Fields with ``network_type`` as a string value.
         """
         result = asdict(self)
-        result['network_type'] = self.network_type.value
+        result["network_type"] = self.network_type.value
         return result
 
 
@@ -355,15 +365,15 @@ class StorageControllerConfig:
             dict: Fields with ``controller_type`` as a string value.
         """
         result = asdict(self)
-        result['controller_type'] = self.controller_type.value
+        result["controller_type"] = self.controller_type.value
         return result
 
 
 def resolve_controller(
-    disk: 'DiskConfig',
-    by_name: Dict[str, 'StorageControllerConfig'],
-    by_bus: Dict[Any, 'StorageControllerConfig'],
-) -> Optional['StorageControllerConfig']:
+    disk: "DiskConfig",
+    by_name: Dict[str, "StorageControllerConfig"],
+    by_bus: Dict[Any, "StorageControllerConfig"],
+) -> Optional["StorageControllerConfig"]:
     """Find the controller a device attaches to.
 
     An explicit name wins if something actually has that name; otherwise the
@@ -388,6 +398,7 @@ def resolve_controller(
 @dataclass
 class VMConfig:
     """Canonical VM configuration - the center of gravity"""
+
     name: str
     cpu: CPUConfig
     memory: MemoryConfig
@@ -404,7 +415,7 @@ class VMConfig:
     usb_enabled: bool = False
     rtc_utc: bool = True
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def __post_init__(self):
         """Ensure the VM has at least one disk after construction.
 
@@ -414,7 +425,7 @@ class VMConfig:
         # Ensure at least one disk exists
         if not self.disks:
             self.disks = [DiskConfig(name=f"{self.name}_system")]
-    
+
     def controller_for(self, disk: DiskConfig) -> Optional[StorageControllerConfig]:
         """Return the declared controller this device attaches to, if any.
 
@@ -434,27 +445,27 @@ class VMConfig:
     def to_dict(self) -> dict:
         """Convert VMConfig to dictionary for serialization"""
         result = {
-            'name': self.name,
-            'ostype': self.ostype,
-            'description': self.description,
-            'cpu': self.cpu.to_dict(),
-            'memory': self.memory.to_dict(),
-            'firmware': self.firmware.to_dict(),
-            'disks': [disk.to_dict() for disk in self.disks],
-            'networks': [net.to_dict() for net in self.networks],
-            'boot': self.boot.to_dict(),
-            'storage_controllers': [sc.to_dict() for sc in self.storage_controllers],
-            'audio_enabled': self.audio_enabled,
-            'clipboard_mode': self.clipboard_mode,
-            'draganddrop': self.draganddrop,
-            'usb_enabled': self.usb_enabled,
-            'rtc_utc': self.rtc_utc,
-            'metadata': self.metadata
+            "name": self.name,
+            "ostype": self.ostype,
+            "description": self.description,
+            "cpu": self.cpu.to_dict(),
+            "memory": self.memory.to_dict(),
+            "firmware": self.firmware.to_dict(),
+            "disks": [disk.to_dict() for disk in self.disks],
+            "networks": [net.to_dict() for net in self.networks],
+            "boot": self.boot.to_dict(),
+            "storage_controllers": [sc.to_dict() for sc in self.storage_controllers],
+            "audio_enabled": self.audio_enabled,
+            "clipboard_mode": self.clipboard_mode,
+            "draganddrop": self.draganddrop,
+            "usb_enabled": self.usb_enabled,
+            "rtc_utc": self.rtc_utc,
+            "metadata": self.metadata,
         }
         return result
-    
+
     @classmethod
-    def from_dict(cls, data: dict) -> 'VMConfig':
+    def from_dict(cls, data: dict) -> "VMConfig":
         """Create a VMConfig from a loaded YAML/JSON mapping.
 
         Validates as it goes: an unknown key, a value of the wrong type, a bad
@@ -484,7 +495,8 @@ class VMConfig:
                 f"A configuration must be a mapping, got {type(data).__name__}",
                 expected="a mapping of field names to values",
             )
-        return _build(cls, copy.deepcopy(data))
+        vm: "VMConfig" = _build(cls, copy.deepcopy(data))
+        return vm
 
 
 # ---------------------------------------------------------------------------
@@ -495,6 +507,7 @@ class VMConfig:
 # The goal is that a malformed config file produces one clear sentence naming
 # the field, not a TypeError or a bare enum ValueError (F-06).
 # ---------------------------------------------------------------------------
+
 
 def _label(path: str) -> str:
     """Human name for a position in the config tree."""
@@ -551,7 +564,8 @@ def _coerce(value: Any, tp: Any, path: str) -> Any:
         if not isinstance(value, list):
             raise ValidationError(
                 f"{_label(path)} must be a list, got {type(value).__name__}",
-                field=path, expected="a list",
+                field=path,
+                expected="a list",
             )
         inner = (get_args(tp) or (Any,))[0]
         return [_coerce(v, inner, f"{path}[{i}]") for i, v in enumerate(value)]
@@ -560,7 +574,8 @@ def _coerce(value: Any, tp: Any, path: str) -> Any:
         if not isinstance(value, dict):
             raise ValidationError(
                 f"{_label(path)} must be a mapping, got {type(value).__name__}",
-                field=path, expected="a mapping",
+                field=path,
+                expected="a mapping",
             )
         return dict(value)
 
@@ -585,14 +600,18 @@ def _coerce(value: Any, tp: Any, path: str) -> Any:
             return value
         raise ValidationError(
             f"{_label(path)} must be true or false, got {value!r}",
-            field=path, value=value, expected="true | false",
+            field=path,
+            value=value,
+            expected="true | false",
         )
 
     if tp is int:
         if isinstance(value, bool):
             raise ValidationError(
                 f"{_label(path)} must be a number, got {value!r}",
-                field=path, value=value, expected="a whole number",
+                field=path,
+                value=value,
+                expected="a whole number",
             )
         if isinstance(value, int):
             return value
@@ -605,7 +624,9 @@ def _coerce(value: Any, tp: Any, path: str) -> Any:
                 pass
         raise ValidationError(
             f"{_label(path)} must be a number, got {value!r}",
-            field=path, value=value, expected="a whole number",
+            field=path,
+            value=value,
+            expected="a whole number",
         )
 
     if tp is str:
@@ -613,13 +634,15 @@ def _coerce(value: Any, tp: Any, path: str) -> Any:
             return value
         raise ValidationError(
             f"{_label(path)} must be text, got {type(value).__name__}",
-            field=path, value=value, expected="text",
+            field=path,
+            value=value,
+            expected="text",
         )
 
     return value
 
 
-def _build(dc: type, data: Any, path: str = "") -> Any:
+def _build(dc: Any, data: Any, path: str = "") -> Any:
     """Construct a dataclass from a loaded mapping.
 
     Unknown keys are rejected, missing optional sections are filled with their
@@ -642,7 +665,8 @@ def _build(dc: type, data: Any, path: str = "") -> Any:
     if not isinstance(data, dict):
         raise ValidationError(
             f"{_label(path)} must be a mapping, got {type(data).__name__}",
-            field=path, expected="a mapping",
+            field=path,
+            expected="a mapping",
         )
 
     spec = {f.name: f for f in fields(dc)}
@@ -664,12 +688,14 @@ def _build(dc: type, data: Any, path: str = "") -> Any:
         # No default. Nested sections and lists are optional in practice -- a
         # hand-written config routinely omits `firmware:` or `boot:`.
         if is_dataclass(tp):
-            kwargs[name] = tp()
+            nested: Any = tp
+            kwargs[name] = nested()
         elif get_origin(tp) is list:
             kwargs[name] = []
         else:
             required = [
-                n for n, ff in spec.items()
+                n
+                for n, ff in spec.items()
                 if ff.default is MISSING and ff.default_factory is MISSING
             ]
             raise ValidationError(
