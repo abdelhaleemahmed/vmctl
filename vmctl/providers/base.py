@@ -76,6 +76,27 @@ class BaseProvider(ABC):
         """
         return ""
 
+    def probe(self) -> Capabilities:
+        """Return this provider's capabilities, refined by asking the host (E-05).
+
+        Some of a declaration cannot be written down in advance, because the answer
+        belongs to the machine rather than to the product: which bridged interfaces
+        exist, which host-only networks are defined, which machine types this QEMU
+        build offers, which guest OS ids this VirtualBox knows. A static table can
+        only be a conservative default, and for libvirt -- whose matrix depends on the
+        QEMU build underneath it -- that is a real gap rather than a nicety.
+
+        The default returns the static declaration unchanged, so a provider that
+        cannot ask, or a machine where the tooling is absent, still works. A provider
+        that overrides this must **never raise**: an unanswerable question leaves the
+        static value in place, because refusing to work at all is a worse answer than
+        a conservative one.
+
+        Returns:
+            The declaration to validate against, cached by the caller.
+        """
+        return self.capabilities
+
     @classmethod
     def is_available(cls) -> bool:
         """Whether this provider can be used on this machine.

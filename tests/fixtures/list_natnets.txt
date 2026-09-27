@@ -1,0 +1,8 @@
+Name:         LocalNetwork
+Network:      10.10.10.0/24
+Gateway:      10.10.10.1
+DHCP Server:  Yes
+IPv6:         No
+IPv6 Prefix:  fd17:625c:f037:2::/64
+IPv6 Default: No
+

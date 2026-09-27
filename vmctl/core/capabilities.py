@@ -177,6 +177,14 @@ class Capabilities:
     removable_extensions: Tuple[str, ...] = ()
 
     supported_network_types: Tuple[str, ...] = ()
+    #: What this *host* actually has, per network mode: the bridged interfaces, the
+    #: host-only networks, the NAT networks. Keyed by the mode's value; an empty or
+    #: missing entry means "not probed", and nothing is validated against it.
+    #:
+    #: This is the part of a declaration that cannot be written down in advance --
+    #: the answer changes with the machine, not with the product (E-05). Filled in by
+    #: :meth:`~vmctl.providers.base.BaseProvider.probe`.
+    host_interfaces: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
     #: Architectures this provider can run. VirtualBox runs the host's and has
     #: no setting for it, so it declares just that one (A-10).
     arches: Tuple[Arch, ...] = (Arch.X86_64,)
@@ -245,6 +253,10 @@ class Capabilities:
         if preferred is not None and self.can_attach(kind, preferred):
             return preferred
         return None
+
+    def interfaces_for(self, network_type: str) -> Tuple[str, ...]:
+        """Return the host's interfaces for a network mode, or empty when unprobed."""
+        return tuple(self.host_interfaces.get(network_type, ()))
 
     def native_nic_model(self, model: NicModel) -> Optional[str]:
         """Return this provider's name for a NIC model, or None when it has none."""

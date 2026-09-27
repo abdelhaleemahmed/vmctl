@@ -1359,7 +1359,9 @@ def cmd_capabilities(ctx, fmt):
       vmctl capabilities --format json    # for a script
     """
     try:
-        caps = _engine(ctx).backend.capabilities
+        # The probed declaration, not the static one: what is printed here has to be
+        # what vmctl will accept, and since E-05 those can differ.
+        caps = _engine(ctx).capabilities
     except Exception as exc:  # pragma: no cover - reported, not raised
         _fail(exc)
         return
@@ -1411,6 +1413,10 @@ def cmd_capabilities(ctx, fmt):
         )
     )
     click.echo("network:  " + (", ".join(caps.supported_network_types) or "-"))
+    for mode in sorted(caps.host_interfaces):
+        names = caps.interfaces_for(mode)
+        if names:
+            click.echo(f"  {mode:<8}on this host: {', '.join(names)}")
     click.echo(
         "nics:     "
         + (
@@ -1487,6 +1493,9 @@ def _capabilities_as_dict(caps) -> dict:
             "name_max_length": caps.name_max_length,
         },
         "network_types": list(caps.supported_network_types),
+        "host_interfaces": {
+            mode: list(names) for mode, names in sorted(caps.host_interfaces.items())
+        },
         "evidence": caps.evidence,
     }
 

@@ -103,6 +103,13 @@ Migration
    :members:
    :show-inheritance:
 
+Host facts
+----------
+
+.. automodule:: vmctl.core.hostinfo
+   :members:
+   :show-inheritance:
+
 Config schema
 -------------
 

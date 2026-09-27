@@ -17,9 +17,11 @@ import os
 import re
 import shutil
 import subprocess
-from typing import Any, Callable, Dict, List, Optional
+from dataclasses import replace
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ...core.capabilities import Capabilities
+from ...core.hostinfo import host_bridges
 from ...core.exceptions import (
     DependencyError,
     ProviderError,
@@ -123,6 +125,80 @@ class LibvirtBackend(BaseProvider):
         images flat, unlike VirtualBox's per-VM folders.
         """
         return directory(self.image_dir, nest_per_vm=False)
+
+    def probe(self) -> Capabilities:
+        """Refine the declaration by asking libvirt about this host (E-05).
+
+        For libvirt this is not a refinement but the point: the static table describes
+        *a* QEMU build on *a* machine type, and the real one is whatever
+        ``virsh domcapabilities`` says. Two things are asked for here --
+
+        * the machine types this emulator actually offers, so a config naming one is
+          checked rather than substituted on a guess;
+        * the networks and bridges this host has, so ``adapter_name`` is validated at
+          validate time instead of failing when the domain starts.
+
+        Nothing raises: an unanswerable question leaves the static value alone.
+        """
+        caps = self.capabilities
+        machines = self._probe_machines()
+        interfaces = self._probe_interfaces()
+        if not machines and not interfaces:
+            return caps
+        evidence = caps.evidence
+        asked = []
+        if machines:
+            asked.append(f"{len(machines)} machine types")
+        if interfaces:
+            asked.append(
+                ", ".join(f"{len(names)} {mode}" for mode, names in sorted(interfaces.items()))
+            )
+        return replace(
+            caps,
+            machine_types=machines or caps.machine_types,
+            host_interfaces=interfaces or caps.host_interfaces,
+            evidence=(f"{evidence} Asked this host directly (E-05): " + "; ".join(asked) + "."),
+        )
+
+    def _probe_machines(self) -> Tuple[str, ...]:
+        """Return the machine types this emulator offers, or empty if it cannot say."""
+        out = self._virsh("capabilities", check=False)
+        if not out:
+            return ()
+        found: List[str] = []
+        for match in re.finditer(r"<machine[^>]*>([^<]+)</machine>", out):
+            name = match.group(1).strip()
+            if name and name not in found:
+                found.append(name)
+        # The aliases are what a person writes, and `capabilities` reports them as
+        # canonical= attributes rather than as text, so they are kept from the static
+        # declaration instead of being dropped.
+        for alias in self.capabilities.machine_types:
+            if alias not in found:
+                found.append(alias)
+        return tuple(found)
+
+    def _probe_interfaces(self) -> Dict[str, Tuple[str, ...]]:
+        """Return what this host offers per network mode.
+
+        libvirt's networks serve the modes vmctl calls hostonly and natnetwork; a
+        bridged adapter is a host bridge, which libvirt does not own -- so that comes
+        from the host itself.
+        """
+        found: Dict[str, Tuple[str, ...]] = {}
+        networks = [
+            line.split()[0]
+            for line in self._virsh("net-list", "--all", "--name", check=False).splitlines()
+            if line.strip()
+        ]
+        if networks:
+            found["hostonly"] = tuple(networks)
+            found["natnetwork"] = tuple(networks)
+            found["internal"] = tuple(networks)
+        bridges = host_bridges()
+        if bridges:
+            found["bridged"] = bridges
+        return found
 
     @property
     def domain_type(self) -> str:

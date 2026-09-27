@@ -2194,7 +2194,7 @@ the model (E-03, E-05) want Phase 5 first.
   > version** -- a file that changes every time it is written is one nobody can
   > review. A VM that cannot be read is reported and skipped rather than costing the
   > other nineteen, and the command then exits non-zero so a script notices.
-- **E-05 Live capability probing · M.** Replace parts of the static
+- **E-05 Live capability probing · M. *(done)*** Replace parts of the static
   `capabilities.py` dict with real queries: `VBoxManage list ostypes`,
   `list bridgedifs`, `list hostonlyifs`, `list systemproperties`. This turns
   three currently-unused capability keys into real validation — catching
@@ -2202,6 +2202,37 @@ the model (E-03, E-05) want Phase 5 first.
   `eth0` does not exist here" at validate time instead of mid-create. Cache per
   process; keep the static dict as the offline fallback so tests stay
   hermetic.
+
+  > Done as `BaseProvider.probe()`, called once by the engine and never raising: a
+  > provider that cannot ask returns its static table, so a machine without the
+  > tooling still works. That rule is what makes probing safe to add at all --
+  > **probing may improve a declaration and must never break one** -- and there is a
+  > test for it.
+  >
+  > `Capabilities.host_interfaces` is the new part, and it is deliberately *empty by
+  > default*: an unprobed mode is not validated, because "I did not ask" and "there
+  > are none" are different answers and confusing them would invalidate every config
+  > on a host vmctl could not question.
+  >
+  > VirtualBox asks `list ostypes`, `bridgedifs`, `hostonlyifs` and `natnets`; libvirt
+  > asks `virsh capabilities` for machine types and `net-list` for its networks; QEMU
+  > asks its own binary for machine types and network devices. Host *bridges* come
+  > from sysfs in `core/hostinfo.py`, because that answer belongs to the machine rather
+  > than to either provider -- libvirt and QEMU both need the same list.
+  >
+  > What is deliberately **not** re-derived: the attach matrix. A device appearing in
+  > `-device help` is not the same as the hypervisor accepting it on a bus, which is
+  > what the recorded matrices measured by starting a machine -- so probing must not
+  > quietly widen them, and a test pins that too.
+  >
+  > Writing the parsers found one of my own guesses: `list natnets` spells the name
+  > `Name:`, not the `NetworkName:` I had written from memory. The capture from the
+  > real host settled it, which is the argument for captures in one line.
+  >
+  > Verified against all three: libvirt and QEMU warn about `adapter_name: eth0` and
+  > accept `docker0`, and VirtualBox's probe run against this host's own captured
+  > listings warns about `eth0`, accepts the real wireless adapter, and accepts the
+  > `LocalNetwork` NAT network.
 - **E-06 `vmctl schema -o vmctl.schema.json` · S. *(done)*** Emit a JSON Schema for the
   config format. Editors then autocomplete and validate config files in place,
   which is exactly what config-as-code users expect. Generate it from the
@@ -2492,6 +2523,6 @@ Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
          [x] P-05 plain QEMU                 [x] P-06 vmctl migrate --from/--to
 Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
-         [ ] E-03 clone-disks  [ ] E-05 capability probing
+         [ ] E-03 clone-disks  [x] E-05 capability probing
          [ ] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C
 ```

@@ -88,3 +88,8 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.core.hostinfo
+   :members:
+   :member-order: bysource
+   :show-inheritance:

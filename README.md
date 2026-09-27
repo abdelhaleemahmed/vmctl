@@ -207,6 +207,17 @@ are the only thing that catches it.
 Every figure carries its provenance, because a measured limit and a remembered one
 look identical in a table. `--format json` gives the same facts for a script.
 
+Some of it is asked of the machine rather than read from a table — which bridges this
+host has, which machine types this QEMU build offers, which guest OS ids this
+VirtualBox knows — so a config naming an interface that does not exist here is caught
+by `vmctl validate` instead of failing partway through a create:
+
+```
+$ vmctl validate web.yaml
+Warning: networks[0] names 'eth0', which this host does not have;
+         available: br-lab, docker0
+```
+
 ### Keeping The Plan
 
 Anything that would change a VM can be written out instead of only printed:

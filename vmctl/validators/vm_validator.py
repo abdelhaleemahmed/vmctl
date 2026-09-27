@@ -404,6 +404,16 @@ class VMValidator:
                     f"networks[{i}] is {net.network_type.value} but names no "
                     f"adapter; the VM will have no network until one is set"
                 )
+                continue
+            # What this host actually has, when the provider was able to ask (E-05).
+            # `adapter_name: eth0` is valid everywhere and correct almost nowhere, and
+            # without this the mistake surfaces partway through a create.
+            on_this_host = self.capabilities.interfaces_for(net.network_type.value)
+            if on_this_host and net.adapter_name and net.adapter_name not in on_this_host:
+                warnings.append(
+                    f"networks[{i}] names {net.adapter_name!r}, which this host does "
+                    f"not have; available: {', '.join(on_this_host)}"
+                )
 
         if vm.cpu.count > 1 and not vm.boot.ioapic and self.capabilities.ioapic_optional:
             # x86 SMP needs an I/O APIC to route interrupts to more than one CPU.

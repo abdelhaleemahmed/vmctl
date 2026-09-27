@@ -37,7 +37,11 @@ class VMCtlEngine:
 
         self.provider_name = registry.resolve(provider)
         self.backend: "BaseProvider" = registry.create(self.provider_name)
-        self.validator = VMValidator(self.backend.capabilities)
+        # Asked once, here: probing runs a command or two, and a declaration that
+        # changed between two checks in one run would be worse than a static one
+        # (E-05). A provider that cannot ask returns its static table.
+        self.capabilities = self.backend.probe()
+        self.validator = VMValidator(self.capabilities)
 
         self.serializers = {"json": JSONSerializer(), "yaml": YAMLSerializer()}
 

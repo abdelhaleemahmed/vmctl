@@ -5,7 +5,8 @@ VirtualBox backend implementation
 import re
 import subprocess
 import time
-from typing import Callable, List, Optional, cast
+from dataclasses import replace
+from typing import Callable, Dict, List, Optional, Tuple, cast
 from ...core.capabilities import Capabilities
 from ...core.plan import Plan, StepKind
 from ...core.storage import StorageLocation, directory
@@ -83,6 +84,67 @@ class VirtualBoxBackend(BaseProvider):
     def converter(self) -> CloneMediumConverter:
         """Return the ``VBoxManage clonemedium`` converter."""
         return CloneMediumConverter()
+
+    def probe(self) -> Capabilities:
+        """Refine the declaration by asking this VirtualBox (E-05).
+
+        Two questions only this host can answer:
+
+        * **Which guest OS ids does it know?** The static table is generated from a
+          capture of one version (F-29); a host running another may know more or fewer,
+          and ``createvm`` refuses an id it does not have.
+        * **Which bridged and host-only interfaces exist here?** A config naming
+          ``eth0`` is valid everywhere and correct almost nowhere, and the failure
+          currently arrives partway through a create.
+
+        Nothing raises: an unanswerable question leaves the static value alone.
+        """
+        caps = self.capabilities
+        ostypes = self._probe_ostypes()
+        interfaces = self._probe_interfaces()
+        if not ostypes and not interfaces:
+            return caps
+        asked = []
+        if ostypes:
+            asked.append(f"{len(ostypes)} guest OS ids")
+        if interfaces:
+            asked.append(
+                ", ".join(f"{len(names)} {mode}" for mode, names in sorted(interfaces.items()))
+            )
+        return replace(
+            caps,
+            supported_os_types=ostypes or caps.supported_os_types,
+            host_interfaces=interfaces or caps.host_interfaces,
+            evidence=f"{caps.evidence} Asked this host directly (E-05): " + "; ".join(asked) + ".",
+        )
+
+    def _list(self, what: str) -> str:
+        """Return ``VBoxManage list <what>``, or empty when it cannot be run."""
+        try:
+            result = subprocess.run(
+                ["VBoxManage", "list", what], capture_output=True, text=True, check=False
+            )
+        except (FileNotFoundError, OSError):
+            return ""
+        return result.stdout if result.returncode == 0 else ""
+
+    def _probe_ostypes(self) -> Tuple[str, ...]:
+        """Return every guest OS id and description this host knows."""
+        return parse_ostypes(self._list("ostypes"))
+
+    def _probe_interfaces(self) -> Dict[str, Tuple[str, ...]]:
+        """Return the bridged and host-only interfaces this host has."""
+        found: Dict[str, Tuple[str, ...]] = {}
+        bridged = parse_interface_names(self._list("bridgedifs"))
+        if bridged:
+            found["bridged"] = bridged
+        hostonly = parse_interface_names(self._list("hostonlyifs"))
+        if hostonly:
+            found["hostonly"] = hostonly
+        natnets = parse_interface_names(self._list("natnets"))
+        if natnets:
+            found["natnetwork"] = natnets
+        return found
 
     def version(self) -> str:
         """Return the VirtualBox version, e.g. ``"7.1.18"``.
@@ -458,3 +520,44 @@ class VirtualBoxBackend(BaseProvider):
             return result.stdout
         except subprocess.CalledProcessError as e:
             raise ProviderError(f"Command failed: {' '.join(command)}\nError: {e.stderr}")
+
+
+# ---------------------------------------------------------------------------
+# Reading `VBoxManage list` output
+#
+# Separate functions, and not methods, because they are pure text -> data: the tests
+# feed them captured output instead of needing VirtualBox, which is the same shape as
+# the parser's MediumProbe (T-04).
+# ---------------------------------------------------------------------------
+
+
+def parse_ostypes(text: str) -> Tuple[str, ...]:
+    """Return every guest OS id and description in a ``list ostypes`` listing.
+
+    Both spellings, because ``createvm`` takes the id and ``showvminfo`` reports the
+    description, and a config may legitimately hold either (A-05).
+    """
+    found: List[str] = []
+    for line in text.splitlines():
+        match = re.match(r"^ID / Description:\s*(\S+)\s*--\s*(.+)$", line.strip())
+        if match:
+            found.extend([match.group(1), match.group(2).strip()])
+    return tuple(found)
+
+
+def parse_interface_names(text: str) -> Tuple[str, ...]:
+    """Return the names in a ``list bridgedifs``, ``hostonlyifs`` or ``natnets`` listing.
+
+    The listing is stanzas of ``Key: value``, and the name is the one that matters:
+    VirtualBox's own ``--bridgeadapter`` takes exactly that string.
+
+    All three listings spell it ``Name:`` on 7.1.18 -- checked against captures, after
+    writing ``NetworkName:`` for NAT networks from memory and finding it wrong.
+    """
+    found: List[str] = []
+    for line in text.splitlines():
+        if line.lower().startswith("name:"):
+            name = line.split(":", 1)[1].strip()
+            if name and name not in found:
+                found.append(name)
+    return tuple(found)

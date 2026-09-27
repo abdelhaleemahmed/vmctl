@@ -96,6 +96,11 @@ things prevented that:
 
 ### Added
 
+- **vmctl now asks the host what it has**, instead of trusting a table for everything:
+  which bridges exist, which machine types this QEMU build offers, which guest OS ids
+  this VirtualBox knows. So `vmctl validate` catches `adapter_name: eth0` on a machine
+  that has no `eth0`, rather than the create failing halfway through. A host that
+  cannot be asked keeps working exactly as before.
 - **`vmctl export --all -d <dir>`** exports every VM as its own file plus a manifest,
   and nothing in the output changes between runs -- so the directory is something you
   can commit and review. The documented "lab snapshot" needed a shell loop before.

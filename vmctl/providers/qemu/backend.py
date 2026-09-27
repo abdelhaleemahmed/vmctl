@@ -20,13 +20,16 @@ per-user, because a user-run QEMU cannot write to a system-wide one.
 """
 
 import os
+import re
 import shutil
 import signal
 import subprocess
 import time
-from typing import Any, Callable, Dict, List, Optional
+from dataclasses import replace
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ...core.capabilities import Capabilities
+from ...core.hostinfo import host_bridges
 from ...core.exceptions import (
     DependencyError,
     ProviderError,
@@ -131,6 +134,80 @@ class QemuBackend(BaseProvider):
         worse answer than saying tcg in the first place.
         """
         return "kvm" if os.path.exists("/dev/kvm") else "tcg"
+
+    def probe(self) -> Capabilities:
+        """Refine the declaration by asking this QEMU binary (E-05).
+
+        A QEMU build is a build-time selection of devices, so the questions worth
+        asking are which machine types and which network devices it has -- both of
+        which vmctl otherwise has to declare from a capture. The attach matrix is
+        deliberately *not* re-derived from ``-device help``: a device existing is not
+        the same as QEMU accepting it on a bus, which is what the recorded matrix
+        measured by starting the machine.
+
+        Nothing raises: an unanswerable question leaves the static value alone.
+        """
+        caps = self.capabilities
+        machines = self._probe_machines()
+        nics = self._probe_nic_models()
+        # `-netdev bridge,br=NAME` takes a host bridge, so the same list libvirt needs
+        # applies here -- which is why the answer lives in core rather than in either
+        # provider.
+        bridges = host_bridges()
+        if not machines and not nics and not bridges:
+            return caps
+        asked = []
+        if machines:
+            asked.append(f"{len(machines)} machine types")
+        if nics:
+            asked.append(f"{len(nics)} network devices")
+        if bridges:
+            asked.append(f"{len(bridges)} host bridges")
+        return replace(
+            caps,
+            machine_types=machines or caps.machine_types,
+            nic_models=nics or caps.nic_models,
+            host_interfaces={"bridged": bridges} if bridges else caps.host_interfaces,
+            evidence=f"{caps.evidence} Asked this binary directly (E-05): "
+            + "; ".join(asked)
+            + ".",
+        )
+
+    def _help(self, *args: str) -> str:
+        """Return the output of a ``-... help`` query, or empty when it cannot run."""
+        try:
+            result = subprocess.run(
+                [self.binary, *args], capture_output=True, text=True, check=False
+            )
+        except (OSError, DependencyError):
+            return ""
+        return (result.stdout or "") + (result.stderr or "")
+
+    def _probe_machines(self) -> Tuple[str, ...]:
+        """Return the machine types this binary offers."""
+        found: List[str] = []
+        for line in self._help("-machine", "help").splitlines()[1:]:
+            name = line.split()[0] if line.strip() else ""
+            # `none` is a machine with no hardware at all; it cannot run a VM.
+            if name and name != "none" and name not in found:
+                found.append(name)
+        return tuple(found)
+
+    def _probe_nic_models(self) -> Dict[Any, str]:
+        """Return the NIC models this binary actually has.
+
+        F-37 is the reason this exists: the static table was written by reading
+        libvirt's and claimed three devices this build does not have.
+        """
+        from .tables import NIC_MODEL_TO_QEMU
+
+        available = {
+            match.group(1)
+            for match in re.finditer(r'^name "([^"]+)"', self._help("-device", "help"), re.M)
+        }
+        if not available:
+            return {}
+        return {model: native for model, native in NIC_MODEL_TO_QEMU.items() if native in available}
 
     def storage_location(self) -> StorageLocation:
         """Return the state directory, one subdirectory per VM.

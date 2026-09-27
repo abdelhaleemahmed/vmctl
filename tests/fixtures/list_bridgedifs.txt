@@ -1,0 +1,78 @@
+Name:            Intel(R) Dual Band Wireless-AC 7265
+GUID:            8f39b98c-0956-4b1d-bd77-bc7731a11290
+DHCP:            Enabled
+IPAddress:       192.168.0.141
+NetworkMask:     255.255.255.0
+IPV6Address:     2001:8f8:1461:7ed6:29c9:ddda:fe0b:22e8
+IPV6NetworkMaskPrefixLength: 64
+HardwareAddress: 00:23:15:fb:30:56
+MediumType:      Ethernet
+Wireless:        Yes
+Status:          Up
+VBoxNetworkName: HostInterfaceNetworking-Intel(R) Dual Band Wireless-AC 7265
+
+Name:            VirtualBox Host-Only Ethernet Adapter #7
+GUID:            15ced4a4-3e91-4dab-a365-3bdcb690146d
+DHCP:            Disabled
+IPAddress:       0.0.0.0
+NetworkMask:     0.0.0.0
+IPV6Address:     
+IPV6NetworkMaskPrefixLength: 0
+HardwareAddress: 00:00:00:00:00:00
+MediumType:      Ethernet
+Wireless:        No
+Status:          Down
+VBoxNetworkName: HostInterfaceNetworking-VirtualBox Host-Only Ethernet Adapter #7
+
+Name:            ExpressVPN TAP Adapter
+GUID:            b206e018-090b-49de-b674-6502c54fbf1f
+DHCP:            Enabled
+IPAddress:       169.254.22.184
+NetworkMask:     255.255.0.0
+IPV6Address:     fe80::2d58:8552:4569:d7c8
+IPV6NetworkMaskPrefixLength: 64
+HardwareAddress: 00:ff:b2:06:e0:18
+MediumType:      Ethernet
+Wireless:        No
+Status:          Down
+VBoxNetworkName: HostInterfaceNetworking-ExpressVPN TAP Adapter
+
+Name:            Realtek Gaming GBE Family Controller #2
+GUID:            4e27e413-ddab-4353-95b0-7cbfa722e508
+DHCP:            Enabled
+IPAddress:       169.254.237.121
+NetworkMask:     255.255.0.0
+IPV6Address:     fe80::7d9d:898a:dd3a:987d
+IPV6NetworkMaskPrefixLength: 64
+HardwareAddress: 80:ce:62:50:26:17
+MediumType:      Ethernet
+Wireless:        No
+Status:          Down
+VBoxNetworkName: HostInterfaceNetworking-Realtek Gaming GBE Family Controller #2
+
+Name:            Lenovo USB Ethernet
+GUID:            ed0b56a6-5544-4008-840c-a2bfd7f7bc38
+DHCP:            Enabled
+IPAddress:       169.254.156.20
+NetworkMask:     255.255.0.0
+IPV6Address:     fe80::75eb:fd37:6088:f58a
+IPV6NetworkMaskPrefixLength: 64
+HardwareAddress: 48:2a:e3:b0:2c:13
+MediumType:      Ethernet
+Wireless:        No
+Status:          Down
+VBoxNetworkName: HostInterfaceNetworking-Lenovo USB Ethernet
+
+Name:            TAP-Windows Adapter V9
+GUID:            e45f1a09-3004-47cf-8d82-973ef722ec05
+DHCP:            Enabled
+IPAddress:       169.254.60.191
+NetworkMask:     255.255.0.0
+IPV6Address:     fe80::31f8:47ce:37af:bd31
+IPV6NetworkMaskPrefixLength: 64
+HardwareAddress: 00:ff:e4:5f:1a:09
+MediumType:      Ethernet
+Wireless:        No
+Status:          Down
+VBoxNetworkName: HostInterfaceNetworking-TAP-Windows Adapter V9
+
