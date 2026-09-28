@@ -172,6 +172,21 @@ class Capabilities:
     #: Secure boot can be switched on, but cannot be read back -- see F-17.
     secure_boot_readable: bool = False
 
+    #: Whether this provider can take snapshots at all (E-09). All four measured so
+    #: far can; a provider that cannot says so here and its commands refuse rather
+    #: than failing at the hypervisor.
+    snapshots: Support = Support.UNSUPPORTED
+    #: Whether a snapshot can carry a description. VirtualBox and libvirt keep one;
+    #: ``vmrun`` and ``qemu-img`` have nowhere to put it, so vmctl says so instead of
+    #: accepting the text and losing it.
+    snapshot_descriptions: bool = False
+    #: Disk formats whose images can hold a snapshot. Empty means the mechanism does
+    #: not depend on the format -- VirtualBox snapshots by writing a *differencing*
+    #: image, so any format it can attach is fine (measured with VDI and RAW). For
+    #: libvirt and plain QEMU the snapshot lives *inside* the image, so this is
+    #: qcow2 and nothing else: both refuse raw outright.
+    snapshot_formats: Tuple[DiskFormat, ...] = ()
+
     #: Extensions that denote a removable medium (an optical or floppy image).
     #: Needed to recognise an attachment as a device at all.
     removable_extensions: Tuple[str, ...] = ()

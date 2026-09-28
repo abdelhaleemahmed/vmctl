@@ -1489,6 +1489,185 @@ def cmd_providers():
 
 
 # ---------------------------------------------------------------------------
+# snapshot (E-09)
+# ---------------------------------------------------------------------------
+
+
+@cli.group("snapshot")
+def snapshot():
+    """Take, list, restore and delete snapshots.
+
+    The documented reason to want them is "before a destructive test", so these act
+    immediately like start and stop rather than being dry-run like the commands that
+    change a VM's definition. The two that lose something -- restore discards
+    everything since the snapshot, delete discards the snapshot -- ask first, the way
+    'vmctl delete' does.
+    """
+
+
+@snapshot.command("take")
+@click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.argument("snapshot_name")
+@click.option("--description", "-d", default=None, help="Why this snapshot was taken.")
+@click.pass_context
+def snapshot_take(ctx, vm_name, snapshot_name, description):
+    """Take a snapshot of a VM.
+
+    \b
+    Examples:
+      vmctl snapshot take web-01 before-upgrade
+      vmctl snapshot take web-01 before-upgrade -d "kernel 6.9, rolling back if it panics"
+    """
+    try:
+        engine = _engine(ctx)
+        _require_snapshots(engine)
+        if description and not engine.capabilities.snapshot_descriptions:
+            # Said rather than accepted and lost: vmrun and qemu-img have nowhere to
+            # put a description, and finding that out from an empty listing later is
+            # how people stop trusting the tool.
+            _warn(
+                f"{engine.provider_name} cannot store a snapshot description, so it "
+                f"was not saved; the snapshot itself was taken"
+            )
+        plan = engine.backend.take_snapshot(vm_name, snapshot_name, description)
+        click.echo(f"Took snapshot '{snapshot_name}' of '{vm_name}'")
+        if plan:
+            click.echo(plan.render())
+    except (VMToolError, NotImplementedError) as e:
+        _fail_unsupported(e)
+
+
+@snapshot.command("list")
+@click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["plain", "json"]),
+    default="plain",
+    show_default=True,
+    help="Output format.",
+)
+@click.pass_context
+def snapshot_list(ctx, vm_name, fmt):
+    """List a VM's snapshots.
+
+    A ``*`` marks where the VM is now. Which columns there are depends on the
+    hypervisor: VirtualBox and libvirt keep a description, libvirt and QEMU a
+    timestamp, and vmrun reports names only. A field a hypervisor does not keep is
+    left out rather than invented -- see 'vmctl capabilities'.
+
+    \b
+    Examples:
+      vmctl snapshot list web-01
+      vmctl snapshot list web-01 --format json
+    """
+    try:
+        engine = _engine(ctx)
+        _require_snapshots(engine)
+        found = engine.backend.snapshots(vm_name)
+    except (VMToolError, NotImplementedError) as e:
+        _fail_unsupported(e)
+        return
+
+    if fmt == "json":
+        _emit_json(
+            {
+                "vm": vm_name,
+                "provider": engine.provider_name,
+                "snapshots": [item.as_dict() for item in found],
+            }
+        )
+        return
+    if not found:
+        click.echo(f"{vm_name} has no snapshots.")
+        return
+    for item in found:
+        click.echo(item.render())
+
+
+@snapshot.command("restore")
+@click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.argument("snapshot_name")
+@click.option("--force", "-f", is_flag=True, help="Skip the confirmation prompt.")
+@click.pass_context
+def snapshot_restore(ctx, vm_name, snapshot_name, force):
+    """Put a VM back to a snapshot, discarding everything since.
+
+    \b
+    Examples:
+      vmctl snapshot restore web-01 before-upgrade
+      vmctl snapshot restore web-01 before-upgrade --force
+    """
+    try:
+        engine = _engine(ctx)
+        _require_snapshots(engine)
+        if not force:
+            click.echo(
+                f"Restoring '{vm_name}' to '{snapshot_name}' discards everything it "
+                f"has done since that snapshot was taken."
+            )
+            if not click.confirm("Continue?"):
+                click.echo("Cancelled.")
+                sys.exit(1)
+        plan = engine.backend.restore_snapshot(vm_name, snapshot_name)
+        click.echo(f"Restored '{vm_name}' to snapshot '{snapshot_name}'")
+        if plan:
+            click.echo(plan.render())
+    except (VMToolError, NotImplementedError) as e:
+        _fail_unsupported(e)
+
+
+@snapshot.command("delete")
+@click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.argument("snapshot_name")
+@click.option("--force", "-f", is_flag=True, help="Skip the confirmation prompt.")
+@click.pass_context
+def snapshot_delete(ctx, vm_name, snapshot_name, force):
+    """Delete a snapshot, keeping the VM as it is now.
+
+    \b
+    Examples:
+      vmctl snapshot delete web-01 before-upgrade --force
+    """
+    try:
+        engine = _engine(ctx)
+        _require_snapshots(engine)
+        if not force and not click.confirm(
+            f"Delete snapshot '{snapshot_name}' of '{vm_name}'? It cannot be restored "
+            f"afterwards."
+        ):
+            click.echo("Cancelled.")
+            sys.exit(1)
+        plan = engine.backend.delete_snapshot(vm_name, snapshot_name)
+        click.echo(f"Deleted snapshot '{snapshot_name}' of '{vm_name}'")
+        if plan:
+            click.echo(plan.render())
+    except (VMToolError, NotImplementedError) as e:
+        _fail_unsupported(e)
+
+
+def _require_snapshots(engine) -> None:
+    """Fail cleanly when the provider in use cannot take snapshots.
+
+    The declaration answers this, so the refusal happens before a command is built
+    rather than as a confusing error from a tool that has no such subcommand.
+    """
+    if not engine.capabilities.snapshots.usable:
+        raise ProviderError(
+            f"{engine.provider_name} does not support snapshots",
+            recovery_hint="run 'vmctl capabilities' to see what this provider can do",
+        )
+
+
+def _fail_unsupported(exc) -> None:
+    """Report an error, including a provider saying it cannot do something."""
+    if isinstance(exc, NotImplementedError):
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    _fail(exc)
+
+
+# ---------------------------------------------------------------------------
 # doctor (E-12)
 # ---------------------------------------------------------------------------
 
@@ -1963,6 +2142,17 @@ def cmd_capabilities(ctx, fmt):
         f"cpu:      topology {_yes(caps.cpu_topology)}, "
         f"model choice {_yes(caps.cpu_model_choice)}"
     )
+    if caps.snapshots.usable:
+        limits = (
+            ", ".join(sorted(f.value for f in caps.snapshot_formats))
+            if caps.snapshot_formats
+            else "any format it can attach"
+        )
+        click.echo(
+            f"snapshot: yes, on {limits}; " f"descriptions {_yes(caps.snapshot_descriptions)}"
+        )
+    else:
+        click.echo("snapshot: no")
     click.echo(f"names:    at most {caps.name_max_length} characters, {caps.name_pattern}")
     if caps.evidence:
         click.echo(f"\nevidence: {caps.evidence}")
@@ -2016,6 +2206,11 @@ def _capabilities_as_dict(caps) -> dict:
             "max_network_adapters": caps.max_network_adapters,
             "max_vram_mb": caps.max_vram_mb,
             "name_max_length": caps.name_max_length,
+        },
+        "snapshots": {
+            "support": caps.snapshots.value,
+            "descriptions": caps.snapshot_descriptions,
+            "formats": sorted(f.value for f in caps.snapshot_formats),
         },
         "network_types": list(caps.supported_network_types),
         "host_interfaces": {

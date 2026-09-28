@@ -96,6 +96,18 @@ things prevented that:
 
 ### Added
 
+- **Snapshots, on all four hypervisors**: `vmctl snapshot take|list|restore|delete`.
+  Taking one is immediate; restoring and deleting ask first, because each throws
+  something away. What a listing can show depends on the hypervisor and
+  `vmctl capabilities` now says so -- VirtualBox and libvirt keep a description,
+  libvirt and QEMU a timestamp, `vmrun` reports names only -- and a description given
+  to a provider that cannot store one is reported rather than quietly lost. On libvirt
+  and plain QEMU the snapshot lives inside the qcow2, so a raw disk cannot be
+  snapshotted at all: vmctl refuses up front, naming the disk, instead of letting the
+  hypervisor fail half way through.
+- Fixed: on libvirt, a VM that had snapshots could not be deleted -- libvirt refuses
+  to undefine a domain whose snapshot metadata is still there, so `vmctl delete` failed
+  with no reason given. Found while cleaning up after the feature above.
 - **Machine-readable output**: `--format json` on `list`, `status`, `validate` and
   `diff`, and a new `doctor`. Sorted keys, so two runs produce the same bytes. An
   invalid file reports the error as JSON on stdout and still exits 1, because prose on

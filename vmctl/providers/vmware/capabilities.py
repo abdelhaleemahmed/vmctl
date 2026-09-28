@@ -134,6 +134,10 @@ class VMwareCapabilities:
             name_pattern=r"^(?!\.\.?$)[^/\\\x00-\x1f]+$",
             name_max_length=80,
             supports_tpm=True,
+            # Measured with vmrun 1.17.0: snapshot / listSnapshots /
+            # revertToSnapshot / deleteSnapshot. No description and no timestamp --
+            # `listSnapshots` prints "Total snapshots: N" and then the names.
+            snapshots=Support.NATIVE,
             # `uefi.secureBoot.enabled` is written and read back like any other key.
             secure_boot_readable=True,
             supported_network_types=("nat", "bridged", "hostonly", "internal"),

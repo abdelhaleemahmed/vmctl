@@ -227,6 +227,28 @@ $ vmctl doctor --format json | jq -r '.checks[] | select(.ok==false)'
 half way through is traced to the step it failed on; `vmctl -q` drops warnings and
 keeps errors.
 
+### Before a Destructive Test
+
+All four hypervisors can take snapshots, so vmctl does too.
+
+```bash
+vmctl snapshot take web-01 before-upgrade -d "kernel 6.9, rolling back if it panics"
+vmctl snapshot list web-01
+vmctl snapshot restore web-01 before-upgrade   # asks first
+vmctl snapshot delete web-01 before-upgrade    # asks first
+```
+
+`take` acts immediately, like `start` and `stop`; the two that lose something ask
+first, like `delete`. What a listing can show depends on the hypervisor and
+`vmctl capabilities` says so: VirtualBox and libvirt keep a description, libvirt and
+QEMU a timestamp, `vmrun` reports names only. A field a hypervisor does not keep is
+left out rather than invented.
+
+The mechanisms differ in a way that matters: VirtualBox snapshots by writing a
+differencing image, so any disk format works, while libvirt and plain QEMU put the
+snapshot *inside* the qcow2 -- so a raw disk cannot be snapshotted at all, and vmctl
+says so before running anything instead of letting the hypervisor fail half way.
+
 ### Is This Machine Set Up?
 
 `vmctl doctor` answers the questions that otherwise arrive as bug reports, and exits 1
@@ -441,6 +463,7 @@ VM — set it in the config file.
 | `vmctl capabilities [--format json]` | Print what this hypervisor supports: formats, buses, the attach matrix, limits — and where each figure was measured |
 | `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute] [--out PATH]` | Recreate a VM on another hypervisor |
 | `vmctl convert <src> <dst> [--to FMT] [--execute]` | Convert a disk image between formats |
+| `vmctl snapshot take\|list\|restore\|delete <vm> [<name>]` | Snapshots, on all four hypervisors |
 | `vmctl list [--format table\|simple\|json]` | List all VMs with status |
 | `vmctl status <vm> [--format json]` | Show current VM state |
 | `vmctl start <vm>` | Start VM in headless mode |

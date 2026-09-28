@@ -157,6 +157,51 @@ def test_diagnostics_answer_rather_than_raise(backend, monkeypatch):
         assert check.ok in (True, False, None)
 
 
+def test_a_provider_that_declares_snapshots_can_plan_all_four_operations(
+    backend, vm_minimal, caps, monkeypatch
+):
+    """Declaring the capability is a promise that the commands exist (E-09).
+
+    Half an implementation is worse than none: `vmctl snapshot list` would work and
+    `restore` would raise NotImplementedError at the moment someone needed it.
+    """
+    if not caps.snapshots.usable:
+        pytest.skip(f"{backend.name} does not declare snapshot support")
+
+    vm_minimal.storage[0].bus = caps.buses_for(DeviceKind.DISK)[0]
+    vm_minimal.storage[0].format = caps.snapshot_formats[0] if caps.snapshot_formats else None
+    vm_minimal.storage[0].disk_path = "/conformance/images/minimal-vm.img"
+    monkeypatch.setattr(type(backend), "vm_exists", lambda self, name: True)
+    monkeypatch.setattr(type(backend), "read_vm", lambda self, name: vm_minimal)
+
+    for plan in (
+        backend.take_snapshot(vm_minimal.name, "before-test", execute=False),
+        backend.restore_snapshot(vm_minimal.name, "before-test", execute=False),
+        backend.delete_snapshot(vm_minimal.name, "before-test", execute=False),
+    ):
+        assert isinstance(plan, Plan) and len(plan) >= 1
+        for step in plan:
+            assert step.description
+            assert "before-test" in " ".join(step.argv or [])
+
+
+def test_a_snapshot_name_reaches_the_tool_as_one_argument(backend, vm_minimal, caps, monkeypatch):
+    """A name with a space in it is ordinary -- VirtualBox's own GUI suggests
+    "Snapshot 1" -- and a plan carries argv, so it must never be one string (A-08)."""
+    if not caps.snapshots.usable:
+        pytest.skip(f"{backend.name} does not declare snapshot support")
+
+    vm_minimal.storage[0].format = caps.snapshot_formats[0] if caps.snapshot_formats else None
+    vm_minimal.storage[0].disk_path = "/conformance/images/minimal-vm.img"
+    monkeypatch.setattr(type(backend), "vm_exists", lambda self, name: True)
+    monkeypatch.setattr(type(backend), "read_vm", lambda self, name: vm_minimal)
+
+    plan = backend.take_snapshot(vm_minimal.name, "before the test; rm -rf /", execute=False)
+
+    for step in plan:
+        assert "before the test; rm -rf /" in (step.argv or [])
+
+
 # ---------------------------------------------------------------------------
 # The capability declaration
 # ---------------------------------------------------------------------------

@@ -18,14 +18,15 @@ except ImportError:  # pragma: no cover
 
 from ..core.capabilities import Capabilities
 from ..core.convert import MediumConverter
-from ..core.exceptions import ProviderError
+from ..core.exceptions import DependencyError, ProviderError
 from ..core.plan import Plan, Step, StepKind
 from ..core.storage import StorageLocation
 from ..core.translate import Policy
 from ..core.vmconfig import VMConfig
 
-if TYPE_CHECKING:  # pragma: no cover - doctor imports providers, not the other way
+if TYPE_CHECKING:  # pragma: no cover - these import providers, not the other way
     from ..core.doctor import Check
+    from ..core.snapshots import Snapshot
 
 
 @runtime_checkable
@@ -123,7 +124,17 @@ class BaseProvider(ABC):
             ProviderError: If the command fails.
         """
         argv = self.resolve_argv(list(step.argv or []))
-        result = subprocess.run(argv, capture_output=True, text=True)
+        try:
+            result = subprocess.run(argv, capture_output=True, text=True)
+        except OSError as exc:
+            # The tool is missing or not executable. F-42's rule: that is the
+            # "install it" answer, not a traceback from inside vmctl.
+            raise DependencyError(
+                f"{argv[0]} could not be run",
+                dependency=self.name,
+                install_command=f"install {self.name} and make sure {argv[0]} is available",
+                original_exception=exc,
+            )
         if result.returncode != 0:
             raise ProviderError(
                 f"{step.description} failed: " f"{result.stderr.strip() or result.stdout.strip()}"
@@ -406,3 +417,79 @@ class BaseProvider(ABC):
             override it (F-11). Providers must implement editing explicitly.
         """
         raise NotImplementedError(f"{self.name} does not support editing VMs in place")
+
+    # -- snapshots (E-09) ----------------------------------------------------
+    #
+    # Four operations on four genuinely different mechanisms: a tree of differencing
+    # images, internal qcow2 snapshots, `vmrun`. So the commands are each provider's
+    # own and what is shared is the vocabulary (`core/snapshots.py`), the capability
+    # declaration, and the fact that all four return a Plan -- which is what gives
+    # them dry-run, `-v` and `--out` without any of them knowing about those.
+
+    def snapshots(self, vm_name: str) -> List["Snapshot"]:
+        """Return this VM's snapshots, newest-known information first.
+
+        Raises:
+            NotImplementedError: If this provider cannot take snapshots.
+            VMNotFoundError: If there is no such VM.
+        """
+        raise NotImplementedError(f"{self.name} does not support snapshots")
+
+    def take_snapshot(
+        self,
+        vm_name: str,
+        snapshot: str,
+        description: Optional[str] = None,
+        execute: bool = True,
+    ) -> Plan:
+        """Take a snapshot.
+
+        Args:
+            vm_name: The VM.
+            snapshot: What to call the snapshot.
+            description: Why it was taken, for the providers that can keep one.
+            execute: Actually take it. False returns the plan only.
+
+        Raises:
+            NotImplementedError: If this provider cannot take snapshots.
+        """
+        raise NotImplementedError(f"{self.name} does not support snapshots")
+
+    def restore_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Put the VM back to a snapshot, discarding the state since.
+
+        Raises:
+            NotImplementedError: If this provider cannot take snapshots.
+        """
+        raise NotImplementedError(f"{self.name} does not support snapshots")
+
+    def delete_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Delete a snapshot, keeping the VM's current state.
+
+        Raises:
+            NotImplementedError: If this provider cannot take snapshots.
+        """
+        raise NotImplementedError(f"{self.name} does not support snapshots")
+
+    def refuse_unsnapshottable(self, vm_name: str) -> None:
+        """Raise if this VM's disks cannot hold a snapshot on this provider.
+
+        Asked before the command runs, because the hypervisors answer it half way
+        through: libvirt fails with a sentence about storage types and ``qemu-img``
+        refuses per image -- after vmctl has already snapshotted the first one.
+
+        Raises:
+            ProviderError: With one line per disk that cannot.
+        """
+        from ..core.snapshots import unsupported_disks
+
+        if not self.capabilities.snapshot_formats:
+            return
+        problems = unsupported_disks(self.read_vm(vm_name), self.capabilities)
+        if problems:
+            raise ProviderError(
+                f"{vm_name} cannot be snapshotted: " + "; ".join(problems),
+                context={"vm_name": vm_name},
+                recovery_hint="convert the disk with 'vmctl convert', or use a "
+                "provider whose snapshots do not live inside the image",
+            )

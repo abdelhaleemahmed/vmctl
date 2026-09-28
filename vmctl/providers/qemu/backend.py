@@ -44,6 +44,7 @@ from ..base import BaseProvider
 from .capabilities import QemuCapabilities
 from .convert import QemuImgConverter
 from .emitter import QemuEmitter
+from ...core.snapshots import Snapshot
 from .parser import QemuParser
 
 #: The QEMU binaries to look for, most specific first.
@@ -424,6 +425,100 @@ class QemuBackend(BaseProvider):
             self.run_plan(plan)
         return plan
 
+    # -- snapshots (E-09) ----------------------------------------------------
+
+    def snapshot_images(self, vm_name: str) -> List[str]:
+        """Return the images a snapshot here would live in.
+
+        A snapshot is *inside* the qcow2, so "the VM's snapshots" means the snapshots
+        of its non-removable disks. Every one of them is snapshotted together, or
+        restoring would put one disk back and leave the others in the future.
+        """
+        vm = self.read_vm(vm_name)
+        images = []
+        for device in vm.storage:
+            path = device.source or device.disk_path
+            if path and not device.is_removable:
+                images.append(path)
+        return images
+
+    def snapshots(self, vm_name: str) -> List[Snapshot]:
+        """Return the snapshots in this VM's first disk image.
+
+        The first, not all of them: they are taken and restored together, so the set
+        is the same in each -- and a listing that repeated every snapshot once per
+        disk would be a worse answer to "what can I go back to".
+        """
+        images = self.snapshot_images(vm_name)
+        if not images:
+            return []
+        result = subprocess.run(
+            ["qemu-img", "snapshot", "-l", images[0]], capture_output=True, text=True, check=False
+        )
+        return parse_snapshots(result.stdout)
+
+    def take_snapshot(
+        self,
+        vm_name: str,
+        snapshot: str,
+        description: Optional[str] = None,
+        execute: bool = True,
+    ) -> Plan:
+        """Take an internal snapshot of every disk with ``qemu-img snapshot -c``.
+
+        ``description`` is accepted and not used: ``qemu-img`` has nowhere to put one,
+        which the capability declaration says (``snapshot_descriptions``) so that the
+        command can tell the user before they type it rather than after.
+
+        Raises:
+            ProviderError: If a disk's format cannot hold a snapshot, or the VM is
+                running -- writing into an image a live QEMU has open is how an image
+                gets corrupted, and there is no daemon here to coordinate with.
+        """
+        return self._snapshot_plan(vm_name, "-c", snapshot, f"take snapshot {snapshot!r}", execute)
+
+    def restore_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Restore every disk with ``qemu-img snapshot -a``."""
+        return self._snapshot_plan(
+            vm_name, "-a", snapshot, f"restore snapshot {snapshot!r}", execute
+        )
+
+    def delete_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Delete a snapshot from every disk with ``qemu-img snapshot -d``."""
+        return self._snapshot_plan(
+            vm_name, "-d", snapshot, f"delete snapshot {snapshot!r}", execute
+        )
+
+    def _snapshot_plan(
+        self, vm_name: str, flag: str, snapshot: str, description: str, execute: bool
+    ) -> Plan:
+        """Return (and optionally run) the plan for one snapshot operation."""
+        if not self.vm_exists(vm_name):
+            raise VMNotFoundError(vm_name)
+        if self._pid(vm_name) is not None:
+            raise ProviderError(
+                f"{vm_name} is running; its disk images are open by QEMU and writing "
+                f"a snapshot into one now would corrupt it",
+                context={"vm_name": vm_name},
+                recovery_hint=f"stop it first: vmctl -p qemu stop {vm_name}",
+            )
+        self.refuse_unsnapshottable(vm_name)
+        images = self.snapshot_images(vm_name)
+        if not images:
+            raise ProviderError(
+                f"{vm_name} has no disk image to snapshot",
+                context={"vm_name": vm_name},
+            )
+        plan = Plan("qemu")
+        for image in images:
+            plan.exec(
+                ["qemu-img", "snapshot", flag, snapshot, image],
+                f"{description} of {os.path.basename(image)}",
+            )
+        if execute:
+            self.run_plan(plan)
+        return plan
+
     def delete_vm(self, vm_name: str) -> bool:
         """Stop the VM if it is running and remove its directory.
 
@@ -493,3 +588,21 @@ class QemuBackend(BaseProvider):
         if not self.vm_exists(vm_name):
             raise VMNotFoundError(vm_name)
         return "running" if self._pid(vm_name) is not None else "stopped"
+
+
+def parse_snapshots(text: str) -> List[Snapshot]:
+    """Return the snapshots in a ``qemu-img snapshot -l`` listing.
+
+    The columns cannot be split on: ``VM_SIZE`` is ``0 B`` and the date that follows
+    is separated from it by a single space, so a whitespace split glues them
+    together. The date is matched for what it is instead.
+    """
+    found: List[Snapshot] = []
+    for line in text.splitlines():
+        match = re.match(r"^(\d+)\s+(\S+)\s+(.*)$", line.strip())
+        if not match:
+            continue
+        rest = match.group(3)
+        when = re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", rest)
+        found.append(Snapshot(name=match.group(2), created=when.group(0) if when else None))
+    return found

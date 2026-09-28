@@ -35,6 +35,7 @@ from ..base import BaseProvider
 from .capabilities import VMwareCapabilities
 from .convert import VDiskManagerConverter
 from .emitter import VMwareEmitter
+from ...core.snapshots import Snapshot
 from .parser import VMwareParser
 
 #: Where Workstation installs its tools. The Windows path is checked first because
@@ -149,6 +150,17 @@ class VMwareBackend(BaseProvider):
                 install_command="Install VMware Workstation (it provides vmrun)",
             )
         return os.path.join(found, name) if found else name  # "" means on PATH
+
+    def tool_or_name(self, name: str) -> str:
+        """Return how to invoke a tool, falling back to its bare name.
+
+        For *planning*, which is a document that may be read, written out with
+        ``--out`` or run on another machine -- so it must not require VMware to be
+        installed on this one. Running the plan still fails with a dependency error if
+        the tool turns out not to be there, which is where that answer belongs.
+        """
+        found = self.find_tools()
+        return os.path.join(found, name) if found else name
 
     def converter(self) -> VDiskManagerConverter:
         """Return the ``vmware-vdiskmanager`` converter."""
@@ -388,6 +400,70 @@ class VMwareBackend(BaseProvider):
             self.run_plan(plan)
         return plan
 
+    # -- snapshots (E-09) ----------------------------------------------------
+
+    def snapshots(self, vm_name: str) -> List[Snapshot]:
+        """Return a VM's snapshots from ``vmrun listSnapshots``.
+
+        Names and nothing else: vmrun reports no description, no timestamp and no
+        current marker, which is why the capability declaration says so rather than
+        vmctl printing empty columns.
+        """
+        if not self.vm_exists(vm_name):
+            raise VMNotFoundError(vm_name)
+        return parse_snapshots(self._vmrun("listSnapshots", self.vmx_path(vm_name), check=False))
+
+    def take_snapshot(
+        self,
+        vm_name: str,
+        snapshot: str,
+        description: Optional[str] = None,
+        execute: bool = True,
+    ) -> Plan:
+        """Take a snapshot with ``vmrun snapshot``.
+
+        ``description`` is accepted and not used: vmrun has no argument for one, which
+        ``snapshot_descriptions`` declares so the command can say so up front.
+        """
+        return self._snapshot_plan(
+            vm_name, ["snapshot"], snapshot, f"take snapshot {snapshot!r} of {vm_name}", execute
+        )
+
+    def restore_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Revert with ``vmrun revertToSnapshot``."""
+        return self._snapshot_plan(
+            vm_name,
+            ["revertToSnapshot"],
+            snapshot,
+            f"revert {vm_name} to snapshot {snapshot!r}",
+            execute,
+        )
+
+    def delete_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Delete a snapshot with ``vmrun deleteSnapshot``."""
+        return self._snapshot_plan(
+            vm_name,
+            ["deleteSnapshot"],
+            snapshot,
+            f"delete snapshot {snapshot!r} of {vm_name}",
+            execute,
+        )
+
+    def _snapshot_plan(
+        self, vm_name: str, verb: List[str], snapshot: str, description: str, execute: bool
+    ) -> Plan:
+        """Return (and optionally run) a one-step snapshot plan."""
+        if not self.vm_exists(vm_name):
+            raise VMNotFoundError(vm_name)
+        plan = Plan("vmware")
+        plan.exec(
+            [self.tool_or_name("vmrun")] + verb + [self.vmx_path(vm_name), snapshot],
+            description,
+        )
+        if execute:
+            self.run_plan(plan)
+        return plan
+
     def delete_vm(self, vm_name: str) -> bool:
         """Stop the VM if it is running, then delete it.
 
@@ -458,3 +534,21 @@ class VMwareBackend(BaseProvider):
             if os.path.normcase(os.path.normpath(path)) == wanted:
                 return "running"
         return "stopped"
+
+
+def parse_snapshots(text: str) -> List[Snapshot]:
+    """Return the snapshots in a ``vmrun listSnapshots`` listing.
+
+    The first line is ``Total snapshots: N`` and the rest are names, indented by a tab
+    per level when ``showtree`` was asked for -- so the indent is stripped and the
+    order kept, which is the only structure vmrun offers.
+    """
+    found: List[Snapshot] = []
+    for line in text.splitlines():
+        name = line.strip()
+        if not name or name.lower().startswith("total snapshots"):
+            continue
+        if name.startswith("Error:"):
+            break
+        found.append(Snapshot(name=name))
+    return found

@@ -148,6 +148,13 @@ class LibvirtCapabilities:
             name_pattern=r"^(?!\.\.?$)[^/\\\x00-\x1f]+$",
             name_max_length=253,
             supports_tpm=True,
+            # Measured: `snapshot-create-as` with `--description` works on a stopped
+            # domain, and the snapshot lives *inside* the qcow2 -- a raw disk is
+            # refused with "internal snapshot for disk sda unsupported for storage
+            # type raw", so the format is the mechanism rather than a preference.
+            snapshots=Support.NATIVE,
+            snapshot_descriptions=True,
+            snapshot_formats=(DiskFormat.QCOW2,),
             secure_boot_readable=True,
             # x86_64 only on this build: `machine='virt'` is ARM and is refused
             # here with "machine type not supported". The machine types are the

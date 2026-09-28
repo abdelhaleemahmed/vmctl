@@ -893,3 +893,28 @@ def test_the_reverse_map_stays_unambiguous():
     for url in GUEST_OS_APPROXIMATE.values():
         if url in GUEST_OS_FROM_OSINFO:
             assert GUEST_OS_FROM_OSINFO[url] in GUEST_OS_TO_OSINFO
+
+
+def test_deleting_a_vm_with_snapshots_is_not_refused(monkeypatch, tmp_path):
+    """F-45: libvirt answers "cannot delete inactive domain with 3 snapshots" unless
+    the snapshot metadata goes too. Found the moment vmctl could take snapshots: a VM
+    vmctl had snapshotted could not then be deleted by vmctl, which makes the feature
+    a trap. Deleting a VM means deleting what belonged to it."""
+    from vmctl.core.storage import directory as storage_directory
+    from vmctl.providers.libvirt.backend import LibvirtBackend
+
+    calls = []
+    backend = LibvirtBackend()
+    monkeypatch.setattr(
+        LibvirtBackend, "storage_location", lambda self: storage_directory(str(tmp_path))
+    )
+    monkeypatch.setattr(LibvirtBackend, "vm_exists", lambda self, name: True)
+    monkeypatch.setattr(LibvirtBackend, "get_vm_status", lambda self, name: "stopped")
+    monkeypatch.setattr(LibvirtBackend, "list_vms", lambda self: [])
+    monkeypatch.setattr(LibvirtBackend, "_images_under_our_directory", lambda self, name: [])
+    monkeypatch.setattr(LibvirtBackend, "_virsh", lambda self, *a, **k: calls.append(a) or "")
+
+    backend.delete_vm("d")
+
+    undefine = [args for args in calls if args and args[0] == "undefine"][0]
+    assert "--snapshots-metadata" in undefine

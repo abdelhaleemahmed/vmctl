@@ -218,6 +218,32 @@ vmctl diff web-01 web-01.yaml || vmctl apply web-01.yaml --execute
 
 ---
 
+## Snapshots
+
+```bash
+vmctl snapshot take web-01 before-upgrade
+vmctl snapshot take web-01 before-upgrade -d "why I took it"
+vmctl snapshot list web-01
+vmctl snapshot restore web-01 before-upgrade
+vmctl snapshot delete web-01 before-upgrade
+```
+
+Taking one is immediate, like `start` and `stop`. Restoring throws away everything the
+VM has done since, and deleting throws away the snapshot, so both ask for confirmation
+unless you pass `--force`.
+
+Two differences between hypervisors are worth knowing, and `vmctl capabilities` states
+both:
+
+- **Descriptions.** VirtualBox and libvirt store one. `vmrun` and `qemu-img` have
+  nowhere to put it, so vmctl tells you it was not saved rather than quietly losing it.
+- **Disk formats.** VirtualBox snapshots by writing a differencing image, so the format
+  does not matter. libvirt and plain QEMU keep the snapshot *inside* the qcow2, so a raw
+  disk cannot be snapshotted; vmctl refuses up front with the disk that is the problem,
+  rather than letting the hypervisor fail part way through.
+
+---
+
 ## Validating Configuration Files
 
 Check a YAML/JSON file for errors before using it:

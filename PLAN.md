@@ -421,6 +421,22 @@ re-measured by starting a domain per model.
 One provider's table is not evidence for another's, even when one of them is a
 manager of the other.
 
+### F-45 — A VM vmctl had snapshotted could not be deleted by vmctl · S *(fixed)*
+`vmctl/providers/libvirt/backend.py`
+
+Found by cleaning up after E-09: ``vmctl -p libvirt delete e09-lv --force`` reported
+*"failed to undefine"* with no reason. libvirt's own answer was the reason --
+*"cannot delete inactive domain with 3 snapshots"* -- and ``virsh undefine`` needs
+``--snapshots-metadata`` to take them with it.
+
+So the new feature made the old command fail, which turns a convenience into a trap:
+take a snapshot before a destructive test and the VM becomes undeletable by the tool
+that made it. Deleting a VM means deleting what belonged to it, snapshots included.
+
+The other three providers were checked by the same cleanup and need nothing: QEMU keeps
+snapshots inside the images inside the VM's directory, and VirtualBox and VMware both
+deleted a VM with five and two snapshots respectively without complaint.
+
 ### F-42 — "VirtualBox is not installed" raised a TypeError · S *(fixed)*
 `vmctl/providers/virtualbox/{backend,parser}.py`
 
@@ -2505,9 +2521,39 @@ the model (E-03, E-05) want Phase 5 first.
   > *output* rather than its exit status. `BaseProvider.run_plan` now owns the loop and
   > a provider overrides one command -- libvirt's connection URI, VMware's output
   > check, VirtualBox's wording. The QEMU provider's copy was deleted outright.
-- **E-09 Snapshots · M.** `vmctl snapshot take|list|restore|delete`. A thin
+- **E-09 Snapshots · M. *(done)*** `vmctl snapshot take|list|restore|delete`. A thin
   wrapper over `VBoxManage snapshot`, and directly serves the documented
   "before a destructive test" workflow.
+
+  > Done for **all four** providers, which turned "a thin wrapper" into something more
+  > interesting: the four operations are the same, and the mechanisms are not.
+  >
+  > * **VirtualBox** keeps a tree of differencing images, and puts the tree in the
+  >   *keys* of `list --machinereadable` -- `SnapshotName-1-1` is a grandchild. No
+  >   timestamps in either output format.
+  > * **libvirt** and **plain QEMU** use internal qcow2 snapshots, so **the format is
+  >   the mechanism**: both refuse a raw disk outright ("internal snapshot for disk sda
+  >   unsupported for storage type raw"; "Operation not supported"). That is declared
+  >   (`snapshot_formats`) and checked before anything runs, because both hypervisors
+  >   answer it half way through -- after vmctl would have reported snapshotting the
+  >   first disk.
+  > * **VMware** has no description and no timestamp to report at all.
+  >
+  > So the capability declaration gained three fields and the CLI says what a provider
+  > cannot do instead of accepting it: a description given to QEMU or VMware is
+  > reported as not saved rather than silently dropped. Each provider's listing parser
+  > is fed a capture from the real product, committed as a fixture.
+  >
+  > The commands act immediately, like `start` and `stop`, rather than being dry-run
+  > like the ones that change a definition -- "before a destructive test" is the use
+  > case, and a snapshot you have to confirm twice is one you skip. The two that *lose*
+  > something ask first, the way `delete` does.
+  >
+  > Verified on real hardware, all four: on QEMU with a data-level check (a `0x42`
+  > pattern written into the image, overwritten with `0xff`, and brought back by
+  > `restore`), and take/list/restore/delete on libvirt, VirtualBox and VMware
+  > Workstation. Both refusals were verified too: a raw disk, and a running QEMU VM
+  > whose images are open.
 - **E-10 Port-forwarding rules for NAT · M.** `NetworkConfig` has no
   `port_forwards`, so a NAT VM's SSH forward is lost on every round trip — a
   very common lab setting.
@@ -2733,6 +2779,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-42 "VirtualBox is not installed" raised a TypeError
          [x] F-43 VMware reported itself missing on a host where it works
          [x] F-44 five libosinfo ids that this database does not have
+         [x] F-45 a VM vmctl had snapshotted could not be deleted by vmctl
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2763,6 +2810,6 @@ Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [x] E-03 clone-disks  [x] E-05 capability probing
          [x] E-02 apply  [x] E-07 json  [x] E-08 -v/-q  [x] E-12 doctor
-         [ ] E-09 snapshots  [ ] E-10 port forwards  [ ] E-11 extends
+         [x] E-09 snapshots  [ ] E-10 port forwards  [ ] E-11 extends
          [ ] E-14/E-15/E-18/E-19 Tier C
 ```

@@ -174,6 +174,12 @@ class QemuCapabilities:
             name_pattern=r"^(?!\.\.?$)[^/\\\x00-\x1f]+$",
             name_max_length=128,
             supports_tpm=False,
+            # Measured: `qemu-img snapshot -c/-l/-a/-d` on the image itself, which is
+            # why only qcow2 works -- a raw image answers "Operation not supported".
+            # There is nowhere to put a description, and no daemon to ask about a
+            # running VM, so vmctl checks its own pidfile before touching an image.
+            snapshots=Support.NATIVE,
+            snapshot_formats=(DiskFormat.QCOW2,),
             secure_boot_readable=False,
             # QEMU has user networking and a bridge helper. A host-only or internal
             # network is an object something else has to create -- which is the

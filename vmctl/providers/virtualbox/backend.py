@@ -24,6 +24,7 @@ from .parser import VirtualBoxParser
 from .emitter import VirtualBoxEmitter
 from .capabilities import VirtualBoxCapabilities
 from .convert import CloneMediumConverter
+from ...core.snapshots import Snapshot
 
 
 class VirtualBoxBackend(BaseProvider):
@@ -372,6 +373,84 @@ class VirtualBoxBackend(BaseProvider):
 
         return plan
 
+    # -- snapshots (E-09) ----------------------------------------------------
+
+    def snapshots(self, vm_name: str) -> List[Snapshot]:
+        """Return this VM's snapshots, read from ``list --machinereadable``.
+
+        VirtualBox encodes the *tree* in the keys: the root is ``SnapshotName``, its
+        child ``SnapshotName-1``, that one's child ``SnapshotName-1-1``. So the suffix
+        is the path through the tree, which is where the parent comes from -- there is
+        no parent column to read. It reports no timestamps at all, in either format.
+        """
+        if not self.vm_exists(vm_name):
+            raise VMNotFoundError(vm_name)
+        out = self._run_command_allowing_failure(
+            ["VBoxManage", "snapshot", vm_name, "list", "--machinereadable"]
+        )
+        return parse_snapshots(out)
+
+    def take_snapshot(
+        self,
+        vm_name: str,
+        snapshot: str,
+        description: Optional[str] = None,
+        execute: bool = True,
+    ) -> Plan:
+        """Take a snapshot with ``VBoxManage snapshot take``."""
+        argv = ["VBoxManage", "snapshot", vm_name, "take", snapshot]
+        if description:
+            argv += ["--description", description]
+        return self._snapshot_plan(
+            vm_name, argv, f"take snapshot {snapshot!r} of {vm_name}", execute
+        )
+
+    def restore_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Restore a snapshot with ``VBoxManage snapshot restore``."""
+        return self._snapshot_plan(
+            vm_name,
+            ["VBoxManage", "snapshot", vm_name, "restore", snapshot],
+            f"restore {vm_name} to snapshot {snapshot!r}",
+            execute,
+        )
+
+    def delete_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Delete a snapshot with ``VBoxManage snapshot delete``."""
+        return self._snapshot_plan(
+            vm_name,
+            ["VBoxManage", "snapshot", vm_name, "delete", snapshot],
+            f"delete snapshot {snapshot!r} of {vm_name}",
+            execute,
+        )
+
+    def _snapshot_plan(
+        self, vm_name: str, argv: List[str], description: str, execute: bool
+    ) -> Plan:
+        """Return (and optionally run) a one-step snapshot plan."""
+        if not self.vm_exists(vm_name):
+            raise VMNotFoundError(vm_name)
+        plan = Plan("virtualbox")
+        plan.exec(argv, description)
+        if execute:
+            self.run_plan(plan)
+        return plan
+
+    def _run_command_allowing_failure(self, command: List[str]) -> str:
+        """Run a command and return its output even when it fails.
+
+        ``snapshot list`` exits non-zero and prints "This machine does not have any
+        snapshots" when there are none, which is an answer rather than an error.
+        """
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
+        except FileNotFoundError:
+            raise DependencyError(
+                "VBoxManage is not on PATH",
+                dependency="VirtualBox",
+                install_command="Install VirtualBox and make sure VBoxManage is on your PATH",
+            )
+        return result.stdout
+
     def delete_vm(self, vm_name: str) -> bool:
         """Delete a VM and its associated files."""
         try:
@@ -575,3 +654,52 @@ def parse_interface_names(text: str) -> Tuple[str, ...]:
             if name and name not in found:
                 found.append(name)
     return tuple(found)
+
+
+def parse_snapshots(text: str) -> List[Snapshot]:
+    """Return the snapshots in a ``snapshot list --machinereadable`` listing.
+
+    The tree is in the *keys*, which is the only place VirtualBox puts it::
+
+        SnapshotName="before-test"
+        SnapshotDescription="a description with spaces"
+        SnapshotName-1="with-vdi"
+        SnapshotName-1-1="with-raw"
+        CurrentSnapshotName="with-raw"
+
+    So ``-1-1`` is the path through the tree and the parent is that path with its last
+    step removed. There are no timestamps in either output format, so ``created`` stays
+    None rather than being invented.
+
+    An empty listing is an answer, not a failure: with no snapshots VirtualBox exits
+    non-zero and prints "This machine does not have any snapshots".
+    """
+    names: Dict[str, str] = {}
+    descriptions: Dict[str, str] = {}
+    current = ""
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip().strip('"')
+        key = key.strip()
+        if key == "CurrentSnapshotName":
+            current = value
+        elif key.startswith("SnapshotName"):
+            names[key[len("SnapshotName") :]] = value
+        elif key.startswith("SnapshotDescription"):
+            descriptions[key[len("SnapshotDescription") :]] = value
+
+    found: List[Snapshot] = []
+    for suffix in sorted(names, key=lambda s: (len(s), s)):
+        parent_suffix = suffix.rsplit("-", 1)[0] if "-" in suffix[1:] else ""
+        parent = names.get(parent_suffix) if suffix else None
+        found.append(
+            Snapshot(
+                name=names[suffix],
+                description=descriptions.get(suffix) or None,
+                current=names[suffix] == current,
+                parent=parent if parent != names[suffix] else None,
+            )
+        )
+    return found

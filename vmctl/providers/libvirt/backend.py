@@ -15,6 +15,7 @@ connection, the same problem VirtualBox's machine folder posed (F-13, A-09).
 import json
 import os
 import re
+import xml.etree.ElementTree as ET
 import shutil
 import subprocess
 from dataclasses import replace
@@ -36,6 +37,7 @@ from ..base import BaseProvider
 from .capabilities import LibvirtCapabilities
 from .convert import QemuImgConverter
 from .emitter import LibvirtEmitter
+from ...core.snapshots import Snapshot
 from .parser import LibvirtParser
 
 #: libvirt domain states mapped onto vmctl's vocabulary.
@@ -412,6 +414,78 @@ class LibvirtBackend(BaseProvider):
             self.run_plan(plan)
         return plan
 
+    # -- snapshots (E-09) ----------------------------------------------------
+
+    def snapshots(self, vm_name: str) -> List[Snapshot]:
+        """Return a domain's snapshots.
+
+        Three questions, because libvirt keeps the answers in three places: the table
+        from ``snapshot-list --parent``, which snapshot is current from
+        ``snapshot-current``, and the *description* only inside each snapshot's own
+        XML. The last one costs a call per snapshot, which is the price of showing the
+        text the user typed when they took it.
+        """
+        if not self.vm_exists(vm_name):
+            raise VMNotFoundError(vm_name)
+        found = parse_snapshots(self._virsh("snapshot-list", vm_name, "--parent"))
+        current = self._virsh("snapshot-current", vm_name, "--name").strip()
+        for snapshot in found:
+            snapshot.current = snapshot.name == current
+            snapshot.description = _description_in(
+                self._virsh("snapshot-dumpxml", vm_name, snapshot.name)
+            )
+        return found
+
+    def take_snapshot(
+        self,
+        vm_name: str,
+        snapshot: str,
+        description: Optional[str] = None,
+        execute: bool = True,
+    ) -> Plan:
+        """Take an internal snapshot with ``virsh snapshot-create-as``."""
+        self.refuse_unsnapshottable(vm_name)
+        argv = ["virsh", "snapshot-create-as", vm_name, snapshot]
+        if description:
+            argv += ["--description", description]
+        return self._snapshot_plan(
+            vm_name, argv, f"take snapshot {snapshot!r} of {vm_name}", execute
+        )
+
+    def restore_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Revert to a snapshot with ``virsh snapshot-revert``."""
+        return self._snapshot_plan(
+            vm_name,
+            ["virsh", "snapshot-revert", vm_name, snapshot],
+            f"revert {vm_name} to snapshot {snapshot!r}",
+            execute,
+        )
+
+    def delete_snapshot(self, vm_name: str, snapshot: str, execute: bool = True) -> Plan:
+        """Delete a snapshot with ``virsh snapshot-delete``."""
+        return self._snapshot_plan(
+            vm_name,
+            ["virsh", "snapshot-delete", vm_name, snapshot],
+            f"delete snapshot {snapshot!r} of {vm_name}",
+            execute,
+        )
+
+    def _snapshot_plan(
+        self, vm_name: str, argv: List[str], description: str, execute: bool
+    ) -> Plan:
+        """Return (and optionally run) a one-step snapshot plan.
+
+        The connection URI is added by ``resolve_argv`` when it runs, so the plan a
+        user reads or writes out with ``--out`` stays the command they would type.
+        """
+        if not self.vm_exists(vm_name):
+            raise VMNotFoundError(vm_name)
+        plan = Plan("libvirt")
+        plan.exec(argv, description)
+        if execute:
+            self.run_plan(plan)
+        return plan
+
     def delete_vm(self, vm_name: str) -> bool:
         """Undefine a domain and remove the images vmctl created for it.
 
@@ -423,6 +497,12 @@ class LibvirtBackend(BaseProvider):
         Only images inside this connection's own image directory are removed.
         An image the user attached from somewhere else was not vmctl's to create,
         so it is not vmctl's to delete either.
+
+        ``--snapshots-metadata`` because libvirt refuses otherwise: *"cannot delete
+        inactive domain with 3 snapshots"*. Found the moment vmctl could take snapshots
+        (E-09) -- a VM vmctl had snapshotted could not then be deleted by vmctl, which
+        made the feature a trap rather than a convenience. Deleting a VM means deleting
+        what belonged to it, snapshots included.
 
         Returns:
             True when the domain is gone.
@@ -436,7 +516,9 @@ class LibvirtBackend(BaseProvider):
         ours = self._images_under_our_directory(vm_name)
         if self.get_vm_status(vm_name) == "running":
             self._virsh("destroy", vm_name)
-        out = self._virsh("undefine", vm_name, "--remove-all-storage", "--nvram")
+        out = self._virsh(
+            "undefine", vm_name, "--remove-all-storage", "--nvram", "--snapshots-metadata"
+        )
         if vm_name in self.list_vms():
             raise ProviderError(f"failed to undefine {vm_name!r}: {out.strip()}")
         for path in ours:
@@ -513,3 +595,38 @@ class LibvirtBackend(BaseProvider):
         if not state:
             raise VMNotFoundError(vm_name)
         return STATE_MAP.get(state, state)
+
+
+def parse_snapshots(text: str) -> List[Snapshot]:
+    """Return the snapshots in a ``virsh snapshot-list --parent`` table.
+
+    Split on runs of two or more spaces rather than on whitespace: the creation time
+    is ``2026-09-28 00:17:19 +0000``, which contains two single spaces of its own, and
+    a per-column split would turn one snapshot into three fields.
+    """
+    found: List[Snapshot] = []
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("Name") or set(line.strip()) <= {"-"}:
+            continue
+        columns = [part.strip() for part in re.split(r"\s{2,}", line.strip())]
+        if not columns or not columns[0]:
+            continue
+        found.append(
+            Snapshot(
+                name=columns[0],
+                created=columns[1] if len(columns) > 1 else None,
+                state=columns[2] if len(columns) > 2 else None,
+                parent=columns[3] if len(columns) > 3 and columns[3] else None,
+            )
+        )
+    return found
+
+
+def _description_in(xml: str) -> Optional[str]:
+    """Return a snapshot's description from its XML, or None when it has none."""
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        return None
+    element = root.find("description")
+    return element.text if element is not None and element.text else None

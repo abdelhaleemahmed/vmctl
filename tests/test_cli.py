@@ -1237,3 +1237,135 @@ def test_doctor_exits_1_when_something_will_stop_vmctl_working(runner, monkeypat
 
     assert result.exit_code == 1
     assert "will stop vmctl working" in result.output
+
+
+# ---------------------------------------------------------------------------
+# snapshot (E-09)
+# ---------------------------------------------------------------------------
+
+
+def test_snapshot_take_names_the_snapshot(runner, vbox):
+    result = runner.invoke(cli, ["snapshot", "take", "vmctl-t-bios", "before-test"])
+    assert result.exit_code == 0
+    assert "Took snapshot 'before-test'" in result.output
+    taken = [c for c in vbox if c[1] == "snapshot" and "take" in c]
+    assert taken and taken[0][-1] == "before-test"
+
+
+def test_a_description_is_passed_as_one_argument(runner, vbox):
+    """A description is prose; a plan carries argv, so it must not be split (A-08)."""
+    result = runner.invoke(
+        cli,
+        ["snapshot", "take", "vmctl-t-bios", "before-test", "-d", "kernel 6.9; rolling back"],
+    )
+    assert result.exit_code == 0
+    taken = [c for c in vbox if c[1] == "snapshot" and "take" in c][0]
+    assert "kernel 6.9; rolling back" in taken
+
+
+def test_snapshot_list_reads_the_real_capture(runner, vbox, monkeypatch):
+    monkeypatch.setattr(
+        "vmctl.providers.virtualbox.backend.VirtualBoxBackend._run_command_allowing_failure",
+        lambda self, command: read_fixture("snapshot_list_vbox.txt"),
+    )
+    result = runner.invoke(cli, ["snapshot", "list", "vmctl-t-bios"])
+    assert result.exit_code == 0
+    assert "* with-raw-attached" in result.output
+    assert "before-test  -- a description with spaces" in result.output
+
+
+def test_snapshot_list_as_json(runner, vbox, monkeypatch):
+    import json as _json
+
+    monkeypatch.setattr(
+        "vmctl.providers.virtualbox.backend.VirtualBoxBackend._run_command_allowing_failure",
+        lambda self, command: read_fixture("snapshot_list_vbox.txt"),
+    )
+    data = _json.loads(
+        runner.invoke(cli, ["snapshot", "list", "vmctl-t-bios", "--format", "json"]).output
+    )
+    assert data["vm"] == "vmctl-t-bios"
+    assert [s["name"] for s in data["snapshots"]][0] == "before-test"
+
+
+def test_a_vm_with_no_snapshots_says_so(runner, vbox, monkeypatch):
+    monkeypatch.setattr(
+        "vmctl.providers.virtualbox.backend.VirtualBoxBackend._run_command_allowing_failure",
+        lambda self, command: "This machine does not have any snapshots\n",
+    )
+    result = runner.invoke(cli, ["snapshot", "list", "vmctl-t-bios"])
+    assert result.exit_code == 0
+    assert "has no snapshots" in result.output
+
+
+def test_restore_asks_before_discarding_the_present(runner, vbox):
+    """It throws away everything since the snapshot, so it asks like 'vmctl delete'."""
+    result = runner.invoke(cli, ["snapshot", "restore", "vmctl-t-bios", "before-test"], input="n\n")
+    assert result.exit_code == 1
+    assert "discards everything" in result.output
+    assert not any("restore" in c for c in vbox)
+
+
+def test_restore_proceeds_when_confirmed(runner, vbox):
+    result = runner.invoke(cli, ["snapshot", "restore", "vmctl-t-bios", "before-test"], input="y\n")
+    assert result.exit_code == 0
+    assert any("restore" in c for c in vbox)
+
+
+def test_snapshot_delete_asks_too(runner, vbox):
+    result = runner.invoke(cli, ["snapshot", "delete", "vmctl-t-bios", "before-test"], input="n\n")
+    assert result.exit_code == 1
+    assert not any("delete" in c and c[1] == "snapshot" for c in vbox)
+
+
+def test_force_skips_the_prompt(runner, vbox):
+    result = runner.invoke(cli, ["snapshot", "delete", "vmctl-t-bios", "before-test", "--force"])
+    assert result.exit_code == 0
+    assert "Deleted snapshot 'before-test'" in result.output
+
+
+def test_a_description_a_provider_cannot_keep_is_reported(runner, monkeypatch, tmp_path):
+    """Accepting the text and losing it is how people stop trusting a tool."""
+    monkeypatch.setattr(
+        "vmctl.providers.qemu.backend.QemuBackend.vm_exists", lambda self, name: True
+    )
+    monkeypatch.setattr("vmctl.providers.qemu.backend.QemuBackend._pid", lambda self, name: None)
+    monkeypatch.setattr(
+        "vmctl.providers.qemu.backend.QemuBackend.snapshot_images",
+        lambda self, name: [str(tmp_path / "root.qcow2")],
+    )
+    monkeypatch.setattr(
+        "vmctl.providers.qemu.backend.QemuBackend.read_vm",
+        lambda self, name: _qcow2_vm(name),
+    )
+    monkeypatch.setattr("vmctl.providers.base.BaseProvider.run_plan", lambda self, plan: None)
+
+    result = runner.invoke(
+        cli, ["-p", "qemu", "snapshot", "take", "vm", "s1", "-d", "why I took it"]
+    )
+
+    assert result.exit_code == 0
+    assert "cannot store a snapshot description" in result.output
+
+
+def _qcow2_vm(name):
+    from vmctl.core.vmconfig import (
+        BootConfig,
+        CPUConfig,
+        DiskFormat,
+        FirmwareConfig,
+        MemoryConfig,
+        StorageDevice,
+        VMConfig,
+    )
+
+    return VMConfig(
+        name=name,
+        cpu=CPUConfig(count=1),
+        memory=MemoryConfig(mb=128),
+        firmware=FirmwareConfig(),
+        storage=[StorageDevice(name="root", format=DiskFormat.QCOW2, disk_path="/i.qcow2")],
+        networks=[],
+        boot=BootConfig(),
+        storage_controllers=[],
+    )

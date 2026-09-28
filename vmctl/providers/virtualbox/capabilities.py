@@ -185,6 +185,13 @@ class VirtualBoxCapabilities:
             name_pattern=r'^(?!\.\.?$)[^/\\:*?"<>|\x00-\x1f]+$',
             name_max_length=128,
             supports_tpm=True,
+            # Measured on 7.1.18: `snapshot take/list/restore/delete` all work on a
+            # stopped VM, descriptions are kept and returned by
+            # `list --machinereadable`, and there is no format restriction -- a
+            # snapshot writes a *differencing* image (a new `{uuid}.vdi` appeared
+            # under Snapshots/), and a VM with a RAW disk attached snapshots too.
+            snapshots=Support.NATIVE,
+            snapshot_descriptions=True,
             secure_boot_readable=False,
             # A VM runs the host's architecture and there is no setting for it,
             # nor any choice of chipset: VirtualBox has one machine model.
