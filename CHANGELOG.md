@@ -13,7 +13,7 @@ restating it.
 
 1.1.x was a VirtualBox tool whose premise -- export a VM to YAML, recreate it
 anywhere -- did not hold: the example config in its own README could not be
-imported. This release is the work from [`PLAN.md`](https://github.com/ahmedhal/vmctl/blob/main/PLAN.md),
+imported. This release is the work from [`PLAN.md`](https://github.com/abdelhaleemahmed/vmctl/blob/main/PLAN.md),
 which fixed that and then generalised it. Finding ids (F-nn, H-nn, L-nn, M-nn,
 A-nn, P-nn, E-nn) refer to that document, where each is written up with what it
 cost and how it was found.
@@ -499,4 +499,4 @@ things prevented that:
 
 ## 1.1.7 and earlier
 
-See the [GitHub releases page](https://github.com/ahmedhal/vmctl/releases).
+See the [GitHub releases page](https://github.com/abdelhaleemahmed/vmctl/releases).

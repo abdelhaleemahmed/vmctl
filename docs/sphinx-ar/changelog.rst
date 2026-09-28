@@ -25,5 +25,5 @@ v1.1.8 (2025)
 v1.1.7 وما قبله
 -----------------
 
-راجع `صفحة الإصدارات على GitHub <https://github.com/ahmedhal/vmctl/releases>`_
+راجع `صفحة الإصدارات على GitHub <https://github.com/abdelhaleemahmed/vmctl/releases>`_
 للاطلاع على التاريخ السابق.

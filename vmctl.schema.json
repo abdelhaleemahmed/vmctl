@@ -884,7 +884,7 @@
       "type": "object"
     }
   },
-  "$id": "https://github.com/ahmedhal/vmctl/blob/main/vmctl.schema.json",
+  "$id": "https://raw.githubusercontent.com/abdelhaleemahmed/vmctl/main/vmctl.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "A virtual machine, or a batch that creates several from one base -- in terms no hypervisor owns. Generated from vmctl's own model, so it cannot describe a file vmctl would reject, and it accepts the 1.1.x field names.",
   "oneOf": [

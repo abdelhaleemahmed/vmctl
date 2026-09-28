@@ -32,8 +32,10 @@ from .vmconfig import (
     VMConfig,
 )
 
-#: Where the schema says it lives, so an editor can reference it by URL.
-SCHEMA_ID = "https://github.com/ahmedhal/vmctl/blob/main/vmctl.schema.json"
+#: Where the schema says it lives, so an editor can reference it by URL. The *raw* URL,
+#: because a ``blob`` link serves GitHub's HTML page rather than the JSON -- an editor
+#: pointed at one gets a parse error instead of a schema.
+SCHEMA_ID = "https://raw.githubusercontent.com/abdelhaleemahmed/vmctl/main/vmctl.schema.json"
 SCHEMA_VERSION = "https://json-schema.org/draft/2020-12/schema"
 
 #: Old names accepted for each dataclass, by class name.

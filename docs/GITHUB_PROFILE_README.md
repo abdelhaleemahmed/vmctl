@@ -8,7 +8,7 @@ I build tools that make infrastructure management easier.
 
 ## Featured Projects
 
-### [vmctl](https://github.com/ahmedhal/vmctl)
+### [vmctl](https://github.com/abdelhaleemahmed/vmctl)
 A powerful CLI for managing virtual machines with config-as-code support.
 
 ```bash

@@ -24,7 +24,7 @@ From Source
 
 .. code-block:: bash
 
-   git clone https://github.com/ahmedhal/vmctl.git
+   git clone https://github.com/abdelhaleemahmed/vmctl.git
    cd vmctl
    pip install -e .
 

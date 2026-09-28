@@ -17,7 +17,7 @@ pip install vmctl
 ### From Source
 
 ```bash
-git clone https://github.com/ahmedhal/vmctl.git
+git clone https://github.com/abdelhaleemahmed/vmctl.git
 cd vmctl
 pip install -e .
 ```

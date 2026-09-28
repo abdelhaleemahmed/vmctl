@@ -77,9 +77,11 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ahmedhal/vmctl"
-Repository = "https://github.com/ahmedhal/vmctl"
-Issues = "https://github.com/ahmedhal/vmctl/issues"
+Homepage = "https://abdelhaleemahmed.github.io/vmctl/"
+Repository = "https://github.com/abdelhaleemahmed/vmctl"
+Documentation = "https://abdelhaleemahmed.github.io/vmctl/"
+Changelog = "https://github.com/abdelhaleemahmed/vmctl/blob/main/CHANGELOG.md"
+Issues = "https://github.com/abdelhaleemahmed/vmctl/issues"
 
 [project.scripts]
 vmctl = "vmctl.cli.main:main"
