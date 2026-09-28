@@ -421,6 +421,27 @@ re-measured by starting a domain per model.
 One provider's table is not evidence for another's, even when one of them is a
 manager of the other.
 
+### F-48 — VirtualBox kept its own default in a boot slot · M *(fixed)*
+`vmctl/providers/virtualbox/emitter.py`
+
+Found by `vmctl selftest` (E-19) in its first run against VirtualBox, in the step that
+reads a created VM back and compares it:
+
+    ~ boot.order  vm ['disk', 'dvd', 'disk', 'none']  file ['disk', 'dvd', 'none', 'none']
+
+The emitter skipped a slot whose value was `none`, and a **new VirtualBox VM defaults to
+floppy, dvd, disk, none** -- so a configuration asking to boot "disk, dvd, nothing,
+nothing" produced a VM with `disk` in the third slot as well. Harmless to boot, and a
+permanent disagreement between a VM and the file that made it: `diff` would report it
+for ever and `apply` would never converge it.
+
+`--boot3 none` is accepted (measured on the host), so every slot is emitted now.
+
+The sharper half: **a test had pinned the old behaviour** --
+`test_none_boot_slots_are_not_emitted`, asserting that a `none` slot is skipped. It was
+written from the same assumption as the code, which is exactly what a test written
+alongside the code cannot catch. Only the product could say, and E-19 is what asked it.
+
 ### F-47 — A conformance rule that read a docstring · S *(fixed)*
 `tests/conformance/test_contract.py`
 
@@ -2686,6 +2707,19 @@ the model (E-03, E-05) want Phase 5 first.
 
 ### Tier C — strategic
 
+> **Status: complete.** E-14 (`schema_version`), E-15 (the public provider contract),
+> E-18 (generated tables) and E-19 (`selftest`) are done; E-13 was superseded by Phases
+> 5 and 6.
+>
+> Two of these exist to test the things that test everything else, and both found
+> something the moment they did. E-15's third-party provider found `F-47` -- a
+> conformance rule that read a docstring and failed every provider that correctly
+> declines to edit in place. E-19's selftest found `F-48` on VirtualBox and an
+> unexpressible `usb_enabled: false` on libvirt, and in doing so found a *test* that had
+> pinned the wrong behaviour because it was written from the same assumption as the
+> code. The generated tables (E-18) then removed the last hand-maintained matrices,
+> which is where this plan's documentation drift started.
+
 - **E-13 — superseded.** The multi-provider question this used to pose is
   answered by **Phase 5** (portable core) and **Phase 6** (the providers
   themselves). The `pyproject.toml` keywords advertising `libvirt` and `qemu`
@@ -2742,10 +2776,31 @@ the model (E-03, E-05) want Phase 5 first.
   > `#:` comments Sphinx reads. Both are read now, and the remaining undocumented
   > fields were documented, so the field reference, the JSON Schema an editor loads and
   > the API docs all improved from one edit. A test keeps every field explained.
-- **E-19 `vmctl selftest -p <provider>` · M.** Create / start / stop / delete a
+- **E-19 `vmctl selftest -p <provider>` · M. *(done)*** Create / start / stop / delete a
   throwaway VM on a real host and assert each step. The conformance suite
   (A-07) proves the *translation* is right offline; this proves the hypervisor
   agrees. The natural gate for a nested-virt CI runner.
+
+  > Done, and it is the manual check this whole plan has been doing by hand, turned into
+  > a command: create a 128 MB VM with one small empty disk, **read it back and compare
+  > it to what was asked for**, snapshot it, start it, stop it, delete it -- asserting
+  > each step. The VM is deleted in a `finally`, because a selftest that leaves a VM
+  > behind when it fails is one people stop running.
+  >
+  > Two decisions keep it honest rather than noisy. What a provider *said* it could not
+  > express, when it created the VM, is excluded from the comparison -- the plan carries
+  > the translation report (E-02), so this is data rather than a guess, and without it
+  > the command would report the capability declaration back at itself. And a capability
+  > a provider declines is **skipped, not failed**.
+  >
+  > It paid for itself in the first run on each provider. On **libvirt** it found that
+  > `usb_enabled: false` cannot be honoured at all -- a domain vmctl emits has no USB in
+  > it and libvirt's own copy has `<controller type='usb' model='qemu-xhci'/>` -- which
+  > is now declared and reported as a substitution instead of silently coming back
+  > different. On **VirtualBox** it found `F-48`.
+  >
+  > All four providers pass: 10 steps each, on real QEMU and libvirt locally and on
+  > VirtualBox 7.1.18 and VMware Workstation 17 on the Windows host.
 
 ---
 
@@ -2930,6 +2985,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-45 a VM vmctl had snapshotted could not be deleted by vmctl
          [x] F-46 a stated list reset the fields it did not mention
          [x] F-47 a conformance rule that read a docstring
+         [x] F-48 VirtualBox kept its own default in a boot slot
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2962,5 +3018,5 @@ Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-02 apply  [x] E-07 json  [x] E-08 -v/-q  [x] E-12 doctor
          [x] E-09 snapshots  [x] E-10 port forwards  [x] E-11 extends
          [x] E-14 schema_version  [x] E-15 plugin contract  [x] E-18 generated docs
-         [ ] E-19 selftest
+         [x] E-19 selftest
 ```

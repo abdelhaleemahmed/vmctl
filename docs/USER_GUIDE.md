@@ -290,6 +290,32 @@ two rules claiming the same host port.
 
 ---
 
+## Checking That It All Works Here
+
+```bash
+vmctl selftest              # on the default provider
+vmctl -p libvirt selftest   # on a specific one
+vmctl selftest --no-start   # skip powering the VM on
+vmctl selftest --keep       # leave the VM behind to look at
+vmctl selftest --format json
+```
+
+It creates a throwaway VM — 128 MB, one small empty disk, a name of its own — reads it
+back and compares it to what was asked for, snapshots it if the provider supports that,
+starts it, stops it and deletes it. Each step is asserted rather than assumed, and the
+VM is deleted even when a step fails.
+
+This is not the same as `vmctl doctor`, which only *looks*: this one uses the
+hypervisor. A definition a hypervisor validates is not a VM it will run, and telling
+those apart is what the command is for. It exits 1 if any step failed, so it can gate a
+CI runner with nested virtualisation.
+
+Anything the provider says it cannot express is reported when the VM is created and
+excluded from the comparison — so a hypervisor with one guest-OS id per family, or one
+that always adds a USB controller, is not reported as a failure.
+
+---
+
 ## Snapshots
 
 ```bash

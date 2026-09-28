@@ -6,3 +6,5 @@ VBoxManage storageattach minimal-vm --storagectl SATA Controller --port 0 --devi
 VBoxManage modifyvm minimal-vm --nic1 nat --nictype1 82540EM --cableconnected1 on
 VBoxManage modifyvm minimal-vm --boot1 disk
 VBoxManage modifyvm minimal-vm --boot2 dvd
+VBoxManage modifyvm minimal-vm --boot3 none
+VBoxManage modifyvm minimal-vm --boot4 none

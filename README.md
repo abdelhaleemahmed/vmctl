@@ -294,6 +294,37 @@ differencing image, so any disk format works, while libvirt and plain QEMU put t
 snapshot *inside* the qcow2 -- so a raw disk cannot be snapshotted at all, and vmctl
 says so before running anything instead of letting the hypervisor fail half way.
 
+### Does the Hypervisor Agree?
+
+`vmctl selftest` is the other half of the test suite. The suite proves the translation
+is right without a hypervisor installed; this proves the hypervisor accepts it, by
+creating a tiny throwaway VM (128 MB, one small empty disk), reading it back and
+comparing it to what was asked for, snapshotting it, starting it, stopping it and
+deleting it — asserting each step.
+
+```
+$ vmctl -p libvirt selftest
+provider: libvirt
+[ok  ] the name is free: vmctl-selftest
+[ok  ] create (0.2s): 4 step(s), 2 translation warning(s)
+[ok  ] it exists (0.2s): listed by the hypervisor
+[ok  ] read it back (0.3s): identical to what was asked for, besides 2 reported difference(s)
+[ok  ] snapshot (1.1s): taken and listed
+[ok  ] restore snapshot (0.3s): restored
+[ok  ] delete snapshot (0.5s): deleted
+[ok  ] start (1.3s): running
+[ok  ] stop (0.9s): stopped
+[ok  ] delete (1.2s): gone
+
+10 passed, 0 failed, 0 skipped on libvirt
+```
+
+The VM is deleted even when a step fails, and what a provider says it cannot do is
+skipped rather than failed. Exits 1 if anything failed, so it can gate a CI runner.
+It earned its place immediately: on VirtualBox it found that a config asking to boot
+"disk, dvd, nothing, nothing" produced a VM with `disk` in the third slot too, because
+VirtualBox keeps its own default in a slot vmctl does not set.
+
 ### Is This Machine Set Up?
 
 `vmctl doctor` answers the questions that otherwise arrive as bug reports, and exits 1
@@ -501,6 +532,7 @@ VM — set it in the config file.
 |---------|-------------|
 | `vmctl providers` | List hypervisors and whether they work here |
 | `vmctl doctor [--format json]` | Check this machine: host, hypervisor, disk space; exit 1 if something will stop vmctl working |
+| `vmctl selftest [--no-start] [--keep]` | Create, check, start, stop and delete a throwaway VM, asserting each step |
 | `vmctl export --all -d <dir>` | Export every VM, one file each, plus a manifest |
 | `vmctl schema [-o <file>]` | JSON Schema for config files, generated from the model |
 | `vmctl diff <vm> <file> [--format json]` | Show how a VM differs from a config file (exit 1 when it does) |

@@ -10,3 +10,4 @@ VBoxManage modifyvm multinic --nic4 nat --nictype4 82545EM --cableconnected4 on 
 VBoxManage modifyvm multinic --boot1 floppy
 VBoxManage modifyvm multinic --boot2 dvd
 VBoxManage modifyvm multinic --boot3 disk
+VBoxManage modifyvm multinic --boot4 none

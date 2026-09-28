@@ -220,12 +220,22 @@ def test_promiscuous_and_mac_are_emitted():
     assert nic[nic.index("--macaddress2") + 1] == "080027AA0001"
 
 
-def test_none_boot_slots_are_not_emitted(vm_minimal):
-    cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal).as_argv_lists()
+def test_every_boot_slot_is_emitted_including_the_empty_ones(vm_minimal):
+    """F-48. This test used to assert the opposite -- that a ``none`` slot is skipped --
+    which was written from the same assumption as the code and disproved by the host:
+    a new VirtualBox VM defaults to floppy, dvd, **disk**, none, so leaving slot 3 unset
+    left `disk` in it. A config asking for "disk, dvd, nothing, nothing" produced a VM
+    that disagreed with it for ever. Found by `vmctl selftest` (E-19), which reads a
+    created VM back and compares it.
+    """
     import re as _re
 
+    cmds = VirtualBoxEmitter(vm_minimal.name).emit_create_vm(vm_minimal).as_argv_lists()
+
     boot_flags = [tok for c in cmds for tok in c if _re.fullmatch(r"--boot\d", tok)]
-    assert boot_flags == ["--boot1", "--boot2"]  # 'none' in slot 3 is skipped
+    assert boot_flags == ["--boot1", "--boot2", "--boot3", "--boot4"]
+    emitted = [c for c in cmds if "--boot3" in c][0]
+    assert emitted[emitted.index("--boot3") + 1] == "none"
 
 
 # ---------------------------------------------------------------------------

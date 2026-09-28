@@ -67,7 +67,23 @@ UNTRANSLATABLE = (
     ("memory.page_fusion", "libvirt has no page-fusion equivalent (KSM is host-wide)"),
     ("clipboard_mode", "clipboard sharing needs a SPICE agent channel"),
     ("draganddrop", "drag and drop needs a SPICE agent channel"),
-    ("usb_enabled", "a USB controller is added on demand by device, not by a flag"),
+)
+
+#: Settings libvirt decides for itself, whatever the configuration says. Reported as
+#: substitutions rather than drops, because the value does not disappear -- it comes back
+#: as something else, and a round trip that quietly disagrees is worse than one that
+#: explains itself (found by ``vmctl selftest``, E-19).
+#:
+#: Measured: a domain vmctl emits contains no USB at all, and libvirt's own copy of it
+#: has ``<controller type='usb' model='qemu-xhci'/>``. So ``usb_enabled: false`` is not
+#: something this libvirt can be asked for.
+DECIDED_BY_LIBVIRT = (
+    (
+        "usb_enabled",
+        False,
+        True,
+        "libvirt gives every domain a USB controller; it cannot be switched off",
+    ),
 )
 
 
@@ -344,6 +360,12 @@ class LibvirtEmitter:
                 # put a line in every report and teach people to skip them.
                 if asks_for_something(vm, path):
                     translator.drop(path, _get(vm, path), reason)
+            for path, asked, given, reason in DECIDED_BY_LIBVIRT:
+                # The other shape: not a setting that disappears, but one that comes
+                # back as something else. Reported only when the configuration really
+                # asked for the value libvirt will not give it.
+                if _get(vm, path) == asked:
+                    translator.report.substitutions.append(Substitution(path, asked, given, reason))
 
     def _arch(self, vm: VMConfig, translator: Optional[Translator]) -> str:
         """Return the architecture to emit, reporting one this build cannot run.

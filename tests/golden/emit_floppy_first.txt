@@ -8,3 +8,4 @@ VBoxManage modifyvm floppy-first --nic1 nat --nictype1 82540EM --cableconnected1
 VBoxManage modifyvm floppy-first --boot1 floppy
 VBoxManage modifyvm floppy-first --boot2 dvd
 VBoxManage modifyvm floppy-first --boot3 disk
+VBoxManage modifyvm floppy-first --boot4 none

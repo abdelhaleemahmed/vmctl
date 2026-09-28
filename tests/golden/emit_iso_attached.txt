@@ -10,3 +10,4 @@ VBoxManage modifyvm iso-attached --nic1 nat --nictype1 82540EM --cableconnected1
 VBoxManage modifyvm iso-attached --boot1 dvd
 VBoxManage modifyvm iso-attached --boot2 disk
 VBoxManage modifyvm iso-attached --boot3 disk
+VBoxManage modifyvm iso-attached --boot4 none

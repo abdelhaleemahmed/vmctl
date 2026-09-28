@@ -23,6 +23,7 @@
 - **`vmctl providers`** -- List the hypervisors vmctl can talk to, and whether they work here.
 - **`vmctl read`** -- Print a VM's configuration to stdout.
 - **`vmctl schema`** -- Print a JSON Schema for the configuration format.
+- **`vmctl selftest`** -- Check that this hypervisor agrees with vmctl, by using it.
 - **`vmctl snapshot`** -- Take, list, restore and delete snapshots.
   - `vmctl snapshot delete` -- Delete a snapshot, keeping the VM as it is now.
   - `vmctl snapshot list` -- List a VM's snapshots.

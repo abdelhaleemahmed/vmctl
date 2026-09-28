@@ -22,6 +22,7 @@ from vmctl.core.diff import diff, stated_paths, summarise
 from vmctl.core.doctor import failures, report as doctor_report
 from vmctl.core.naming import safe_filename
 from vmctl.core.schema import build as build_schema
+from vmctl.core import selftest as selftest_run
 from vmctl.core.migrate import plan_migration
 from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import DeviceKind, DiskFormat
@@ -1669,6 +1670,78 @@ def _fail_unsupported(exc) -> None:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
     _fail(exc)
+
+
+# ---------------------------------------------------------------------------
+# selftest (E-19)
+# ---------------------------------------------------------------------------
+
+
+@cli.command("selftest")
+@click.option(
+    "--name",
+    default=selftest_run.NAME,
+    show_default=True,
+    metavar="NAME",
+    help="What to call the throwaway VM. It must not already exist.",
+)
+@click.option("--no-start", is_flag=True, help="Do not power the VM on.")
+@click.option("--keep", is_flag=True, help="Leave the VM behind, to look at what failed.")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["plain", "json"]),
+    default="plain",
+    show_default=True,
+    help="Output format.",
+)
+@click.pass_context
+def cmd_selftest(ctx, name, no_start, keep, fmt):
+    """Check that this hypervisor agrees with vmctl, by using it.
+
+    Creates a tiny throwaway VM (128 MB, one small empty disk), reads it back and
+    compares it to what was asked for, snapshots it if the provider says it can, starts
+    it, stops it and deletes it -- asserting each step rather than trusting an exit
+    code. Nothing is attached and nothing is shared, and the VM is deleted even when a
+    step fails.
+
+    This is the other half of the test suite: the suite proves the translation is right
+    without a hypervisor, and this proves the hypervisor accepts it. A definition a
+    hypervisor validates is not a VM it will run.
+
+    Exits 1 if any step failed. What the provider says it cannot do is skipped, not
+    failed.
+
+    \b
+    Examples:
+      vmctl selftest
+      vmctl -p libvirt selftest
+      vmctl selftest --no-start --format json
+    """
+    try:
+        engine = _engine(ctx)
+    except VMToolError as exc:
+        _fail(exc)
+        return
+
+    printing = fmt == "plain"
+    if printing:
+        click.echo(f"provider: {engine.provider_name}")
+    report = selftest_run.run(
+        engine.backend,
+        name=name,
+        start=not no_start,
+        keep=keep,
+        on_step=(lambda outcome: click.echo(outcome.render())) if printing else None,
+    )
+
+    if fmt == "json":
+        _emit_json(report.as_dict())
+    else:
+        click.echo("")
+        click.echo(report.summary())
+    if not report.ok:
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

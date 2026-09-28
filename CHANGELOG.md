@@ -96,6 +96,18 @@ things prevented that:
 
 ### Added
 
+- **`vmctl selftest`** creates a throwaway VM (128 MB, one small empty disk), reads it
+  back and compares it to what was asked for, snapshots it, starts it, stops it and
+  deletes it -- asserting each step. The VM is deleted even when a step fails, what a
+  provider says it cannot do is skipped rather than failed, and it exits 1 if anything
+  failed so it can gate a CI runner. All four providers pass it on real hardware.
+- Fixed: on VirtualBox, a configuration asking to boot "disk, dvd, nothing, nothing"
+  produced a VM with `disk` in the third slot as well -- vmctl skipped the empty slots
+  and VirtualBox keeps its own default there. A VM then disagreed with the file that
+  made it for ever. Found by `vmctl selftest` in its first run.
+- Fixed: on libvirt, `usb_enabled: false` cannot be honoured -- libvirt gives every
+  domain a USB controller -- and vmctl now reports that instead of quietly reading the
+  VM back with a different value than the file asked for.
 - **`schema_version:`** in a config file. A file that omits it is read as the current
   format, which is what it almost always is; a file written by a *newer* vmctl is now
   refused with a sentence saying so instead of failing on whichever field it reaches

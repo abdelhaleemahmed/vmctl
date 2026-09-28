@@ -16,5 +16,6 @@ VBoxManage modifyvm full-vm --nic3 intnet --nictype3 82540EM --cableconnected3 o
 VBoxManage modifyvm full-vm --boot1 disk
 VBoxManage modifyvm full-vm --boot2 dvd
 VBoxManage modifyvm full-vm --boot3 network
+VBoxManage modifyvm full-vm --boot4 none
 VBoxManage modifyvm full-vm --audio-driver pulse --audio-enabled on --audiocontroller hda
 VBoxManage modifyvm full-vm --usb on --usbehci on

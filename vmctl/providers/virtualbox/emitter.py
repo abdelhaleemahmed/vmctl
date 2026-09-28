@@ -235,10 +235,14 @@ class VirtualBoxEmitter:
             commands.append(self._configure_network_adapter(i + 1, network, translator))
             commands += self._port_forward_commands(vm.name, i + 1, network, translator)
 
-        # Boot order
+        # Boot order: every slot, including the empty ones. Skipping ``none`` left
+        # VirtualBox's factory default in that slot -- a new VM boots floppy, dvd,
+        # disk, none -- so a config asking for "disk, dvd, nothing, nothing" produced a
+        # VM with `disk` in slot 3 as well. Harmless to boot, and a permanent
+        # disagreement between the VM and the file that made it (F-48, found by
+        # `vmctl selftest`).
         for i, device in enumerate(vm.boot.order[:4], 1):
-            if device != "none":
-                commands.append(["VBoxManage", "modifyvm", vm.name, f"--boot{i}", device])
+            commands.append(["VBoxManage", "modifyvm", vm.name, f"--boot{i}", device])
 
         # Audio - use platform-appropriate driver
         if vm.audio_enabled:

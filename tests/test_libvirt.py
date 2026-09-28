@@ -869,7 +869,7 @@ def test_a_family_without_a_version_is_approximated_not_dropped(emitter, vm):
 
     assert "http://libosinfo.org/linux/2022" in xml
     assert not translator.report.drops
-    assert [(s.field, s.used) for s in translator.report.substitutions] == [("guest_os", "linux")]
+    assert ("guest_os", "linux") in [(s.field, s.used) for s in translator.report.substitutions]
 
 
 def test_an_id_that_means_exactly_unknown_is_used_as_is(emitter, vm):

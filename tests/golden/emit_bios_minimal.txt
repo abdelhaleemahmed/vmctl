@@ -7,3 +7,4 @@ VBoxManage modifyvm bios-minimal --nic1 nat --nictype1 82540EM --cableconnected1
 VBoxManage modifyvm bios-minimal --boot1 floppy
 VBoxManage modifyvm bios-minimal --boot2 dvd
 VBoxManage modifyvm bios-minimal --boot3 disk
+VBoxManage modifyvm bios-minimal --boot4 none

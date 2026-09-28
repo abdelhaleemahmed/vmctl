@@ -12,3 +12,4 @@ VBoxManage modifyvm multidisk --nic1 nat --nictype1 82540EM --cableconnected1 on
 VBoxManage modifyvm multidisk --boot1 floppy
 VBoxManage modifyvm multidisk --boot2 dvd
 VBoxManage modifyvm multidisk --boot3 disk
+VBoxManage modifyvm multidisk --boot4 none

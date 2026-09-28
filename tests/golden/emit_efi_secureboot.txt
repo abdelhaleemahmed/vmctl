@@ -7,3 +7,4 @@ VBoxManage modifyvm efi-secureboot --nic1 nat --nictype1 virtio --cableconnected
 VBoxManage modifyvm efi-secureboot --boot1 floppy
 VBoxManage modifyvm efi-secureboot --boot2 dvd
 VBoxManage modifyvm efi-secureboot --boot3 disk
+VBoxManage modifyvm efi-secureboot --boot4 none
