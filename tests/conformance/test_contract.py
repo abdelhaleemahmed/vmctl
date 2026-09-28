@@ -7,7 +7,6 @@ A provider that fails any of these is not finished.
 """
 
 import copy
-import inspect
 import shutil
 import subprocess
 
@@ -60,9 +59,15 @@ def test_editing_never_destroys_the_vm(backend):
 
     A provider that cannot edit in place must say so, not fall back to something
     destructive.
+
+    Asked of the *code* rather than the source text (F-47): reading the text failed for
+    any provider that does not override `edit_vm` at all, because it then read the base
+    class -- whose docstring explains F-11 and therefore contains the words it was
+    looking for. Found by running this suite against a third-party provider, which is
+    what it is for.
     """
-    source = inspect.getsource(type(backend).edit_vm)
-    assert "delete_vm" not in source
+    names = type(backend).edit_vm.__code__.co_names
+    assert "delete_vm" not in names, f"{backend.name}.edit_vm calls delete_vm"
 
 
 def test_editing_never_re_creates_a_disk_the_vm_already_has(backend, vm_minimal, caps, monkeypatch):

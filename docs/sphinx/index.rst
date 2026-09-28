@@ -34,6 +34,7 @@ anywhere, and spin up entire clusters from a single batch file.
    :caption: CLI Reference
 
    cli/index
+   reference
 
 .. toctree::
    :maxdepth: 3
@@ -45,6 +46,7 @@ anywhere, and spin up entire clusters from a single batch file.
    :maxdepth: 1
    :caption: Project
 
+   writing-a-provider
    changelog
 
 Indices and tables

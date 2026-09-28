@@ -116,7 +116,11 @@ class Change:
 #: ``name`` is on the list for devices only: the VM's name itself is compared, but a
 #: *device's* name cannot be stored by VirtualBox or VMware at all.
 IGNORED_DEVICE_FIELDS = frozenset({"name", "disk_path", "provider_options"})
-IGNORED_VM_FIELDS = frozenset({"metadata", "storage", "networks", "storage_controllers"})
+#: ``schema_version`` is on this list because it describes the *file*, not the VM: a
+#: hypervisor has no opinion about it, so it can only ever be noise in a comparison.
+IGNORED_VM_FIELDS = frozenset(
+    {"metadata", "storage", "networks", "storage_controllers", "schema_version"}
+)
 IGNORED_NETWORK_FIELDS = frozenset({"mac_address", "provider_options"})
 
 _ABSENT = object()

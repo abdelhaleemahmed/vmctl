@@ -436,3 +436,79 @@ def test_a_1_1_x_config_creates_a_vmware_vm():
     plan = emitter.emit_create_vm(vm)
     assert [s for s in plan if s.content], "a .vmx should be written"
     assert any("vdi is not supported" in line for line in plan.warnings)
+
+
+# ---------------------------------------------------------------------------
+# schema_version (E-14)
+# ---------------------------------------------------------------------------
+
+
+def test_a_file_that_does_not_say_is_taken_to_be_current():
+    """Which is what it almost always is -- and every 1.1.9 file in these fixtures says
+    nothing, so the alternative would be refusing all of them."""
+    from vmctl.core.vmconfig import SCHEMA_VERSION
+
+    vm = YAMLSerializer().load(CONFIGS / "v1_1_9_multidisk.yaml")
+
+    assert vm.schema_version == SCHEMA_VERSION
+
+
+def test_what_vmctl_writes_says_which_format_it_is(tmp_path):
+    from vmctl.core.vmconfig import SCHEMA_VERSION
+
+    vm = YAMLSerializer().load(CONFIGS / "v1_1_9_multidisk.yaml")
+    path = tmp_path / "out.yaml"
+    YAMLSerializer().save(vm, path)
+
+    assert f"schema_version: {SCHEMA_VERSION}" in path.read_text()
+    # ...and reading it back is the same VM, which is what the field is for.
+    assert YAMLSerializer().load(path).name == vm.name
+
+
+def test_a_file_from_the_future_is_refused_by_saying_so(tmp_path):
+    """The useful case. Its fields are not unknown, they are from a later vmctl, and
+    "Unknown field 'x'" about whichever one comes first is a worse answer."""
+    path = tmp_path / "future.yaml"
+    path.write_text("schema_version: 99\nname: from-the-future\n")
+
+    with pytest.raises(ValidationError) as raised:
+        YAMLSerializer().load(path)
+
+    assert "understands up to" in str(raised.value)
+    assert "upgrade vmctl" in (raised.value.recovery_hint or "")
+
+
+def test_a_version_that_is_not_a_number_is_refused(tmp_path):
+    path = tmp_path / "odd.yaml"
+    path.write_text("schema_version: tomorrow\nname: x\n")
+
+    with pytest.raises(ValidationError, match="must be a number"):
+        YAMLSerializer().load(path)
+
+
+def test_declaring_the_1_1_x_format_still_loads_1_1_x_names(tmp_path):
+    """The number does not gate the loader: old names are translated by key, so a file
+    does not have to declare its age to be read -- and one that does is still read."""
+    path = tmp_path / "old.yaml"
+    path.write_text(
+        "schema_version: 1\nname: old\nostype: Ubuntu_64\n"
+        "disks:\n  - name: system\n    size_mb: 1024\n    type: hdd\n"
+    )
+
+    vm = YAMLSerializer().load(path)
+
+    assert vm.schema_version == 1
+    assert vm.storage[0].name == "system"
+    assert vm.guest_os == "Ubuntu_64"
+
+
+def test_the_format_version_is_not_drift():
+    """It describes the file, not the VM: no hypervisor has an opinion about it, so a
+    comparison can only ever report it as noise (E-01)."""
+    from vmctl.core.diff import diff
+
+    live = YAMLSerializer().load(CONFIGS / "v1_1_9_multidisk.yaml")
+    desired = YAMLSerializer().load(CONFIGS / "v1_1_9_multidisk.yaml")
+    desired.schema_version = 1
+
+    assert diff(live, desired) == []

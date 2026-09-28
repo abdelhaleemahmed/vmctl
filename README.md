@@ -539,7 +539,10 @@ VM — set it in the config file.
 
 ## Configuration Reference
 
-See [docs/features.md](docs/features.md) for the complete field reference.
+See [docs/features.md](docs/features.md) for the complete field reference and
+[docs/providers.md](docs/providers.md) for what each hypervisor supports. Both are
+generated from the code -- the dataclasses that read a config file, and each
+provider's capability declaration -- so neither can drift from what vmctl does.
 See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for step-by-step workflows.
 
 ---

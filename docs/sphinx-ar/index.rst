@@ -34,6 +34,7 @@
    :caption: مرجع سطر الأوامر
 
    cli/index
+   reference
 
 .. toctree::
    :maxdepth: 3

@@ -99,18 +99,22 @@
         },
         "boot1": {
           "default": "disk",
+          "description": "The first boot slot, kept in step with ``order``. Set ``order`` instead; these exist because every provider addresses slots individually.",
           "type": "string"
         },
         "boot2": {
           "default": "dvd",
+          "description": "The second boot slot.",
           "type": "string"
         },
         "boot3": {
           "default": "none",
+          "description": "The third boot slot.",
           "type": "string"
         },
         "boot4": {
           "default": "none",
+          "description": "The fourth boot slot.",
           "type": "string"
         },
         "hpet": {
@@ -744,6 +748,7 @@
       "properties": {
         "arch": {
           "default": "x86_64",
+          "description": "The architecture the guest's virtual CPU presents. VirtualBox has no such setting -- a VM runs the host's -- while libvirt requires one in every domain (A-10).",
           "enum": [
             "x86_64",
             "i686",
@@ -756,17 +761,21 @@
         },
         "audio_enabled": {
           "default": false,
+          "description": "Whether the guest gets a sound device.",
           "type": "boolean"
         },
         "boot": {
-          "$ref": "#/$defs/BootConfig"
+          "$ref": "#/$defs/BootConfig",
+          "description": "What the VM tries to boot from, in order, plus the firmware-adjacent switches that belong with it."
         },
         "clipboard_mode": {
           "default": "disabled",
+          "description": "Clipboard sharing with the host: ``disabled``, ``hosttoguest``, ``guesttohost`` or ``bidirectional``. Needs guest additions, and not every provider has it.",
           "type": "string"
         },
         "cpu": {
-          "$ref": "#/$defs/CPUConfig"
+          "$ref": "#/$defs/CPUConfig",
+          "description": "The virtual CPU: how many, and how they are arranged."
         },
         "description": {
           "anyOf": [
@@ -777,7 +786,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "A note about what this VM is for. Kept where the provider has somewhere to put it -- libvirt has a description field, VirtualBox does not."
         },
         "disks": {
           "deprecated": true,
@@ -789,13 +799,16 @@
         },
         "draganddrop": {
           "default": "disabled",
+          "description": "Drag and drop between host and guest, with the same values as :attr:`clipboard_mode`.",
           "type": "string"
         },
         "firmware": {
-          "$ref": "#/$defs/FirmwareConfig"
+          "$ref": "#/$defs/FirmwareConfig",
+          "description": "Firmware: BIOS or EFI, secure boot, TPM."
         },
         "guest_os": {
           "default": "ubuntu",
+          "description": "Which OS the guest runs, as a neutral id from :mod:`vmctl.core.oscatalog` (``ubuntu22.04``, ``win11``) -- or a provider's own string, which passes through untranslated. Was ``ostype``, whose default was the VirtualBox id ``Ubuntu_64``: the last vendor spelling left in the canonical model (A-05).",
           "type": "string"
         },
         "machine": {
@@ -807,18 +820,23 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "The machine type (chipset) to emulate, such as ``q35`` or ``pc``. None means the provider's own default, which is the portable answer: the set on offer depends on the QEMU build, and VirtualBox has no choice at all."
         },
         "memory": {
-          "$ref": "#/$defs/MemoryConfig"
+          "$ref": "#/$defs/MemoryConfig",
+          "description": "Memory, and video memory where the provider has such a setting."
         },
         "metadata": {
+          "description": "Anything vmctl should carry but not act on. Two uses: a user's own annotations, and a provider's native identifiers -- a libvirt domain's UUID lives here, which is what lets ``edit`` redefine that domain rather than create a second one.",
           "type": "object"
         },
         "name": {
+          "description": "What the VM is called. It identifies the VM to the hypervisor and ends up in file paths, so the providers' declarations say what a name may contain.",
           "type": "string"
         },
         "networks": {
+          "description": "The network adapters, in the order the provider numbers them.",
           "items": {
             "$ref": "#/$defs/NetworkConfig"
           },
@@ -832,15 +850,23 @@
         },
         "rtc_utc": {
           "default": true,
+          "description": "Whether the guest's hardware clock reads UTC. Right for everything except a Windows guest, which expects local time.",
           "type": "boolean"
         },
+        "schema_version": {
+          "default": 2,
+          "description": "Which version of the configuration format this came from. A file that does not say is taken to be the current one, which is what it almost always is -- and the 1.1.x names are accepted whatever this says, so an old file needs no edit (E-14).",
+          "type": "integer"
+        },
         "storage": {
+          "description": "Every device on a bus -- disks, optical drives, floppies -- in one list, because that is what they are. Was ``disks:``, which the list never only held (M-02).",
           "items": {
             "$ref": "#/$defs/StorageDevice"
           },
           "type": "array"
         },
         "storage_controllers": {
+          "description": "The controllers the devices hang off. Optional: a provider synthesises whatever a device's bus needs, so a hand-written config does not have to declare them (F-01). Declaring them is how a specific chipset or port count is asked for.",
           "items": {
             "$ref": "#/$defs/StorageController"
           },
@@ -848,6 +874,7 @@
         },
         "usb_enabled": {
           "default": false,
+          "description": "Whether the guest gets a USB controller.",
           "type": "boolean"
         }
       },

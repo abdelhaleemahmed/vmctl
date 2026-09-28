@@ -40,6 +40,20 @@ from .exceptions import ValidationError
 #: What this module defines. The storage vocabulary it re-exports is deliberately
 #: absent: those names belong to :mod:`vmctl.core.devices`, and listing them here
 #: would have the API docs describe each one twice under two homes.
+#: The configuration format this vmctl writes and understands (E-14).
+#:
+#: ``1`` is the 1.1.x spelling -- ``disks:``, ``ostype:``, ``adapter_type:`` -- and
+#: ``2`` is today's. Both load: the old names are translated by key, so a file does not
+#: have to declare its age to be read. What the number is *for* is the other direction:
+#: a file written by a newer vmctl is refused with a sentence that says so, instead of
+#: failing on whichever unknown field it happens to reach first. Added now, while there
+#: are few files in the world, so that a later format change can migrate rather than
+#: break.
+SCHEMA_VERSION = 2
+
+#: The oldest format this vmctl can still read.
+OLDEST_SCHEMA_VERSION = 1
+
 __all__ = [
     "BootConfig",
     "CPUConfig",
@@ -53,7 +67,9 @@ __all__ = [
     "NetworkConfig",
     "NetworkType",
     "NicModel",
+    "OLDEST_SCHEMA_VERSION",
     "PortForward",
+    "SCHEMA_VERSION",
     "StorageController",
     "StorageControllerConfig",
     "StorageDevice",
@@ -755,7 +771,11 @@ class BootConfig:
     Attributes:
         order: Ordered list of boot devices; valid values are
             ``"disk"``, ``"dvd"``, ``"floppy"``, ``"network"``, ``"none"``.
-        boot1–boot4: Individual boot slots derived from ``order``.
+        boot1: The first boot slot, kept in step with ``order``. Set ``order`` instead;
+            these exist because every provider addresses slots individually.
+        boot2: The second boot slot.
+        boot3: The third boot slot.
+        boot4: The fourth boot slot.
         acpi: Enable ACPI support (required by most modern OSes).
         ioapic: Enable I/O APIC (required for more than one CPU or for Windows).
         hpet: Enable High Precision Event Timer.
@@ -863,15 +883,33 @@ def resolve_controller(
 
 @dataclass
 class VMConfig:
-    """Canonical VM configuration - the center of gravity"""
+    """One virtual machine, in terms no hypervisor owns.
 
+    The centre of gravity: every provider's parser produces one of these and every
+    provider's emitter is handed one, so a field exists here when it means something
+    to more than one hypervisor -- and a hypervisor's own spelling never does.
+    """
+
+    #: What the VM is called. It identifies the VM to the hypervisor and ends up in
+    #: file paths, so the providers' declarations say what a name may contain.
     name: str
+    #: The virtual CPU: how many, and how they are arranged.
     cpu: CPUConfig
+    #: Memory, and video memory where the provider has such a setting.
     memory: MemoryConfig
+    #: Firmware: BIOS or EFI, secure boot, TPM.
     firmware: FirmwareConfig
+    #: Every device on a bus -- disks, optical drives, floppies -- in one list, because
+    #: that is what they are. Was ``disks:``, which the list never only held (M-02).
     storage: List[StorageDevice]
+    #: The network adapters, in the order the provider numbers them.
     networks: List[NetworkConfig]
+    #: What the VM tries to boot from, in order, plus the firmware-adjacent switches
+    #: that belong with it.
     boot: BootConfig
+    #: The controllers the devices hang off. Optional: a provider synthesises whatever
+    #: a device's bus needs, so a hand-written config does not have to declare them
+    #: (F-01). Declaring them is how a specific chipset or port count is asked for.
     storage_controllers: List[StorageControllerConfig]
     #: The architecture the guest's virtual CPU presents. VirtualBox has no such
     #: setting -- a VM runs the host's -- while libvirt requires one in every
@@ -887,12 +925,29 @@ class VMConfig:
     #: whose default was the VirtualBox id ``Ubuntu_64``: the last vendor
     #: spelling left in the canonical model (A-05).
     guest_os: str = DEFAULT_GUEST_OS
+    #: A note about what this VM is for. Kept where the provider has somewhere to put
+    #: it -- libvirt has a description field, VirtualBox does not.
     description: Optional[str] = None
+    #: Whether the guest gets a sound device.
     audio_enabled: bool = False
+    #: Clipboard sharing with the host: ``disabled``, ``hosttoguest``, ``guesttohost``
+    #: or ``bidirectional``. Needs guest additions, and not every provider has it.
     clipboard_mode: str = "disabled"
+    #: Drag and drop between host and guest, with the same values as
+    #: :attr:`clipboard_mode`.
     draganddrop: str = "disabled"
+    #: Whether the guest gets a USB controller.
     usb_enabled: bool = False
+    #: Whether the guest's hardware clock reads UTC. Right for everything except a
+    #: Windows guest, which expects local time.
     rtc_utc: bool = True
+    #: Which version of the configuration format this came from. A file that does not
+    #: say is taken to be the current one, which is what it almost always is -- and the
+    #: 1.1.x names are accepted whatever this says, so an old file needs no edit (E-14).
+    schema_version: int = SCHEMA_VERSION
+    #: Anything vmctl should carry but not act on. Two uses: a user's own annotations,
+    #: and a provider's native identifiers -- a libvirt domain's UUID lives here, which
+    #: is what lets ``edit`` redefine that domain rather than create a second one.
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -950,6 +1005,9 @@ class VMConfig:
             "draganddrop": self.draganddrop,
             "usb_enabled": self.usb_enabled,
             "rtc_utc": self.rtc_utc,
+            # What *this* vmctl writes, not what the file it came from said: the file
+            # being written is this format, whatever the one it was read from was.
+            "schema_version": SCHEMA_VERSION,
             "metadata": self.metadata,
         }
         return result
@@ -987,6 +1045,7 @@ class VMConfig:
                 f"A configuration must be a mapping, got {type(data).__name__}",
                 expected="a mapping of field names to values",
             )
+        check_schema_version(data.get("schema_version"))
         vm: "VMConfig" = _build(cls, copy.deepcopy(data))
         return vm
 
@@ -1011,6 +1070,52 @@ _accept_legacy_keywords(VMConfig, LEGACY_VM_FIELDS)
 def _label(path: str) -> str:
     """Human name for a position in the config tree."""
     return path or "the configuration"
+
+
+def check_schema_version(stated: Any) -> int:
+    """Return the format version a file declares, refusing one this vmctl cannot read.
+
+    Args:
+        stated: The value of ``schema_version``, or None when the file omits it.
+
+    Returns:
+        int: the version to treat the file as.
+
+    Raises:
+        ValidationError: If the version is not a number, is older than this vmctl can
+            read, or is *newer* -- which is the case worth a real message: the fields
+            it contains are not unknown, they are from the future, and saying so is
+            more use than "Unknown field 'x'" about whichever one comes first.
+    """
+    if stated is None:
+        return SCHEMA_VERSION
+    try:
+        version = int(stated)
+    except (TypeError, ValueError):
+        raise ValidationError(
+            f"schema_version must be a number, not {stated!r}",
+            field="schema_version",
+            value=stated,
+            expected=f"{OLDEST_SCHEMA_VERSION}-{SCHEMA_VERSION}",
+        )
+    if version > SCHEMA_VERSION:
+        raise ValidationError(
+            f"this file declares configuration format {version}, and this vmctl "
+            f"understands up to {SCHEMA_VERSION}",
+            field="schema_version",
+            value=version,
+            expected=f"{OLDEST_SCHEMA_VERSION}-{SCHEMA_VERSION}",
+            recovery_hint="the file was written by a newer vmctl; upgrade vmctl rather "
+            "than editing the file",
+        )
+    if version < OLDEST_SCHEMA_VERSION:
+        raise ValidationError(
+            f"configuration format {version} is older than anything this vmctl reads",
+            field="schema_version",
+            value=version,
+            expected=f"{OLDEST_SCHEMA_VERSION}-{SCHEMA_VERSION}",
+        )
+    return version
 
 
 @lru_cache(maxsize=None)

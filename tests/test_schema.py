@@ -170,3 +170,29 @@ def test_the_committed_schema_is_current():
     expected = json.dumps(build(), indent=2, sort_keys=True) + "\n"
     assert COMMITTED.exists(), "run: vmctl schema -o vmctl.schema.json"
     assert COMMITTED.read_text() == expected, "run: vmctl schema -o vmctl.schema.json"
+
+
+def test_a_field_documented_with_a_comment_is_described():
+    schema = build()
+    """Every field of VMConfig is documented as a `#:` comment, which is what Sphinx
+    reads -- and the generator used to read only `Attributes:` sections, so the schema
+    an editor loads said nothing about the fields people actually write (E-18)."""
+    properties = schema["$defs"]["VMConfig"]["properties"]
+
+    assert "chipset" in properties["machine"]["description"]
+    assert properties["guest_os"]["description"]
+    assert properties["schema_version"]["description"]
+
+
+def test_most_fields_carry_their_own_explanation():
+    schema = build()
+    """A schema without descriptions autocompletes names and explains nothing."""
+    described = sum(
+        1
+        for definition in schema["$defs"].values()
+        for spec in (definition.get("properties") or {}).values()
+        if spec.get("description")
+    )
+    total = sum(len(definition.get("properties") or {}) for definition in schema["$defs"].values())
+
+    assert described > total * 0.7, f"only {described}/{total} fields are described"

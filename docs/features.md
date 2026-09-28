@@ -1,326 +1,162 @@
-# vmctl — Feature Reference
-
-Complete reference for all configuration fields, enums, and capabilities.
-
----
-
-## VM Configuration Fields
-
-### Top-Level Properties
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `name` | string | required | VM name (must be unique in VirtualBox) |
-| `ostype` | string | `Ubuntu_64` | VirtualBox OS type identifier |
-| `description` | string | `null` | Optional description |
-| `audio_enabled` | bool | `false` | Enable audio device |
-| `clipboard_mode` | string | `disabled` | Clipboard sharing (see values below) |
-| `draganddrop` | string | `disabled` | Drag-and-drop mode (same values) |
-| `usb_enabled` | bool | `false` | Enable USB controller |
-| `rtc_utc` | bool | `true` | Use UTC for hardware clock |
-| `metadata` | dict | `{}` | Arbitrary key-value annotations |
-
-**Clipboard / drag-and-drop values:** `disabled`, `hosttoguest`, `guesttohost`, `bidirectional`
-
----
-
-### CPU (`cpu`)
-
-| Field | Type | Default | Constraints | Description |
-|-------|------|---------|-------------|-------------|
-| `count` | int | `2` | 1–128 | Number of virtual CPUs |
-| `execution_cap` | int | `100` | 1–100 | CPU usage cap (%) |
-| `hotplug` | bool | `false` | — | CPU hotplug support |
-| `pae` | bool | `false` | — | Physical Address Extension |
-| `nested_virt` | bool | `false` | — | Nested virtualization (KVM-in-VBox etc.) |
-
-```yaml
-cpu:
-  count: 4
-  execution_cap: 80
-  nested_virt: true
-```
-
----
-
-### Memory (`memory`)
-
-| Field | Type | Default | Constraints | Description |
-|-------|------|---------|-------------|-------------|
-| `mb` | int | `2048` | 4–1,048,576 | RAM in megabytes |
-| `vram_mb` | int | `16` | 1–256 | Video RAM in megabytes |
-| `page_fusion` | bool | `false` | — | Kernel same-page merging |
-| `ballooning` | bool | `false` | — | Dynamic memory ballooning |
-
-```yaml
-memory:
-  mb: 8192
-  vram_mb: 128
-```
-
----
-
-### Firmware (`firmware`)
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `type` | enum | `BIOS` | Firmware type: `BIOS` `EFI` `EFI64` `EFI32` |
-| `secure_boot` | bool | `false` | Enable Secure Boot (requires EFI) |
-| `tpm` | bool | `false` | Enable TPM chip |
-
-```yaml
-firmware:
-  type: EFI64
-  secure_boot: false
-  tpm: true
-```
-
----
-
-### Boot (`boot`)
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `order` | list | `[disk, dvd, none, none]` | Boot device priority order |
-| `boot1`–`boot4` | string | — | Individual boot slots (derived from `order`) |
-| `acpi` | bool | `true` | ACPI support |
-| `ioapic` | bool | `false` | I/O APIC |
-| `hpet` | bool | `false` | High Precision Event Timer |
-
-**Valid boot devices:** `none`, `floppy`, `dvd`, `disk`, `network`
-
-```yaml
-boot:
-  order: [disk, dvd, none, none]
-  acpi: true
-  ioapic: true
-```
-
----
-
-### Disks (`disks`)
-
-Each entry in the `disks` list:
-
-| Field | Type | Default | Constraints | Description |
-|-------|------|---------|-------------|-------------|
-| `name` | string | required | unique | Disk identifier |
-| `size_mb` | int | `20480` | 10–1,048,576 | Disk size in MB |
-| `type` | enum | `HDD` | — | Disk type (see below) |
-| `format` | enum | `VDI` | — | Disk image format (see below) |
-| `variant` | enum | `THIN` | — | Allocation type (see below) |
-| `controller` | enum | `SATA` | — | Storage controller type |
-| `controller_name` | string | `null` | — | Exact controller name; `null` means "whichever controller serves `controller`", and one is created if the config declares none |
-| `port` | int | *assigned* | 0–port max | Controller port; omit it and vmctl assigns the lowest free one |
-| `device` | int | *assigned* | 0–1 on IDE, 0 elsewhere | Device on the port; omit it and vmctl assigns it |
-| `bootable` | bool | `false` | — | Informational only: VirtualBox has no per-disk bootable flag, boot selection is `boot.order` plus the controller's bootable setting |
-
-#### Disk Types
-
-`DVD` and `FLOPPY` are removable: no medium is created for them, `size_mb` is
-ignored, and `source` names an existing image to insert (an ISO path for a DVD).
-
-| Value | Description |
-|-------|-------------|
-| `HDD` | Hard disk drive |
-| `SSD` | Solid state drive (same performance as HDD in VBox) |
-| `DVD` | Optical drive / ISO image |
-| `FLOPPY` | Floppy drive |
-
-#### Disk Formats
-| Value | Extension | Notes |
-|-------|-----------|-------|
-| `VDI` | `.vdi` | VirtualBox native — recommended |
-| `VMDK` | `.vmdk` | VMware-compatible |
-| `VHD` | `.vhd` | Microsoft Hyper-V compatible |
-| `RAW` | `.img` | Raw disk image — always thick |
-
-#### Disk Variants
-| Value | VBoxManage | Description |
-|-------|------------|-------------|
-| `THIN` | `Standard` | Dynamic allocation — grows as needed |
-| `THICK` | `Fixed` | Pre-allocates full size on creation |
-
-> **Note:** RAW format does not support thin provisioning; it is always created as fixed.
-
-```yaml
-disks:
-  - name: system
-    size_mb: 51200
-    type: HDD
-    format: VDI
-    variant: THIN
-    controller: SATA
-    port: 0
-    device: 0
-    bootable: true
-  - name: data
-    size_mb: 102400
-    type: HDD
-    controller: SATA
-    port: 1
-    device: 0
-```
-
----
-
-### Networks (`networks`)
-
-Each entry in the `networks` list (max 8):
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `network_type` | enum | `NAT` | Network mode (see below) |
-| `adapter_type` | string | `82540EM` | NIC model emulation |
-| `adapter_name` | string | `null` | Physical interface (bridged/host-only) |
-| `mac_address` | string | `null` | Custom MAC address |
-| `promiscuous_mode` | bool | `false` | Allow promiscuous mode |
-
-#### Network Types
-| Value | Description |
-|-------|-------------|
-| `NAT` | Outbound internet through host NAT |
-| `BRIDGED` | Direct access to physical network |
-| `HOSTONLY` | Isolated host-to-VM only network |
-| `INTERNAL` | VM-to-VM isolated network (no host) |
-| `NATNETWORK` | NAT with multi-VM DHCP |
-
-```yaml
-networks:
-  - network_type: NAT
-    adapter_type: 82540EM
-  - network_type: BRIDGED
-    adapter_name: enp3s0
-  - network_type: INTERNAL
-    adapter_name: labnet
-```
-
----
-
-### Storage Controllers (`storage_controllers`)
-
-Normally auto-populated by `vmctl export`. Define manually when creating from scratch:
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `name` | string | required | Unique controller name |
-| `controller_type` | enum | — | Controller bus type |
-| `port_count` | int | `30` | Number of available ports |
-| `bootable` | bool | `false` | Mark controller as bootable |
-
-#### Controller Types and Limits
-
-Every row below was verified against VirtualBox 7.1.18 by creating the controller
-on a live host.
-
-| Type | `--add` | VBox Chipset | Ports | Use Case |
-|------|---------|--------------|-------|----------|
-| `ide` | `ide` | PIIX4 | 2 | Legacy disks, optical drives |
-| `sata` | `sata` | IntelAhci | 30 | Standard disks |
-| `scsi` | `scsi` | LSILogic | 16 | High port count |
-| `sas` | `sas` | LSILogicSAS | 255 | Enterprise storage |
-| `nvme` | `pcie` | NVMe | 255 | Fast virtual NVMe (VirtualBox 6.0+) |
-| `virtio-scsi` | `virtio-scsi` | VirtIO | 256 | Paravirtualised, VirtualBox 7.x |
-| `usb` | `usb` | USB | 8 (exactly) | USB mass storage |
-| `floppy` | `floppy` | I82078 | 1 | Floppy drives; one controller per VM |
-
-Two of these are not obvious from `VBoxManage storagectl --help`: `virtio-scsi`
-is a valid `--add` value even though the help text omits it, and a USB controller
-accepts *only* 8 ports (`Invalid port count: 1 (must be in range [8, 8])`).
-
----
-
-## Batch File Format
-
-```yaml
-name: cluster-name             # Optional name for the batch
-description: What this is      # Optional description
-
-base_vm: ubuntu-template       # Existing VM name  OR  file path  OR  inline config
-
-instances:
-  - name: vm-01                # Required: unique VM name
-    cpu: 4                     # Integer shorthand for count
-    memory: 8192               # Integer shorthand for mb
-    metadata:
-      role: web
-
-  - name: vm-02
-    cpu:                       # Full CPU config override
-      count: 8
-      nested_virt: true
-    memory:
-      mb: 16384
-    disks:
-      - size_mb: 204800        # Override first disk size
-    networks:
-      - network_type: BRIDGED  # Override first adapter
-```
-
-**Base VM reference options:**
-- `base_vm: my-vm-name` — reads config from existing VirtualBox VM
-- `base_vm: /path/to/config.yaml` — reads from file
-- `base_vm:` as a dict — inline full VM config
-
-Each instance gets a deep copy of the base configuration, with only the specified fields overridden.
-
----
-
-## Supported OS Types
-
-Common values for the `ostype` field:
-
-| Value | OS |
-|-------|----|
-| `Ubuntu_64` | Ubuntu 64-bit |
-| `Ubuntu` | Ubuntu 32-bit |
-| `Debian_64` | Debian 64-bit |
-| `RedHat_64` | Red Hat / CentOS / Rocky 64-bit |
-| `Fedora_64` | Fedora 64-bit |
-| `Windows10_64` | Windows 10 64-bit |
-| `Windows11_64` | Windows 11 64-bit |
-| `Windows2019_64` | Windows Server 2019 |
-| `Linux_64` | Generic Linux 64-bit |
-| `Other_64` | Unknown / other |
-
-Run `VBoxManage list ostypes` for the complete list.
-
----
-
-## Validation Rules
-
-vmctl validates configuration in four phases before any VM is created:
-
-**Phase 1 — Schema**
-- VM name must be non-empty
-- CPU count: 1–128
-- Memory: 4 MB minimum
-- VRAM: 1–256 MB
-- Disk size: 10 MB to 1 TB
-- Disk names must be unique within the VM
-- Storage controller names must be unique
-
-**Phase 2 — Provider Limits** (VirtualBox-specific)
-- Max 8 network adapters
-- Max 255 disks per controller
-- Port numbers within controller range
-
-**Phase 3 — Logical Constraints**
-- Boot device values must be valid (`none`, `floppy`, `dvd`, `disk`, `network`)
-- If boot order includes `disk`, the first disk is automatically marked bootable
-
-**Phase 4 — Warnings** (non-fatal, printed but don't block creation)
-- Memory not aligned to 4 MB boundary
-
----
-
-## File Format Detection
-
-Format is detected from the file extension:
-
-| Extension | Format |
-|-----------|--------|
-| `.yaml`, `.yml` | YAML |
-| `.json` | JSON |
-
-Both formats support identical configuration fields.
+<!-- Generated by scripts/generate-docs.py from vmctl's own model and the
+     providers' capability declarations. Do not edit: run the script instead.
+     CI checks that the committed copy is current. -->
+
+# Configuration reference
+
+Every field a vmctl configuration file may contain, generated from the model that reads it. The 1.1.x names in the last column are still accepted.
+
+Current configuration format: **2** (`schema_version:`; a file that omits it is read as this one).
+
+## The VM
+
+One virtual machine, in terms no hypervisor owns.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `name` | text | **required** |  | What the VM is called. It identifies the VM to the hypervisor and ends up in file paths, so the providers' declarations say what a name may contain. |
+| `cpu` | CPUConfig | **required** |  | The virtual CPU: how many, and how they are arranged. |
+| `memory` | MemoryConfig | **required** |  | Memory, and video memory where the provider has such a setting. |
+| `firmware` | FirmwareConfig | **required** |  | Firmware: BIOS or EFI, secure boot, TPM. |
+| `storage` | list of StorageDevice | **required** | `disks` | Every device on a bus -- disks, optical drives, floppies -- in one list, because that is what they are. Was `disks:`, which the list never only held (M-02). |
+| `networks` | list of NetworkConfig | **required** |  | The network adapters, in the order the provider numbers them. |
+| `boot` | BootConfig | **required** |  | What the VM tries to boot from, in order, plus the firmware-adjacent switches that belong with it. |
+| `storage_controllers` | list of StorageController | **required** |  | The controllers the devices hang off. |
+| `arch` | one of `x86_64` / `i686` / `aarch64` / `armv7l` / `ppc64le` / `s390x` | `x86_64` |  | The architecture the guest's virtual CPU presents. VirtualBox has no such setting -- a VM runs the host's -- while libvirt requires one in every domain (A-10). |
+| `machine` | text or empty | empty |  | The machine type (chipset) to emulate, such as `q35` or `pc`. |
+| `guest_os` | text | `ubuntu` | `ostype` | Which OS the guest runs, as a neutral id from :mod:`vmctl.core.oscatalog` (`ubuntu22.04`, `win11`) -- or a provider's own string, which passes through untranslated. |
+| `description` | text or empty | empty |  | A note about what this VM is for. Kept where the provider has somewhere to put it -- libvirt has a description field, VirtualBox does not. |
+| `audio_enabled` | yes/no | `false` |  | Whether the guest gets a sound device. |
+| `clipboard_mode` | text | `disabled` |  | Clipboard sharing with the host: `disabled`, `hosttoguest`, `guesttohost` or `bidirectional`. Needs guest additions, and not every provider has it. |
+| `draganddrop` | text | `disabled` |  | Drag and drop between host and guest, with the same values as :attr:`clipboard_mode`. |
+| `usb_enabled` | yes/no | `false` |  | Whether the guest gets a USB controller. |
+| `rtc_utc` | yes/no | `true` |  | Whether the guest's hardware clock reads UTC. Right for everything except a Windows guest, which expects local time. |
+| `schema_version` | number | `2` |  | Which version of the configuration format this came from. |
+| `metadata` | mapping | empty |  | Anything vmctl should carry but not act on. |
+
+## cpu
+
+CPU configuration.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `count` | number | `2` |  | Number of virtual CPUs (1–128). |
+| `hotplug` | yes/no | `false` |  | Allow CPUs to be added/removed while the VM is running. |
+| `execution_cap` | number | `100` |  | Maximum percentage of host CPU time the VM may use (1–100). |
+| `pae` | yes/no | `false` |  | Enable Physical Address Extension for 32-bit OSes. |
+| `nested_virt` | yes/no | `false` |  | Enable nested virtualisation (required for running KVM inside VirtualBox). |
+| `sockets` | number or empty | empty |  | Sockets to present, or None to let the provider decide. |
+| `cores` | number or empty | empty |  | Cores per socket, or None. |
+| `threads` | number or empty | empty |  | Threads per core, or None. |
+| `model` | text or empty | empty |  | The CPU model the guest sees: `host` to pass the host's CPU through, `host-model` for the closest migratable description, or a named model such as `Skylake-Client`. |
+
+## memory
+
+Memory configuration.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `mb` | number | `2048` |  | RAM in megabytes (4–1,048,576). |
+| `vram_mb` | number | `16` |  | Video RAM in megabytes (1–256). |
+| `page_fusion` | yes/no | `false` |  | Enable kernel same-page merging to reduce physical RAM usage. |
+| `ballooning` | yes/no | `false` |  | Enable dynamic memory ballooning (guest must support it). |
+
+## firmware
+
+Firmware configuration.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `type` | one of `bios` / `efi` / `efi64` / `efi32` | `bios` |  | Firmware type (BIOS, EFI, EFI64, EFI32). |
+| `secure_boot` | yes/no | `false` |  | Enable Secure Boot (requires EFI firmware). |
+| `tpm` | yes/no | `false` |  | Enable TPM chip emulation. |
+
+## boot
+
+Boot configuration.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `order` | list of text | `['disk', 'dvd', 'none', 'none']` |  | Ordered list of boot devices; valid values are `"disk"`, `"dvd"`, `"floppy"`, `"network"`, `"none"`. |
+| `boot1` | text | `disk` |  | The first boot slot, kept in step with `order`. Set `order` instead; these exist because every provider addresses slots individually. |
+| `boot2` | text | `dvd` |  | The second boot slot. |
+| `boot3` | text | `none` |  | The third boot slot. |
+| `boot4` | text | `none` |  | The fourth boot slot. |
+| `acpi` | yes/no | `true` |  | Enable ACPI support (required by most modern OSes). |
+| `ioapic` | yes/no | `false` |  | Enable I/O APIC (required for more than one CPU or for Windows). |
+| `hpet` | yes/no | `false` |  | Enable High Precision Event Timer. |
+
+## storage (each device)
+
+A device on a storage bus: a disk, an optical drive or a floppy drive.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `name` | text | **required** |  | Identifier for this device within the VM (e.g. `"system"`). |
+| `kind` | one of `disk` / `cdrom` / `floppy` | `disk` | `type` | What the guest sees: a disk, a CD-ROM or a floppy drive. Was `type`. |
+| `bus` | one of `ide` / `sata` / `scsi` / `sas` / `nvme` / `virtio-blk` / `virtio-scsi` / `usb` / `floppy` | `sata` |  | The interface it hangs off. Was `controller` -- which named a *bus* while `controller_name` named a *controller*, one word doing two jobs (M-02). |
+| `controller` | text or empty | empty | `controller_name` | Which controller to attach to: a :attr:`StorageController.id`, or a provider's own name for one, or None to take whichever controller serves `bus`. |
+| `slot` | number or empty | empty | `port` | Port on the controller (0-based), or None to be assigned. Was `port`. |
+| `unit` | number or empty | empty | `device` | Device on that slot (0 or 1 on IDE), or None to be assigned. Was `device`. |
+| `size_mb` | number or empty | empty |  | Capacity in megabytes. None on a removable drive, which has none; a disk that does not say gets :data:`DEFAULT_DISK_MB`. |
+| `format` | one of `vdi` / `vmdk` / `vhd` / `vhdx` / `qcow2` / `qed` / `parallels` / `raw` or empty | empty |  | Image format, or None for whichever format the provider creates natively. |
+| `allocation` | one of `thin` / `thick` | `thin` | `variant` | THIN (dynamic) or THICK (preallocated). Was `variant`. |
+| `source` | text or empty | empty |  | An existing medium to attach instead of creating one -- an ISO for an optical drive, or an image that already exists, which is how a migration attaches the converted copy of a disk. |
+| `readonly` | yes/no | `false` |  | Attach without write access. |
+| `nonrotational` | yes/no | `false` |  | Present the disk to the guest as solid-state. Was `type: ssd` (M-01). |
+| `discard` | yes/no | `false` |  | Pass the guest's TRIM/UNMAP through to the host, so freeing space in the guest frees it on the host. |
+| `hotpluggable` | yes/no | `false` |  | Let the guest detach the device while it is running. |
+| `bootable` | yes/no | `false` |  | Mark this device as a boot device. |
+| `disk_path` | text or empty | empty |  | Where the image is on the source host. Never exported: it describes a host, not the VM. |
+| `provider_options` | mapping | empty |  | Settings only one hypervisor has, carried verbatim. |
+
+## storage_controllers (each controller)
+
+A storage controller: one bus, some number of ports, a name on each side.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `id` | text | empty |  | Stable logical key, e.g. `"sata0"`. What devices reference, and what stays the same when the same VM is expressed on another hypervisor. |
+| `bus` | one of `ide` / `sata` / `scsi` / `sas` / `nvme` / `virtio-blk` / `virtio-scsi` / `usb` / `floppy` | `sata` | `controller_type` | The bus this controller implements. Was `controller_type`, which was documented as a chipset and valued as a bus. |
+| `model` | text or empty | empty |  | Neutral model name, when the bus offers a choice. The chipset a provider uses to implement it is that provider's business, resolved through its tables. |
+| `port_count` | number or empty | empty |  | How many ports to give it, or None for the provider's own default -- which is the only safe answer, since a bus may accept exactly one number (IDE takes 2, USB takes 8) and it differs per provider. |
+| `bootable` | yes/no | `false` |  | Whether the firmware may boot from this controller. |
+| `native_name` | text or empty | empty | `name` | What the provider calls it (`"SATA Controller"`). |
+
+## networks (each adapter)
+
+Network adapter configuration.
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `model` | one of `virtio` / `e1000` / `e1000e` / `rtl8139` / `pcnet` / `ne2k` / `vmxnet3` | `e1000` | `adapter_type` | The network chipset the guest sees. Was `adapter_type`, which held VirtualBox's own id (`"82540EM"`) in the neutral model (A-10). |
+| `network_type` | one of `nat` / `bridged` / `hostonly` / `internal` / `natnetwork` | `nat` |  | Connection mode (NAT, BRIDGED, HOSTONLY, INTERNAL, NATNETWORK). |
+| `adapter_name` | text or empty | empty |  | Physical or virtual interface name used for BRIDGED / HOSTONLY modes. |
+| `mac_address` | text or empty | empty |  | Custom MAC address; `None` lets VirtualBox assign one automatically. |
+| `promiscuous_mode` | yes/no | `false` |  | Allow the adapter to receive packets not addressed to it. |
+| `port_forwards` | list of PortForward | empty |  | Host ports forwarded into the guest. |
+| `provider_options` | mapping | empty |  | Native details with no neutral equivalent, by provider name. |
+
+## port_forwards (each rule)
+
+One host port forwarded to a guest port through a NAT adapter (E-10).
+
+| Field | Type | Default | Was called | Description |
+|---|---|---|---|---|
+| `host_port` | number | `0` |  | The port on this machine. Required; there is no default worth guessing. |
+| `guest_port` | number | `0` |  | The port inside the guest. Required. |
+| `protocol` | text | `tcp` |  | `tcp` or `udp`. |
+| `name` | text | empty |  | What the rule is called. |
+| `host_ip` | text | empty |  | Which host address to listen on. |
+| `guest_ip` | text | empty |  | Which guest address to send to. Empty means the address the guest's DHCP gave it, which is what a NAT adapter normally wants. |
+
+## Values
+
+- **Device kinds**: `disk`, `cdrom`, `floppy`
+- **Buses**: `ide`, `sata`, `scsi`, `sas`, `nvme`, `virtio-blk`, `virtio-scsi`, `usb`, `floppy`
+- **Disk formats**: `vdi`, `vmdk`, `vhd`, `vhdx`, `qcow2`, `qed`, `parallels`, `raw`
+- **Allocation**: `thin`, `thick`
+- **Firmware**: `bios`, `efi`, `efi64`, `efi32`
+- **Network modes**: `nat`, `bridged`, `hostonly`, `internal`, `natnetwork`
+- **Network cards**: `virtio`, `e1000`, `e1000e`, `rtl8139`, `pcnet`, `ne2k`, `vmxnet3`
+- **Architectures**: `x86_64`, `i686`, `aarch64`, `armv7l`, `ppc64le`, `s390x`

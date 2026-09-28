@@ -95,6 +95,13 @@ jobs:
         run: |
           vmctl schema -o /tmp/vmctl.schema.json
           diff -u vmctl.schema.json /tmp/vmctl.schema.json
+      # Same argument for the generated tables (E-18): docs/features.md drifted for
+      # months while it was maintained by hand, describing fields the model no longer
+      # had and missing the ones it did.
+      - name: The generated documentation must still match the code
+        run: |
+          python scripts/generate-docs.py
+          git diff --exit-code docs/features.md docs/providers.md docs/commands.md
 
   docs:
     name: docs build

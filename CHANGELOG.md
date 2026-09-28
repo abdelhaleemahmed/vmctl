@@ -96,6 +96,24 @@ things prevented that:
 
 ### Added
 
+- **`schema_version:`** in a config file. A file that omits it is read as the current
+  format, which is what it almost always is; a file written by a *newer* vmctl is now
+  refused with a sentence saying so instead of failing on whichever field it reaches
+  first.
+- **Generated documentation**: `docs/features.md` (every config field),
+  `docs/providers.md` (what each hypervisor supports) and `docs/commands.md` are now
+  produced from the code by `scripts/generate-docs.py`, and CI checks the committed
+  copies are current. `docs/features.md` had drifted badly while it was written by hand
+  -- it still described `ostype` as a VirtualBox identifier and had no `storage`. Every
+  field of the model is now documented in one place, which improved the JSON Schema an
+  editor loads at the same time.
+- **The provider contract is public and checked**: `docs/writing-a-provider.md`, with a
+  worked example in `examples/vmctl-null/` -- a provider in its own package that
+  `vmctl providers` lists and the conformance suite covers, with no change to vmctl.
+- Fixed: one conformance rule read a provider's *source text* and found the words it was
+  looking for inside the base class's docstring, so it failed any provider that
+  correctly declines to edit VMs in place. Found by running the suite against a
+  third-party provider.
 - **`extends:` in a config file**, so a lab does not repeat itself: a file can be built
   on one or more base files, which may themselves extend others. A mapping merges and
   the child wins; a list is replaced, because writing `storage:` means stating all of

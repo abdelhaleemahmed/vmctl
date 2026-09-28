@@ -16,8 +16,11 @@ The 1.1.x names are included as accepted aliases, because a schema that rejected
 vmctl accepts would be worse than none.
 """
 
+import inspect
+import re
 from dataclasses import MISSING, fields, is_dataclass
 from enum import Enum
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Union, get_args, get_origin, get_type_hints
 
 from .vmconfig import (
@@ -144,7 +147,7 @@ def _for_dataclass(dc: type, definitions: Dict[str, Any]) -> Dict[str, Any]:
     required: List[str] = []
     for field_ in fields(dc):
         entry = _for_type(hints.get(field_.name, Any), definitions)
-        doc = _field_doc(dc, field_.name)
+        doc = field_doc(dc, field_.name)
         if doc:
             entry = {**entry, "description": doc}
         if isinstance(field_.default, Enum):
@@ -211,12 +214,16 @@ def _for_type(annotation: Any, definitions: Dict[str, Any]) -> Dict[str, Any]:
     }.get(annotation, {})
 
 
-def _field_doc(dc: type, name: str) -> Optional[str]:
-    """Return a field's description from its class docstring.
+def field_doc(dc: type, name: str) -> Optional[str]:
+    """Return a field's description, from wherever the model already explains it.
 
-    The ``Attributes:`` section is where every field in this model is already
-    explained, so the schema reuses it rather than asking for the same sentence twice.
+    Two places, because the model uses both and neither should have to be repeated for
+    the schema's benefit: an ``Attributes:`` section in the class docstring, and the
+    ``#:`` comments Sphinx reads. Before this, every field of :class:`VMConfig` came out
+    of the generator undescribed -- its fields are documented as ``#:`` comments -- so
+    the schema an editor loads said nothing about the fields people actually write.
     """
+    from_comment = _comment_docs(dc).get(name)
     doc = dc.__doc__ or ""
     wanted = f"{name}:"
     lines = doc.splitlines()
@@ -232,5 +239,32 @@ def _field_doc(dc: type, name: str) -> Optional[str]:
             if len(follow) - len(follow.lstrip()) <= indent:
                 break
             parts.append(follow.strip())
-        return " ".join(parts) or None
-    return None
+        return " ".join(parts) or from_comment
+    return from_comment
+
+
+#: A field's ``#:`` comment, which is what Sphinx documents an attribute with. Matched
+#: line by line rather than through ``ast``, which discards comments entirely.
+_FIELD_LINE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*[:=]")
+
+
+@lru_cache(maxsize=None)
+def _comment_docs(dc: type) -> Dict[str, str]:
+    """Return each field's ``#:`` comment block, by field name."""
+    try:
+        source = inspect.getsource(dc)
+    except (OSError, TypeError):  # pragma: no cover - no source, e.g. a built-in
+        return {}
+    docs: Dict[str, str] = {}
+    buffer: List[str] = []
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#:"):
+            buffer.append(stripped[2:].strip())
+            continue
+        if buffer:
+            match = _FIELD_LINE.match(stripped)
+            if match:
+                docs[match.group(1)] = " ".join(part for part in buffer if part)
+            buffer = []
+    return docs
