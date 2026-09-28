@@ -7,7 +7,7 @@ name = "vmctl"
 # Single-sourced from vmctl/__init__.py; see [tool.setuptools.dynamic] below.
 # Both files used to hardcode it and scripts/release.sh sed-patched each (H-03).
 dynamic = ["version"]
-description = "A comprehensive virtual machine management tool with config-as-code support"
+description = "Manage VMs as configuration files on VirtualBox, libvirt/QEMU, plain QEMU and VMware"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
@@ -15,7 +15,9 @@ authors = [
     {name = "Ahmed Abdelhaleem Ahmed", email = "ahmedhal@gmail.com"}
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    # 2.0.0: four providers, a conformance suite they all pass, and every capability
+    # table measured against the running product rather than written from documentation.
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: System Administrators",
     "Intended Audience :: Developers",
@@ -33,6 +35,7 @@ keywords = [
     "virtualbox",
     "libvirt",
     "qemu",
+    "vmware",
     "vm",
     "virtual-machine",
     "management",

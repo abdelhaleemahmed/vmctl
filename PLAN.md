@@ -130,7 +130,7 @@ machine with no VirtualBox installed, in under 5 seconds.
 
 Order matters: F-01 and F-02 are what make a restored VM unbootable.
 
-### F-01 — Synthesize storage controllers when none are declared · M
+### F-01 — Synthesize storage controllers when none are declared · M *(fixed)*
 `vmctl/providers/virtualbox/emitter.py:101`
 
 The emitter only emits `storagectl` from `vm.storage_controllers`; an empty list
@@ -163,7 +163,7 @@ SATA), the system disk is attached to the floppy controller. Pinned by
 before its `storageattach`, and golden output for already-working exported
 configs is byte-identical.
 
-### F-02 — Firmware detection is case-sensitive; EFI64/32 never detected · S
+### F-02 — Firmware detection is case-sensitive; EFI64/32 never detected · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py:160`
 
 `config.get('firmware', 'bios') == 'efi'` compares against VBoxManage's
@@ -178,7 +178,7 @@ uppercase `"EFI"`, so every EFI VM exports as BIOS and is recreated unbootable.
 **Acceptance:** the EFI fixture from T-02 parses to `FirmwareType.EFI64` (or
 `EFI`, per what the fixture reports) and re-emits `--firmware efi64`.
 
-### F-03 — Hyphenated VBoxManage keys are unreachable · S
+### F-03 — Hyphenated VBoxManage keys are unreachable · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py:132`
 
 The fallback regex `^(\w+)="?(.*?)"?$` excludes `-`, so `nested-hw-virt="on"`
@@ -191,7 +191,7 @@ never enters the parsed dict and `cpu.nested_virt` is always `False`.
 **Acceptance:** a test asserts `nested-hw-virt` is present in the parsed dict
 and reaches `cpu.nested_virt`.
 
-### F-04 — Optical drives cannot be recreated · M
+### F-04 — Optical drives cannot be recreated · M *(fixed)*
 `vmctl/providers/virtualbox/emitter.py:110`
 
 Every disk including `DiskType.DVD` goes through `createhd`, then the resulting
@@ -209,7 +209,7 @@ Every disk including `DiskType.DVD` goes through `createhd`, then the resulting
 **Acceptance:** the ISO fixture round-trips to a valid command sequence with no
 `createhd` for the optical drive.
 
-### F-05 — Ten model fields are exported but never emitted · M
+### F-05 — Ten model fields are exported but never emitted · M *(fixed)*
 Parsed and written to YAML, silently ignored on create: `cpu.hotplug`,
 `cpu.execution_cap`, `cpu.pae`, `cpu.nested_virt`, `memory.page_fusion`,
 `memory.ballooning`, `firmware.tpm`, `clipboard_mode`, `draganddrop`,
@@ -238,7 +238,7 @@ accepting a legacy bool on load (`True` → ignore + warn, `False` → `None`).
 **Acceptance:** `test_roundtrip.py` xfail from T-03 flips to pass; a config
 with every field set emits a flag for each one (or a warning saying it can't).
 
-### F-13 — Hardcoded VirtualBox machine folder · S *(found while planning)*
+### F-13 — Hardcoded VirtualBox machine folder · S *(found while planning, fixed)*
 `vmctl/providers/virtualbox/emitter.py:108`
 
 `os.path.join(os.path.expanduser("~"), "VirtualBox VMs")` ignores the user's
@@ -255,7 +255,7 @@ created outside the VM's own directory.
 
 ---
 
-### F-17 — `--secureboot` is not a VBoxManage option; secure boot is unreadable · M
+### F-17 — `--secureboot` is not a VBoxManage option; secure boot is unreadable · M *(fixed)*
 `vmctl/providers/virtualbox/emitter.py:95`, `parser.py:165`
 
 Verified against the real host (VirtualBox 7.1.18):
@@ -287,7 +287,7 @@ from `VBoxManage showvminfo` NVRAM output or drop the field from the model
 rather than pretend it round-trips. Gate on the `H-07` version floor — the
 option set differs across 6.1 / 7.0 / 7.1.
 
-### F-23 — Three settings were emitted but never read · S *(fixed by A-11)*
+### F-23 — Three settings were emitted but never read · S *(fixed by A-11)* *(fixed)*
 `vmctl/providers/virtualbox/parser.py`
 
 The mirror image of `F-05`. Phase 1 made the emitter write `--hpet`,
@@ -832,7 +832,7 @@ fix is possible — keep attachments whose value is `emptydrive` and record them
 as a removable device with `source=None` — and is worth doing if empty drives
 matter before Phase 5.
 
-### F-21 — `audio="default"` is a driver name, not an enable flag · S
+### F-21 — `audio="default"` is a driver name, not an enable flag · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py`
 
 VirtualBox 7.1.18 reports, for a VM created with no audio at all:
@@ -858,7 +858,7 @@ canonical 7.x names are the hyphenated ones. `--cpuhotplug`, `--pagefusion`,
 `--secureboot` does **not** exist (see `F-17`). Declaring the version floor and
 picking spellings accordingly remains `H-07`'s job.
 
-### F-18 — `showmediuminfo` needs a device type; ISOs silently fall back · S
+### F-18 — `showmediuminfo` needs a device type; ISOs silently fall back · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py` (`get_disk_info`)
 
 Verified on VirtualBox 7.1.18:
@@ -879,7 +879,7 @@ VDI). That bogus 20 GB VDI is then what `F-04` hands to `createhd`. Fixing
 Pass `disk` or `dvd` based on the attachment's device type. Note the real ISO
 reports `Capacity: 0 MBytes`, so size must not be used to size a created medium.
 
-### F-19 — Host-only adapter name read from a key VirtualBox does not emit · S
+### F-19 — Host-only adapter name read from a key VirtualBox does not emit · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py:399`
 
 The parser reads `hostonlyif{n}`. VirtualBox 7.1.18 emits `hostonlyadapter{n}`:
@@ -903,7 +903,7 @@ defined); confirm before trusting that path. `A-11`'s field table is the
 structural fix: one declaration per field, used in both directions, so read and
 write cannot disagree.
 
-### F-20 — Disk allocation variant is never detected; every disk looks thin · S
+### F-20 — Disk allocation variant is never detected; every disk looks thin · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py:108`
 
 The parser matches `line.startswith('Variant:')`. VirtualBox 7.1.18 emits
@@ -923,7 +923,7 @@ performance and space behaviour.
 Accept both prefixes (older VirtualBox used `Variant:`), matched
 case-insensitively, and add the `Format variant:` form to the fixtures.
 
-### F-16 — Machine-readable values are escaped and never unescaped · S
+### F-16 — Machine-readable values are escaped and never unescaped · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py:132`
 
 `showvminfo --machinereadable` escapes backslashes and quotes inside quoted
@@ -952,7 +952,7 @@ regex tolerate escaped quotes. This is a decoder concern, so in Phase 5 it
 belongs to `core/decoders.py` and is then fixed once for every provider that
 uses a key/value format (VirtualBox *and* VMware `.vmx`).
 
-### F-14 — Controller order was non-deterministic · S *(fixed in Phase 0)*
+### F-14 — Controller order was non-deterministic · S *(fixed in Phase 0)* *(fixed)*
 `vmctl/providers/virtualbox/parser.py:186`
 
 `controller_indices` was a `set` of index strings. Iterating it varies with
@@ -968,7 +968,7 @@ testing is impossible against non-deterministic output — the same reasoning as
 Guarded by `test_controller_order_is_deterministic` and
 `test_emitted_command_order_is_deterministic`.
 
-### F-15 — Unmapped controller types silently become SATA · S
+### F-15 — Unmapped controller types silently become SATA · S *(fixed)*
 `vmctl/providers/virtualbox/parser.py:195`
 
 `vbox_controller_map` has no entry for `I82078` (floppy), so
@@ -1020,7 +1020,7 @@ parser preserve the native type string rather than guess.
 > — they did, and that disagreement is how a system disk reached a floppy
 > controller.
 
-### F-06 — `validate` crashes instead of validating · M
+### F-06 — `validate` crashes instead of validating · M *(fixed)*
 `vmctl/core/vmconfig.py:361`, `vmctl/serializers/yaml_serializer.py:24`
 
 Three one-line inputs produce raw tracebacks from the command whose only job is
@@ -1047,7 +1047,7 @@ enum value (`ValueError: 'nvme' is not a valid StorageControllerType`).
 **Acceptance:** each of the three inputs above exits 1 with a one-line message
 naming the offending field; no traceback. Add all three to `test_cli.py`.
 
-### F-07 — `from_dict` destroys its input dict · S
+### F-07 — `from_dict` destroys its input dict · S *(fixed)*
 `vmctl/core/vmconfig.py:389`
 
 The `data.pop(...)` calls mutate the caller's dict; after `from_dict(d)`,
@@ -1058,7 +1058,7 @@ of the loaded batch file straight in.
   reads without popping.
 - Test: assert the input dict is unchanged after the call.
 
-### F-08 — The warnings pathway is dead code; the validator mutates instead · M
+### F-08 — The warnings pathway is dead code; the validator mutates instead · M *(fixed)*
 `vmctl/validators/vm_validator.py:23`
 
 `validate()` builds `warnings = []`, never appends, returns it. So
@@ -1107,7 +1107,7 @@ unknown ostype prints two warnings and still exits 0; a port collision exits 1.
 > place (storage and network layout) are reported, not silently dropped.
 > `emit_modify_vm` is also the building block `E-02 apply` needs.
 
-### F-09 — `completion` emits a wrong env var name · S
+### F-09 — `completion` emits a wrong env var name · S *(fixed)*
 `vmctl/cli/main.py:567` — `env_var` is already `_VMCTL_COMPLETE`, then the code
 prints `f'_{env_var}...'`, producing `__VMCTL_COMPLETE` (double underscore).
 Following the documented `eval "$(vmctl completion bash)"` sets a variable Click
@@ -1120,7 +1120,7 @@ ignores and evals `vmctl`'s help text. Completion has never worked this way.
   not `__VMCTL_COMPLETE`.
 - Fix `docs/sphinx*/guide/completion.rst` to match whatever the command does.
 
-### F-10 — `edit` does not edit · M
+### F-10 — `edit` does not edit · M *(fixed)*
 `vmctl/cli/main.py:363` reads the VM, mutates the in-memory object, prints YAML
 and admits "full apply support requires VBoxManage modifyvm integration" — but
 the README command table says "Modify running VM properties."
@@ -1134,7 +1134,7 @@ Two options; recommend (a):
 - (b) Rename it `vmctl preview-edit` / fold it into `read --set key=value` and
   fix the README. Cheaper, but leaves an obvious gap.
 
-### F-11 — `BaseProvider.edit_vm` is a data-loss trap · S
+### F-11 — `BaseProvider.edit_vm` is a data-loss trap · S *(fixed)*
 `vmctl/providers/base.py:156` — the default implementation is `delete_vm()` then
 `create_vm()`, and `delete_vm` passes `--delete`, destroying the disks.
 `VirtualBoxBackend` does not override it and `engine.edit_vm` exposes it.
@@ -1143,7 +1143,7 @@ Nothing calls it today; that is luck, not design.
 - Replace the body with `raise NotImplementedError`, and let F-10's real
   implementation be the only `edit_vm` that exists.
 
-### F-12 — Batch: nameless instances collide, failures leave half a cluster · M
+### F-12 — Batch: nameless instances collide, failures leave half a cluster · M *(fixed)*
 `vmctl/core/batch.py:74` — two instances without `name` both yield `base`.
 With `--execute`, the first is created and the second fails at VBoxManage with
 no rollback.
@@ -2918,6 +2918,24 @@ the model (E-03, E-05) want Phase 5 first.
   Batch every breaking config change here: `DiskConfig`→`StorageDevice` key
   rename, `ballooning`→`balloon_mb`, `ostype`→neutral `guest_os`, and make
   `schema_version` (E-14) mandatory for new files.
+
+  > **What actually shipped: one release, v2.0.0, containing all of it.** The
+  > intermediate versions above were never cut. That was not a decision so much as a
+  > consequence -- each phase landed on the same branch, every gate stayed green, and
+  > there was no user of an intermediate state to release *for*. The sequencing still
+  > did its job: it decided what landed together (`A-01` and `A-11` alone; no provider
+  > before the conformance suite it must pass), which is what the list was for.
+  >
+  > **The breaking config changes in this item were deliberately not taken.** Every
+  > 1.1.x key is still accepted, and `schema_version` is optional rather than mandatory
+  > -- a file without it is read as the current format. Ground rule 2 says the working
+  > version keeps working, and the compatibility table below promises those names
+  > "indefinitely"; making them mandatory at a major version would have broken every
+  > file in the world to save one mapping table. So 2.0.0 is a major version because the
+  > **Python API** changed (`DiskConfig` → `StorageDevice`, `List[List[str]]` → `Plan`,
+  > a provider registry) and because a VM it creates is not identical to one 1.1.x
+  > created -- which is the round-trip fix, not a regression. The *file format* did not
+  > break, and the tests that load committed 1.1.9 exports are what keep it that way.
 
 **Sequencing rule:** no provider ships before the conformance suite it must
 pass. No feature in Tier A/B ships before the model it depends on

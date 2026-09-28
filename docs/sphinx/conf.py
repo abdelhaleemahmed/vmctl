@@ -14,8 +14,12 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'vmctl'
 copyright = '2025, Ahmed Abdelhaleem Ahmed'
 author = 'Ahmed Abdelhaleem Ahmed'
-release = '1.1.8'
-version = '1.1.8'
+# Single-sourced from vmctl/__init__.py, like the package itself (H-03): two
+# documentation trees with their own copies of the version number is two more
+# places to forget, and both had already fallen behind.
+from vmctl import __version__ as release  # noqa: E402
+
+version = release
 
 # ---------------------------------------------------------------------------
 # Extensions

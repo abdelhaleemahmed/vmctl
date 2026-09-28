@@ -338,3 +338,15 @@ def test_the_documented_config_examples_use_todays_field_names():
     for legacy in ("ostype:", "disks:", "type: HDD", "controller: SATA"):
         assert legacy not in scratch, f"the scratch section still teaches {legacy!r}"
     assert "storage:" in scratch and "guest_os:" in scratch
+
+
+def test_the_documentation_trees_do_not_keep_their_own_version_number():
+    """Both had fallen behind -- one said 1.1.8 while the package said 1.1.9. The
+    version lives in `vmctl/__init__.py` and nowhere else (H-03), and two doc trees are
+    two more places to forget."""
+    import re
+
+    for tree in ("sphinx", "sphinx-ar"):
+        conf = (DOCS / tree / "conf.py").read_text()
+        assert "from vmctl import __version__" in conf, f"{tree} does not read the package version"
+        assert not re.search(r"^release = ['\"]\d", conf, re.M), f"{tree} hardcodes a version"
