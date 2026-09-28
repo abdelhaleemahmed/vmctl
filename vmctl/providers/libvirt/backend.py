@@ -360,7 +360,14 @@ class LibvirtBackend(BaseProvider):
             The command's stdout.
 
         Raises:
-            DependencyError: If virsh is not installed.
+            DependencyError: If virsh is not installed *and* ``check`` is set.
+                Without ``check`` the caller has already said it can cope with
+                not getting an answer, and "virsh is missing" is one of the ways
+                not to get one: the probes fall back to the declared tables, so
+                validating or planning a libvirt VM works on a machine that has
+                no libvirt -- which is the machine most likely to be writing a
+                config for another one (F-13, A-09). Running one still raises,
+                because that genuinely needs the tool.
             ProviderError: If the command fails and ``check`` is set.
         """
         argv = ["virsh"]
@@ -370,6 +377,8 @@ class LibvirtBackend(BaseProvider):
         try:
             result = subprocess.run(argv, capture_output=True, text=True, check=False)
         except FileNotFoundError:
+            if not check:
+                return ""
             raise DependencyError(
                 "virsh is not available",
                 dependency="libvirt-client",

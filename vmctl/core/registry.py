@@ -13,7 +13,7 @@ group without vmctl knowing about them.
 
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from .exceptions import DependencyError, ValidationError
 
@@ -86,11 +86,17 @@ def _load_entry_points() -> None:
         return
     try:
         found = entry_points()
-        group = (
-            found.select(group=ENTRY_POINT_GROUP)
-            if hasattr(found, "select")
-            else found.get(ENTRY_POINT_GROUP, [])
-        )
+        # Any, because the two branches below return different types and only one
+        # of them exists on any given Python.
+        group: Any
+        if hasattr(found, "select"):
+            group = found.select(group=ENTRY_POINT_GROUP)
+        else:
+            # Python 3.9's entry_points() returned a plain dict keyed by group.
+            # Typed through Any because the modern signature is the one the
+            # stubs describe, and asking it for a dict lookup is a type error
+            # there even though it is the only thing that works on 3.9.
+            group = found.get(ENTRY_POINT_GROUP) or []  # type: ignore[union-attr]
     except Exception:  # pragma: no cover - a broken distribution must not break vmctl
         return
     for entry in group:

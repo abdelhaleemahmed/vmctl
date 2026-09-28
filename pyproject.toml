@@ -53,7 +53,13 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "black>=22.0",
+    # Pinned below the next style year on purpose. black reformats on a yearly
+    # cadence, so an open upper bound means a release nobody made can fail CI and
+    # leave the repository formatted differently from every developer's checkout --
+    # which is what happened: black 26 wanted 15 files changed, and it needs Python
+    # 3.10, so the 3.9 this project still supports cannot even install it. Raise
+    # this deliberately, with the reformatting in its own commit.
+    "black>=25.0,<26",
     "flake8>=5.0",
     "mypy>=0.991",
     "types-PyYAML",

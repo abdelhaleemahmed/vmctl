@@ -7,6 +7,41 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
+## [Unreleased]
+
+### Fixed
+
+Publishing 3.0.0 ran the suite on a machine that was not the one it was developed
+on, which found four things that only held here.
+
+- **Planning a VM no longer needs that hypervisor installed.** `vmctl -p qemu
+  import f.yaml --out plan.sh` and `vmctl -p libvirt validate f.yaml` both failed
+  on a host without QEMU or `virsh` -- but a host that cannot run a VM is the one
+  most likely to be *writing* a config for one that can (F-13, A-09). QEMU now
+  emits the conventional binary name when there is no local QEMU to name, and
+  libvirt's probes fall back to the declared tables when `virsh` is absent rather
+  than raising. Running a VM still requires the tool, and still says so.
+- **The golden files recorded a home directory.** They held `/home/vagrant/...`,
+  so they could only pass for a user named `vagrant`. They now name an explicit
+  folder, and the one `emit()` helper the goldens are written and compared with
+  lives in one place instead of three.
+- **`black` is pinned below the next style year** (`>=25,<26`). black 26 wanted 15
+  files reformatted and requires Python 3.10, which the 3.9 this project supports
+  cannot install -- so an open bound meant a release nobody made could both fail
+  CI and be impossible to satisfy locally.
+- Smaller: `docs/sphinx/_static` is tracked, so a fresh clone does not warn (and
+  with `-W`, fail) when building the documentation; the stderr-separation test
+  works on Click 8.1 and 8.2+, which removed `mix_stderr`; `regenerate_golden.py`
+  runs again now that the repository root has a `conftest.py` of its own; and one
+  `importlib.metadata` fallback is typed the way current mypy wants.
+
+### Changed
+
+- The install instructions name the 3.0.0 wheel on the releases page instead of
+  `pip install vmctl`, which cannot work: vmctl is not on PyPI. Both Sphinx trees
+  also still opened by calling vmctl "a command-line tool for managing VirtualBox
+  VMs", which has not been true for three providers.
+
 ## [3.0.0] - 2026-09-28
 
 **vmctl manages VMs on four hypervisors now, and the round trip works.**

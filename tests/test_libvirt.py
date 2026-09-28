@@ -918,3 +918,28 @@ def test_deleting_a_vm_with_snapshots_is_not_refused(monkeypatch, tmp_path):
 
     undefine = [args for args in calls if args and args[0] == "undefine"][0]
     assert "--snapshots-metadata" in undefine
+
+
+def test_a_config_can_be_validated_and_planned_with_no_virsh(monkeypatch):
+    """A machine with no libvirt is the one most likely to be writing a config for
+    another machine (F-13, A-09), so probing has to degrade rather than refuse. The
+    probes already fell back to the declared tables when ``virsh`` failed; a *missing*
+    virsh raised out of ``_virsh`` even with ``check=False``, so `validate`, a dry run
+    and `--out` all died on a host without libvirt-client -- including CI."""
+    import subprocess as sp
+
+    from vmctl.core.exceptions import DependencyError
+    from vmctl.providers.libvirt.backend import LibvirtBackend
+
+    def no_virsh(argv, *a, **k):
+        if argv and argv[0] == "virsh":
+            raise FileNotFoundError(2, "No such file or directory", "virsh")
+        raise AssertionError(f"unexpected command {argv!r}")
+
+    monkeypatch.setattr(sp, "run", no_virsh)
+    backend = LibvirtBackend()
+
+    assert backend.probe().provider == "libvirt"
+
+    with pytest.raises(DependencyError):
+        backend.list_vms()  # running against libvirt still needs the tool

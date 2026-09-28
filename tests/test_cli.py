@@ -28,6 +28,20 @@ def runner():
     return CliRunner()
 
 
+def _runner_that_separates_stderr() -> CliRunner:
+    """A runner whose ``.stdout`` and ``.stderr`` are distinct.
+
+    Click 8.2 removed ``mix_stderr`` and made separation the only behaviour, so
+    passing the argument is a TypeError there while omitting it mixes the streams
+    on 8.1 -- and this test is specifically about which stream a warning goes to.
+    Both are supported versions, so ask for separation and accept it either way.
+    """
+    try:
+        return CliRunner(mix_stderr=False)
+    except TypeError:  # Click >= 8.2: already separated
+        return CliRunner()
+
+
 @pytest.fixture
 def vbox(monkeypatch):
     """Mock VBoxManage, dispatching on the subcommand."""
@@ -374,10 +388,10 @@ def test_dry_run_stdout_carries_only_commands(runner, vbox, tmp_path):
     )
     result = runner.invoke(cli, ["import", str(path)], catch_exceptions=False)
     assert result.exit_code == 0
-    runner_mixed = CliRunner(mix_stderr=False).invoke(cli, ["import", str(path)])
-    assert "Warning:" not in runner_mixed.stdout
-    assert "Warning:" in runner_mixed.stderr
-    assert "VBoxManage createvm" in runner_mixed.stdout
+    separated = _runner_that_separates_stderr().invoke(cli, ["import", str(path)])
+    assert "Warning:" not in separated.stdout
+    assert "Warning:" in separated.stderr
+    assert "VBoxManage createvm" in separated.stdout
 
 
 # ---------------------------------------------------------------------------
