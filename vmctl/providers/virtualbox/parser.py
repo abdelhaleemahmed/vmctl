@@ -4,10 +4,11 @@ Parse VirtualBox VM configuration into VMConfig
 """
 import subprocess
 import re
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 from ...core.devices import Allocation, BusType, DeviceKind, DiskFormat
 from ...core.platform import NicModel
 from ...core.vmconfig import (
+    PortForward,
     BootConfig,
     CPUConfig,
     FirmwareConfig,
@@ -231,13 +232,40 @@ class VirtualBoxParser:
             ProviderError: If the VM cannot be read.
         """
         raw_info = self.get_vm_info(vm_name)
-        return self.parse_text(vm_name, raw_info)
+        # A second call, and only when this VM has forwarding rules at all: the
+        # machine-readable output prints `Forwarding(0)=` *per adapter* with the index
+        # restarting and no adapter number anywhere, so it cannot say which NIC a rule
+        # belongs to. The human-readable form says `NIC 1 Rule(0): ...` (E-10).
+        rules = self.get_vm_info_human(vm_name) if "Forwarding(" in raw_info else ""
+        return self.parse_text(vm_name, raw_info, rules=rules)
+
+    def get_vm_info_human(self, vm_name: str) -> str:
+        """Get ``showvminfo`` output in its human-readable form.
+
+        Needed for one thing only: which adapter a NAT forwarding rule belongs to,
+        which the machine-readable form does not say (E-10).
+
+        Returns:
+            The output, or "" when it cannot be read -- a missing rule listing must
+            not stop a VM being read.
+        """
+        try:
+            result = subprocess.run(
+                [self.vboxmanage_cmd, "showvminfo", vm_name],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            return ""
+        return result.stdout
 
     def parse_text(
         self,
         vm_name: str,
         raw_info: str,
         probe: Optional[MediumProbe] = None,
+        rules: str = "",
     ) -> VMConfig:
         """Parse ``showvminfo --machinereadable`` text into a VMConfig.
 
@@ -254,7 +282,9 @@ class VirtualBoxParser:
             VMConfig: The parsed configuration.
         """
         config_dict = self._parse_machinereadable(raw_info)
-        return self._dict_to_vmconfig(vm_name, config_dict, probe=probe)
+        return self._dict_to_vmconfig(
+            vm_name, config_dict, probe=probe, forwards=parse_port_forwards(rules)
+        )
 
     @staticmethod
     def _unescape(value: str) -> str:
@@ -300,6 +330,7 @@ class VirtualBoxParser:
         vm_name: str,
         config: Dict[str, str],
         probe: Optional[MediumProbe] = None,
+        forwards: Optional[Dict[int, List[PortForward]]] = None,
     ) -> VMConfig:
         """Convert a parsed machine-readable dictionary into a VMConfig.
 
@@ -557,6 +588,7 @@ class VirtualBoxParser:
                     network_type=network_type,
                     adapter_name=adapter_name,
                     mac_address=config.get(f"macaddress{i+1}"),
+                    port_forwards=(forwards or {}).get(n, []),
                 )
                 networks.append(network)
 
@@ -577,3 +609,41 @@ class VirtualBoxParser:
         )
         read_into(vm, config, FIELDS)
         return vm
+
+
+#: How the human-readable listing spells a rule, measured on 7.1.18::
+#:
+#:     NIC 1 Rule(0):   name = web, protocol = tcp, host ip = 127.0.0.1,
+#:                      host port = 8080, guest ip = 10.0.2.15, guest port = 80
+#:
+#: The NIC number is the point: `--machinereadable` prints `Forwarding(0)=` per
+#: adapter with the index restarting and no adapter number at all, so it cannot say
+#: which adapter a rule belongs to when two of them have rules.
+_RULE_LINE = re.compile(r"^NIC\s+(\d+)\s+Rule\(\d+\):\s*(.+)$")
+
+
+def parse_port_forwards(text: str) -> Dict[int, List[PortForward]]:
+    """Return NAT forwarding rules by adapter number, from human-readable output."""
+    found: Dict[int, List[PortForward]] = {}
+    for line in text.splitlines():
+        match = _RULE_LINE.match(line.strip())
+        if not match:
+            continue
+        fields: Dict[str, str] = {}
+        for part in match.group(2).split(","):
+            key, _, value = part.partition("=")
+            fields[key.strip().lower()] = value.strip()
+        host_port, guest_port = fields.get("host port", ""), fields.get("guest port", "")
+        if not host_port.isdigit() or not guest_port.isdigit():
+            continue
+        found.setdefault(int(match.group(1)), []).append(
+            PortForward(
+                host_port=int(host_port),
+                guest_port=int(guest_port),
+                protocol=fields.get("protocol", "tcp"),
+                name=fields.get("name", ""),
+                host_ip=fields.get("host ip", ""),
+                guest_ip=fields.get("guest ip", ""),
+            )
+        )
+    return found

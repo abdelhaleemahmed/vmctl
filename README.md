@@ -227,6 +227,29 @@ $ vmctl doctor --format json | jq -r '.checks[] | select(.ok==false)'
 half way through is traced to the step it failed on; `vmctl -q` drops warnings and
 keeps errors.
 
+### Reaching the Guest
+
+A NAT adapter's port forwards are part of the config, so they survive a round trip:
+
+```yaml
+networks:
+  - network_type: nat
+    port_forwards:
+      - name: ssh
+        host_port: 2222
+        guest_port: 22
+      - name: web
+        host_ip: 127.0.0.1     # keep it off the network
+        host_port: 8080
+        guest_port: 80
+```
+
+VirtualBox and QEMU forward ports natively. libvirt does it through its `passt`
+backend, so vmctl checks that passt is installed rather than handing libvirt a domain
+it will reject. VMware Workstation has no per-VM setting at all -- its NAT forwards
+live in the host-wide `vmnetnat.conf` -- so vmctl reports the rules it cannot apply
+instead of pretending. `vmctl capabilities` says which you are dealing with.
+
 ### Before a Destructive Test
 
 All four hypervisors can take snapshots, so vmctl does too.

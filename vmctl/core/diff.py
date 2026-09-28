@@ -275,11 +275,24 @@ def _networks(live: VMConfig, desired: VMConfig, stated: Optional[Set[str]] = No
             changes.append(Change(where, ChangeKind.REMOVED, live=_nic_summary(vm_nic)))
             continue
         left, right = vm_nic.to_dict(), file_nic.to_dict()
+        # Port forwards are compared by what they *do* (E-10): a rule's name is a
+        # label only VirtualBox stores, so a file that calls a rule `ssh` would
+        # otherwise disagree for ever with a QEMU VM that calls the same forward
+        # `tcp-2222`. Rendered as effects, which is also readable -- the raw lists of
+        # dictionaries filled a terminal line each.
+        if "port_forwards" in set(left) | set(right):
+            left["port_forwards"] = _forwards(vm_nic)
+            right["port_forwards"] = _forwards(file_nic)
         for key in sorted(set(left) | set(right)):
             if key in IGNORED_NETWORK_FIELDS or not mentions(stated, f"networks.{key}"):
                 continue
             changes += _compare(f"{where}.{key}", left.get(key, _ABSENT), right.get(key, _ABSENT))
     return changes
+
+
+def _forwards(nic) -> str:
+    """Return an adapter's port forwards as what they do, in a stable order."""
+    return "; ".join(sorted(rule.label for rule in nic.port_forwards)) or "none"
 
 
 def _compare(path: str, left: Any, right: Any) -> List[Change]:

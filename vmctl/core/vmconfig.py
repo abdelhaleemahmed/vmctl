@@ -53,6 +53,7 @@ __all__ = [
     "NetworkConfig",
     "NetworkType",
     "NicModel",
+    "PortForward",
     "StorageController",
     "StorageControllerConfig",
     "StorageDevice",
@@ -595,6 +596,78 @@ StorageControllerConfig = StorageController
 
 
 @dataclass
+class PortForward:
+    """One host port forwarded to a guest port through a NAT adapter (E-10).
+
+    The setting a lab actually uses -- "ssh to localhost:2222 reaches the guest" --
+    and one the model had no word for, so it was lost on every round trip.
+
+    The field order follows VirtualBox's own spelling,
+    ``name,protocol,hostip,hostport,guestip,guestport``, because that is the most
+    detailed of the four and the others are subsets of it: QEMU's
+    ``hostfwd=tcp:127.0.0.1:2222-:22`` is the same thing without a name, and
+    libvirt's ``<portForward>`` the same again in XML.
+
+    Attributes:
+        host_port: The port on this machine. Required; there is no default worth
+            guessing.
+        guest_port: The port inside the guest. Required.
+        protocol: ``tcp`` or ``udp``.
+        name: What the rule is called. VirtualBox needs one and requires it to be
+            unique; the others have no such concept, so vmctl fills one in rather
+            than making every config carry a field only one provider reads.
+        host_ip: Which host address to listen on. Empty means all of them, which is
+            what every provider means by leaving it out -- and a reason to set it:
+            ``127.0.0.1`` keeps a lab's forwarded ports off the network.
+        guest_ip: Which guest address to send to. Empty means the address the
+            guest's DHCP gave it, which is what a NAT adapter normally wants.
+    """
+
+    host_port: int = 0
+    guest_port: int = 0
+    protocol: str = "tcp"
+    name: str = ""
+    host_ip: str = ""
+    guest_ip: str = ""
+
+    def __post_init__(self) -> None:
+        """Normalise the protocol and give the rule a name if it has none.
+
+        A name is generated rather than demanded: only VirtualBox has the concept,
+        and ``ssh-2222`` says more in a listing than ``rule1`` does.
+        """
+        self.protocol = str(self.protocol).strip().lower() or "tcp"
+        if not self.name:
+            self.name = f"{self.protocol}-{self.host_port}"
+
+    @property
+    def label(self) -> str:
+        """Return the rule in one line, the way a person would say it."""
+        where = self.host_ip or "*"
+        target = self.guest_ip or "guest"
+        return f"{self.protocol} {where}:{self.host_port} -> {target}:{self.guest_port}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return the rule as plain data, leaving out what was not set.
+
+        An empty ``host_ip`` is "all addresses" rather than a value, so writing it
+        out would turn a default into a statement -- which ``diff`` and ``apply``
+        would then treat as a request (E-01, E-02).
+        """
+        data: Dict[str, Any] = {
+            "name": self.name,
+            "protocol": self.protocol,
+            "host_port": self.host_port,
+            "guest_port": self.guest_port,
+        }
+        if self.host_ip:
+            data["host_ip"] = self.host_ip
+        if self.guest_ip:
+            data["guest_ip"] = self.guest_ip
+        return data
+
+
+@dataclass
 class NetworkConfig:
     """Network adapter configuration.
 
@@ -605,6 +678,9 @@ class NetworkConfig:
         adapter_name: Physical or virtual interface name used for BRIDGED / HOSTONLY modes.
         mac_address: Custom MAC address; ``None`` lets VirtualBox assign one automatically.
         promiscuous_mode: Allow the adapter to receive packets not addressed to it.
+        port_forwards: Host ports forwarded into the guest. Only meaningful on a
+            NAT adapter -- every other mode reaches the guest directly -- and not
+            every provider can express them (E-10).
         provider_options: Native details with no neutral equivalent, by provider
             name. This is what keeps a same-provider round trip exact where the
             neutral vocabulary is deliberately coarser: VirtualBox has three Intel
@@ -621,6 +697,7 @@ class NetworkConfig:
     adapter_name: Optional[str] = None  # For bridged/host-only
     mac_address: Optional[str] = None
     promiscuous_mode: bool = False
+    port_forwards: List[PortForward] = field(default_factory=list)
     provider_options: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -661,6 +738,13 @@ class NetworkConfig:
         result["model"] = self.model.value
         if not self.provider_options:
             del result["provider_options"]
+        if self.port_forwards:
+            # Each rule renders itself, so an unset host_ip stays unset: `asdict`
+            # would write it as "" and a default written down is a default that
+            # `diff` and `apply` then treat as a request (E-01, E-02).
+            result["port_forwards"] = [rule.to_dict() for rule in self.port_forwards]
+        else:
+            del result["port_forwards"]
         return result
 
 

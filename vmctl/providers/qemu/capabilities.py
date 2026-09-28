@@ -178,6 +178,10 @@ class QemuCapabilities:
             # why only qcow2 works -- a raw image answers "Operation not supported".
             # There is nowhere to put a description, and no daemon to ask about a
             # running VM, so vmctl checks its own pidfile before touching an image.
+            # Measured by starting a VM with
+            # `-netdev user,hostfwd=tcp::12222-:22,hostfwd=udp:127.0.0.1:15353-...`
+            # and finding both sockets listening on the host.
+            port_forwards=Support.NATIVE,
             snapshots=Support.NATIVE,
             snapshot_formats=(DiskFormat.QCOW2,),
             secure_boot_readable=False,

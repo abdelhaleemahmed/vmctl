@@ -8,6 +8,7 @@ import sys
 from collections import OrderedDict
 from typing import List, Dict, Optional
 from ...core.vmconfig import (
+    PortForward,
     VMConfig,
     DeviceKind,
     Allocation,
@@ -232,6 +233,7 @@ class VirtualBoxEmitter:
         # Configure network adapters
         for i, network in enumerate(vm.networks):
             commands.append(self._configure_network_adapter(i + 1, network, translator))
+            commands += self._port_forward_commands(vm.name, i + 1, network, translator)
 
         # Boot order
         for i, device in enumerate(vm.boot.order[:4], 1):
@@ -552,14 +554,80 @@ class VirtualBoxEmitter:
         changes = [c for c in diff(current, desired) if c.path.startswith("networks[")]
         commands: List[List[str]] = []
         for index in sorted({int(re.findall(r"\[(\d+)\]", c.path)[0]) for c in changes}):
-            if index < len(desired.networks):
-                commands.append(
-                    self._configure_network_adapter(
-                        index + 1, desired.networks[index], translator, vm_name=target
-                    )
-                )
-            else:
+            if index >= len(desired.networks):
                 commands.append(["VBoxManage", "modifyvm", target, f"--nic{index + 1}", "none"])
+                continue
+            wanted = desired.networks[index]
+            # The adapter's settings, then its forwarding rules -- which are their own
+            # commands, and additive: re-applying one that is already there is an
+            # error, so what the VM has is taken into account (E-10).
+            if any(
+                not change.path.endswith(".port_forwards")
+                for change in changes
+                if f"[{index}]" in change.path
+            ):
+                commands.append(
+                    self._configure_network_adapter(index + 1, wanted, translator, vm_name=target)
+                )
+            have = current.networks[index].port_forwards if index < len(current.networks) else []
+            commands += self._port_forward_commands(
+                target, index + 1, wanted, translator, existing=have
+            )
+        return commands
+
+    def _port_forward_commands(
+        self,
+        vm_name: str,
+        adapter_num: int,
+        network: NetworkConfig,
+        translator: Translator,
+        existing: Optional[List[PortForward]] = None,
+    ) -> List[List[str]]:
+        """Return the ``--natpf`` commands for one adapter's port forwards (E-10).
+
+        VirtualBox spells a rule ``name,protocol,hostip,hostport,guestip,guestport``
+        and adds them one at a time. Measured on 7.1.18: adding a rule whose **name or
+        host port** already exists fails with ``E_INVALIDARG``, so converging cannot
+        simply re-apply the wanted set -- what is no longer wanted is deleted first,
+        by name, and only the genuinely new rules are added. That is also what makes
+        ``apply`` idempotent here.
+
+        Args:
+            vm_name: The VM to address.
+            adapter_num: VirtualBox's 1-based adapter number.
+            network: The adapter as it should be.
+            translator: Records a forward VirtualBox cannot express.
+            existing: The rules the VM already has, when editing. None means a fresh
+                VM, where everything asked for is added.
+        """
+        if network.network_type is not NetworkType.NAT:
+            if network.port_forwards:
+                translator.drop(
+                    f"networks[{adapter_num - 1}].port_forwards",
+                    "; ".join(rule.label for rule in network.port_forwards),
+                    "VirtualBox forwards ports only on a NAT adapter; every other "
+                    "mode reaches the guest directly",
+                )
+            return []
+
+        wanted = {_natpf_value(rule): rule for rule in network.port_forwards}
+        have = {_natpf_value(rule): rule for rule in existing or []}
+        commands: List[List[str]] = []
+        for value, rule in have.items():
+            if value not in wanted:
+                commands.append(
+                    [
+                        "VBoxManage",
+                        "modifyvm",
+                        vm_name,
+                        f"--natpf{adapter_num}",
+                        "delete",
+                        rule.name,
+                    ]
+                )
+        for value in wanted:
+            if value not in have:
+                commands.append(["VBoxManage", "modifyvm", vm_name, f"--natpf{adapter_num}", value])
         return commands
 
     def _nictype(self, network: NetworkConfig, where: str, translator: Translator) -> str:
@@ -662,3 +730,21 @@ def _head(path: str) -> str:
     """Return the top-level field a diff path is about: ``storage[sata/0].size_mb``
     is about ``storage``."""
     return path.split("[")[0].split(".")[0]
+
+
+def _natpf_value(rule: PortForward) -> str:
+    """Return a rule in VirtualBox's own spelling.
+
+    ``name,protocol,hostip,hostport,guestip,guestport`` -- with the addresses allowed
+    to be empty, which is the usual form: ``ssh,tcp,,2222,,22``.
+    """
+    return ",".join(
+        [
+            rule.name,
+            rule.protocol,
+            rule.host_ip,
+            str(rule.host_port),
+            rule.guest_ip,
+            str(rule.guest_port),
+        ]
+    )

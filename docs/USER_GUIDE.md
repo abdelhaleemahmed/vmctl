@@ -218,6 +218,36 @@ vmctl diff web-01 web-01.yaml || vmctl apply web-01.yaml --execute
 
 ---
 
+## Port Forwarding on a NAT Adapter
+
+```yaml
+networks:
+  - network_type: nat
+    port_forwards:
+      - name: ssh          # optional; VirtualBox needs one and vmctl fills it in
+        protocol: tcp      # tcp (default) or udp
+        host_ip: 127.0.0.1 # optional; empty means every address on this machine
+        host_port: 2222
+        guest_port: 22
+```
+
+Then `ssh -p 2222 user@localhost` reaches the guest. The rules are part of the
+configuration, so they are exported, diffed and applied like everything else.
+
+What each hypervisor can do differs, and `vmctl capabilities` states it:
+
+- **VirtualBox** and **plain QEMU** forward ports natively.
+- **libvirt** forwards them through its `passt` backend. If passt is not installed,
+  vmctl reports the rules as not applied rather than handing libvirt a domain it
+  refuses to define.
+- **VMware Workstation** has no per-VM port forwarding -- it is configured host-wide in
+  `vmnetnat.conf` -- so the rules are reported as something this provider cannot express.
+
+`vmctl validate` catches a port outside 1-65535, a protocol that is not tcp or udp, and
+two rules claiming the same host port.
+
+---
+
 ## Snapshots
 
 ```bash

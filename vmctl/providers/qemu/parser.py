@@ -27,6 +27,7 @@ from ...core.vmconfig import (
     MemoryConfig,
     NetworkConfig,
     NetworkType,
+    PortForward,
     StorageController,
     StorageDevice,
     VMConfig,
@@ -314,10 +315,19 @@ class QemuParser:
     def _networks(self, pairs) -> List[NetworkConfig]:
         """Build adapters by pairing ``-netdev`` backends with their devices."""
         backends: Dict[str, Dict[str, str]] = {}
+        # `hostfwd=` may appear many times in one netdev, and a mapping keeps only the
+        # last -- which silently dropped every forward but one. The raw list is kept
+        # alongside for the keys that repeat (E-10).
+        backend_values: Dict[str, List[str]] = {}
         for value in self._all(pairs, "-netdev"):
             options = _options(value)
             if "id" in options:
                 backends[options["id"]] = options
+                backend_values[options["id"]] = [
+                    part[len("hostfwd=") :]
+                    for part in value.split(",")
+                    if part.startswith("hostfwd=")
+                ]
 
         networks: List[NetworkConfig] = []
         for value in self._all(pairs, "-device"):
@@ -333,6 +343,7 @@ class QemuParser:
                     network_type=NETDEV_TO_NETWORK.get(kind, NetworkType.NAT),
                     adapter_name=backend.get("br"),
                     mac_address=options.get("mac"),
+                    port_forwards=_hostfwd_rules(backend_values.get(netdev_id, [])),
                 )
             )
         return networks
@@ -352,3 +363,31 @@ def _int(value: Optional[str], default: int) -> int:
         return default
     digits = "".join(ch for ch in str(value) if ch.isdigit())
     return int(digits) if digits else default
+
+
+def _hostfwd_rules(values: List[str]) -> List[PortForward]:
+    """Return the port forwards in a netdev's ``hostfwd=`` values.
+
+    QEMU's spelling is ``tcp:127.0.0.1:2222-10.0.2.15:22``, and either address may be
+    empty: ``tcp::2222-:22`` is the common form. So the parts are found from the ends
+    -- protocol first, ports last -- rather than by counting colons, which differs
+    between the two forms.
+    """
+    rules: List[PortForward] = []
+    for value in values:
+        protocol, _, rest = value.partition(":")
+        host, _, guest = rest.partition("-")
+        host_ip, _, host_port = host.rpartition(":")
+        guest_ip, _, guest_port = guest.rpartition(":")
+        if not host_port.isdigit() or not guest_port.isdigit():
+            continue
+        rules.append(
+            PortForward(
+                host_port=int(host_port),
+                guest_port=int(guest_port),
+                protocol=protocol or "tcp",
+                host_ip=host_ip,
+                guest_ip=guest_ip,
+            )
+        )
+    return rules

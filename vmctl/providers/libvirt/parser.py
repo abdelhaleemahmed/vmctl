@@ -28,6 +28,7 @@ from ...core.vmconfig import (
     MemoryConfig,
     NetworkConfig,
     NetworkType,
+    PortForward,
     StorageController,
     StorageDevice,
     VMConfig,
@@ -339,6 +340,7 @@ class LibvirtParser:
                     network_type=mode,
                     adapter_name=name,
                     mac_address=(mac.get("address") if mac is not None else None),
+                    port_forwards=_parse_port_forwards(iface),
                 )
             )
         return networks
@@ -474,3 +476,35 @@ def _image_size_mb(path: Optional[str], probe: Optional[MediumProbe]) -> int:
         return int(probe(path).get("size_mb") or 0)
     except Exception:
         return 0
+
+
+def _parse_port_forwards(iface: ET.Element) -> List[PortForward]:
+    """Return an interface's ``<portForward>`` rules (E-10).
+
+    ``<range start='2222' to='22'/>``: the host port and the guest port. A range with
+    an ``end`` covers several host ports at once, which the neutral model has no word
+    for -- so it is expanded into one rule per port, which is the same thing said
+    longhand and survives a round trip.
+    """
+    rules: List[PortForward] = []
+    for forward in iface.findall("portForward"):
+        protocol = (forward.get("proto") or "tcp").strip().lower()
+        host_ip = forward.get("address") or ""
+        for entry in forward.findall("range"):
+            start = entry.get("start")
+            if not start or not start.isdigit():
+                continue
+            first = int(start)
+            last = int(entry.get("end") or start)
+            guest = entry.get("to")
+            guest_first = int(guest) if guest and guest.isdigit() else first
+            for offset in range(max(0, last - first) + 1):
+                rules.append(
+                    PortForward(
+                        host_port=first + offset,
+                        guest_port=guest_first + offset,
+                        protocol=protocol,
+                        host_ip=host_ip,
+                    )
+                )
+    return rules

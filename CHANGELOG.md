@@ -96,6 +96,19 @@ things prevented that:
 
 ### Added
 
+- **NAT port forwarding** (`port_forwards:` on a network adapter), which the model had
+  no word for -- so a lab VM's `ssh to localhost:2222` was lost on every round trip.
+  VirtualBox and QEMU do it natively; libvirt needs its passt backend, and vmctl checks
+  whether passt is installed rather than emitting a domain libvirt would reject; VMware
+  has no per-VM setting at all (its NAT forwards are host-wide) and says so. `vmctl
+  validate` catches a port outside 1-65535, an unknown protocol, and two rules claiming
+  the same host port -- one message instead of four different ones from four
+  hypervisors.
+- Fixed: a config file that listed `storage:` or `networks:` reset every field of an
+  existing disk or adapter that the file did not mention -- `bootable`, `discard`,
+  `promiscuous_mode` and the rest -- back to defaults when applied. Only what a file
+  states is applied, which was already true of settings and is now true of list
+  entries too.
 - **Snapshots, on all four hypervisors**: `vmctl snapshot take|list|restore|delete`.
   Taking one is immediate; restoring and deleting ask first, because each throws
   something away. What a listing can show depends on the hypervisor and

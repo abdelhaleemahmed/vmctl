@@ -139,11 +139,11 @@ def overlay(live: VMConfig, desired: VMConfig, stated: Optional[Set[str]] = None
     _overlay_fields(result, desired, "", stated, skip=set(IGNORED_VM_FIELDS))
 
     if mentions(stated, "storage"):
-        result.storage = _carried_devices(live.storage, desired.storage)
+        result.storage = _carried_devices(live.storage, desired.storage, stated)
     if mentions(stated, "storage_controllers"):
         result.storage_controllers = copy.deepcopy(desired.storage_controllers)
     if mentions(stated, "networks"):
-        result.networks = _carried_networks(live.networks, desired.networks)
+        result.networks = _carried_networks(live.networks, desired.networks, stated)
     return result
 
 
@@ -168,42 +168,63 @@ def _overlay_fields(
 
 
 def _carried_devices(
-    live: List[StorageDevice], desired: List[StorageDevice]
+    live: List[StorageDevice],
+    desired: List[StorageDevice],
+    stated: Optional[Set[str]] = None,
 ) -> List[StorageDevice]:
     """Return the file's devices, each keeping what only the VM can know.
 
     Matched by address, the same way ``diff`` matches them, so the device at
-    ``sata0:0`` keeps the image it has rather than being pointed at a path computed
+    ``sata/0`` keeps the image it has rather than being pointed at a path computed
     from its name -- which is how a redefinition would silently detach a disk.
+
+    For a device that **already exists**, only the fields the file states are taken
+    from it: the rest stay as the VM has them. Replacing the whole device instead was
+    the device-level version of the mistake ``apply`` exists to avoid -- a file saying
+    ``storage: [{name: system, size_mb: 512}]`` also reset ``bootable``, ``discard``,
+    ``allocation`` and every other unstated field to the model's default, and the
+    first symptom was VirtualBox warning about a storage layout that had not changed
+    (F-46).
     """
     on_vm = by_address(live)
     in_file = by_address(desired)
     out: List[StorageDevice] = []
     for address, device in in_file.items():
-        merged = copy.deepcopy(device)
         existing = on_vm.get(address)
-        if existing is not None:
-            for name in CARRIED_DEVICE_FIELDS:
-                setattr(merged, name, copy.deepcopy(getattr(existing, name)))
+        if existing is None:
+            out.append(copy.deepcopy(device))  # a new device is the file's, entirely
+            continue
+        merged = copy.deepcopy(existing)
+        _overlay_fields(merged, device, "storage", stated, skip=set(CARRIED_DEVICE_FIELDS))
+        # The name is the file's: it is what the user calls the device, and the
+        # providers that cannot store one generate something unreadable.
+        merged.name = device.name or merged.name
         out.append(merged)
     return out
 
 
 def _carried_networks(
-    live: List[NetworkConfig], desired: List[NetworkConfig]
+    live: List[NetworkConfig],
+    desired: List[NetworkConfig],
+    stated: Optional[Set[str]] = None,
 ) -> List[NetworkConfig]:
     """Return the file's adapters, each keeping the MAC the hypervisor generated.
 
-    By position, which is what every provider numbers adapters by. A file that does
-    state a MAC keeps its own: this carries a value over, it does not override one.
+    By position, which is what every provider numbers adapters by, and field by field
+    for an adapter that already exists -- the same rule as for devices (F-46). A file
+    that *does* state a MAC keeps its own: this carries a value over, it does not
+    override one.
     """
     out: List[NetworkConfig] = []
     for index, adapter in enumerate(desired):
-        merged = copy.deepcopy(adapter)
-        if index < len(live):
-            for name in CARRIED_NETWORK_FIELDS:
-                if getattr(merged, name, None) in (None, {}):
-                    setattr(merged, name, copy.deepcopy(getattr(live[index], name)))
+        if index >= len(live):
+            out.append(copy.deepcopy(adapter))
+            continue
+        merged = copy.deepcopy(live[index])
+        _overlay_fields(merged, adapter, "networks", stated, skip=set(CARRIED_NETWORK_FIELDS))
+        for name in CARRIED_NETWORK_FIELDS:
+            if getattr(adapter, name, None) not in (None, {}):
+                setattr(merged, name, copy.deepcopy(getattr(adapter, name)))
         out.append(merged)
     return out
 

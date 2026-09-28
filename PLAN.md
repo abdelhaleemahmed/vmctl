@@ -421,6 +421,28 @@ re-measured by starting a domain per model.
 One provider's table is not evidence for another's, even when one of them is a
 manager of the other.
 
+### F-46 — A stated list reset the fields it did not mention · M *(fixed)*
+`vmctl/core/apply.py`
+
+`E-02` established the rule -- only what a file states is applied -- and applied it to
+*settings* only. A stated list replaced its elements whole, so
+
+    storage:
+      - name: system
+        size_mb: 20480
+
+reset `bootable`, `discard`, `nonrotational`, `allocation` and every other unstated
+field of an existing disk to the model's default, and the same for an adapter's
+`promiscuous_mode`.
+
+Found sideways, which is the interesting part: while verifying E-10's port forwards on
+the real host, `apply` warned *"storage layout differs from the VM but cannot be changed
+in place"* for a VM whose storage had not changed. The warning was right -- the overlaid
+config really did differ from the VM -- and the overlay was wrong.
+
+A device that already exists now takes only the fields the file states, exactly as a
+setting does; a device the file *adds* is the file's entirely.
+
 ### F-45 — A VM vmctl had snapshotted could not be deleted by vmctl · S *(fixed)*
 `vmctl/providers/libvirt/backend.py`
 
@@ -2554,9 +2576,39 @@ the model (E-03, E-05) want Phase 5 first.
   > `restore`), and take/list/restore/delete on libvirt, VirtualBox and VMware
   > Workstation. Both refusals were verified too: a raw disk, and a running QEMU VM
   > whose images are open.
-- **E-10 Port-forwarding rules for NAT · M.** `NetworkConfig` has no
+- **E-10 Port-forwarding rules for NAT · M. *(done)*** `NetworkConfig` has no
   `port_forwards`, so a NAT VM's SSH forward is lost on every round trip — a
   very common lab setting.
+
+  > Done, with `PortForward` in the model and each provider's own spelling measured
+  > against the product:
+  >
+  > * **VirtualBox** `--natpf1 "ssh,tcp,,2222,,22"`. Adding a rule whose name *or* host
+  >   port already exists fails with `E_INVALIDARG`, so converging **deletes what is no
+  >   longer wanted before adding what is new** rather than re-applying the set. That is
+  >   what makes `apply` idempotent here, and it was found by trying it.
+  > * **QEMU** `hostfwd=tcp::2222-:22`, one per rule on the `-netdev`. Confirmed by
+  >   starting a VM and finding both sockets listening on the host.
+  > * **libvirt** `<portForward>`, which it accepts *only* with `<backend type='passt'/>`
+  >   -- "The <portForward> element can only be used with the 'passt' backend". So
+  >   asking for a forward also chooses the backend, passt is a separate package, and
+  >   `probe()` turns the capability off when it is absent instead of emitting a domain
+  >   libvirt will reject. Confirmed by starting the domain and finding the port
+  >   listening.
+  > * **VMware** has no per-VM setting at all: Workstation's NAT forwarding lives in the
+  >   host-wide `vmnetnat.conf`, which vmctl will not edit behind a user's back. Reported
+  >   as a loss.
+  >
+  > Two things fell out of it. VirtualBox's `--machinereadable` output **cannot say
+  > which adapter a rule belongs to**: it prints `Forwarding(0)=` per adapter with the
+  > index restarting and no adapter number anywhere, so the parser reads the
+  > human-readable form (`NIC 1 Rule(0): ...`), and only for VMs that have rules. And
+  > `diff` compares forwards **by what they do**, because a rule's name is a label only
+  > VirtualBox stores -- a file calling a forward `ssh` would otherwise disagree for
+  > ever with a QEMU VM calling the same forward `tcp-2222`.
+  >
+  > Also `F-46`, which this found in `E-02`: a stated `storage:` list was replacing
+  > whole devices, so every unstated device field went back to the model's default.
 - **E-11 Config profiles / includes · M.** Let a config reference a base file
   (`extends: base.yaml`) so the batch file's base/override idea works for
   single VMs too, without duplicating YAML across a lab.
@@ -2780,6 +2832,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-43 VMware reported itself missing on a host where it works
          [x] F-44 five libosinfo ids that this database does not have
          [x] F-45 a VM vmctl had snapshotted could not be deleted by vmctl
+         [x] F-46 a stated list reset the fields it did not mention
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2810,6 +2863,6 @@ Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [x] E-03 clone-disks  [x] E-05 capability probing
          [x] E-02 apply  [x] E-07 json  [x] E-08 -v/-q  [x] E-12 doctor
-         [x] E-09 snapshots  [ ] E-10 port forwards  [ ] E-11 extends
+         [x] E-09 snapshots  [x] E-10 port forwards  [ ] E-11 extends
          [ ] E-14/E-15/E-18/E-19 Tier C
 ```

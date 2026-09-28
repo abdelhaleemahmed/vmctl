@@ -14,7 +14,7 @@ meant a caller's object changed under them and no warning was ever produced
 (F-08).
 """
 
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from ..core.capabilities import Capabilities
 from ..core.exceptions import ValidationError
@@ -23,7 +23,7 @@ from ..core.naming import check_name
 from ..core.platform import describe_topology, topology_product
 from ..core.slots import place
 from ..core.translate import Policy, Translator
-from ..core.vmconfig import BusType, DeviceKind, FirmwareType, VMConfig
+from ..core.vmconfig import BusType, DeviceKind, FirmwareType, NetworkType, VMConfig
 
 
 class VMValidator:
@@ -72,6 +72,58 @@ class VMValidator:
         self._validate_storage_topology(vm)
         self._validate_logical_constraints(vm, warnings)
         return warnings
+
+    def _validate_port_forwards(self, vm: VMConfig, warnings: List[str]) -> None:
+        """Check NAT port forwards (E-10).
+
+        Errors for what cannot work anywhere -- a port outside 1-65535, or two rules
+        claiming the same host port and address, which every provider refuses in its
+        own words. Warnings for what only *this* provider cannot do, since a config is
+        meant to be portable and the translator reports the loss when it emits.
+        """
+        claimed: Dict[Tuple[str, str, int], str] = {}
+        for index, net in enumerate(vm.networks):
+            if not net.port_forwards:
+                continue
+            where = f"networks[{index}].port_forwards"
+            if net.network_type is not NetworkType.NAT:
+                warnings.append(
+                    f"{where} is set on a {net.network_type.value} adapter; forwarding "
+                    f"is a NAT idea -- every other mode reaches the guest directly"
+                )
+            if not self.capabilities.port_forwards.usable:
+                warnings.append(
+                    f"{where} cannot be expressed by {self.capabilities.provider}, so "
+                    f"the rules will not be applied"
+                )
+            for rule in net.port_forwards:
+                for label, port in (("host_port", rule.host_port), ("guest_port", rule.guest_port)):
+                    if not 1 <= port <= 65535:
+                        raise ValidationError(
+                            f"{where} rule {rule.name!r} has {label} {port}, which is "
+                            f"not a port",
+                            field=f"{where}.{label}",
+                            value=port,
+                            expected="1-65535",
+                        )
+                if rule.protocol not in ("tcp", "udp"):
+                    raise ValidationError(
+                        f"{where} rule {rule.name!r} uses protocol {rule.protocol!r}",
+                        field=f"{where}.protocol",
+                        value=rule.protocol,
+                        expected="tcp | udp",
+                    )
+                key = (rule.protocol, rule.host_ip, rule.host_port)
+                if key in claimed:
+                    raise ValidationError(
+                        f"two port forwards claim {rule.protocol} port "
+                        f"{rule.host_port} on {rule.host_ip or 'every address'}: "
+                        f"{claimed[key]!r} and {rule.name!r}",
+                        field=f"{where}.host_port",
+                        value=rule.host_port,
+                        expected="one rule per host port and address",
+                    )
+                claimed[key] = rule.name
 
     # -- errors --------------------------------------------------------------
 
@@ -414,6 +466,8 @@ class VMValidator:
                     f"networks[{i}] names {net.adapter_name!r}, which this host does "
                     f"not have; available: {', '.join(on_this_host)}"
                 )
+
+        self._validate_port_forwards(vm, warnings)
 
         if vm.cpu.count > 1 and not vm.boot.ioapic and self.capabilities.ioapic_optional:
             # x86 SMP needs an I/O APIC to route interrupts to more than one CPU.

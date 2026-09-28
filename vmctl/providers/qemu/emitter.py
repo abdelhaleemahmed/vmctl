@@ -307,12 +307,48 @@ class QemuEmitter:
             netdev = f"{backend},id={netdev_id}"
             if backend == "bridge" and net.adapter_name:
                 netdev += f",br={net.adapter_name}"
+            netdev += self._hostfwd(net, backend, index, translator)
             argv += ["-netdev", netdev]
             argv += [
                 "-device",
                 self._nic_device(net, netdev_id, f"networks[{index}].model", translator),
             ]
         return argv
+
+    def _hostfwd(
+        self,
+        net: NetworkConfig,
+        backend: str,
+        index: int,
+        translator: Optional[Translator],
+    ) -> str:
+        """Return the ``hostfwd=`` options for an adapter's port forwards (E-10).
+
+        QEMU spells a rule ``tcp:127.0.0.1:2222-10.0.2.15:22``, with either address
+        allowed to be empty, and takes one ``hostfwd=`` per rule. Verified by starting
+        a VM with two and finding both sockets listening on the host.
+
+        Only user networking has them: a bridged guest is on the network already, so
+        asking for a forward there is a mistake worth reporting rather than ignoring.
+        """
+        if not net.port_forwards:
+            return ""
+        if backend != "user":
+            if translator is not None:
+                translator.drop(
+                    f"networks[{index}].port_forwards",
+                    ", ".join(rule.label for rule in net.port_forwards),
+                    "QEMU forwards ports only on user networking; a bridged guest is "
+                    "reachable directly",
+                )
+            return ""
+        parts = []
+        for rule in net.port_forwards:
+            parts.append(
+                f",hostfwd={rule.protocol}:{rule.host_ip}:{rule.host_port}"
+                f"-{rule.guest_ip}:{rule.guest_port}"
+            )
+        return "".join(parts)
 
     def _nic_device(
         self,

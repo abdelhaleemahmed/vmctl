@@ -298,6 +298,16 @@ class VMwareEmitter:
                 keys[f"{prefix}.address"] = _format_mac(net.mac_address)
             else:
                 keys[f"{prefix}.addressType"] = "generated"
+            if net.port_forwards and translator is not None:
+                # Workstation configures NAT forwarding host-wide, in `vmnetnat.conf`,
+                # not per VM -- so there is no `.vmx` key to write and vmctl is not
+                # going to edit a host-wide file behind a user's back (E-10).
+                translator.drop(
+                    f"networks[{index}].port_forwards",
+                    "; ".join(rule.label for rule in net.port_forwards),
+                    "VMware has no per-VM port forwarding; its NAT forwards live in "
+                    "the host-wide vmnetnat.conf",
+                )
 
     def _nic_model(self, net: NetworkConfig, where: str, translator) -> str:
         """Return the ``virtualDev`` for a NIC model, substituting if it has none."""

@@ -137,6 +137,10 @@ class VMwareCapabilities:
             # Measured with vmrun 1.17.0: snapshot / listSnapshots /
             # revertToSnapshot / deleteSnapshot. No description and no timestamp --
             # `listSnapshots` prints "Total snapshots: N" and then the names.
+            # Workstation has no per-VM port forwarding: it is configured host-wide
+            # in `vmnetnat.conf` (present on the test host), which is not something
+            # vmctl will edit behind a user's back. Asking for one is reported.
+            port_forwards=Support.UNSUPPORTED,
             snapshots=Support.NATIVE,
             # `uefi.secureBoot.enabled` is written and read back like any other key.
             secure_boot_readable=True,

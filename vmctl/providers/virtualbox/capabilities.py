@@ -190,6 +190,12 @@ class VirtualBoxCapabilities:
             # `list --machinereadable`, and there is no format restriction -- a
             # snapshot writes a *differencing* image (a new `{uuid}.vdi` appeared
             # under Snapshots/), and a VM with a RAW disk attached snapshots too.
+            # Measured: `--natpf1 "ssh,tcp,,2222,,22"` and, reading back,
+            # `NIC 1 Rule(0): name = ssh, protocol = tcp, ...`. VirtualBox refuses a
+            # second rule with the same name *or* the same host port (E_INVALIDARG),
+            # so converging deletes before it adds.
+            port_forwards=Support.NATIVE,
+            port_forward_names=True,
             snapshots=Support.NATIVE,
             snapshot_descriptions=True,
             secure_boot_readable=False,

@@ -21,7 +21,7 @@ import subprocess
 from dataclasses import replace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ...core.capabilities import Capabilities
+from ...core.capabilities import Capabilities, Support
 from ...core.hostinfo import host_bridges
 from ...core.exceptions import (
     DependencyError,
@@ -173,14 +173,18 @@ class LibvirtBackend(BaseProvider):
         * the machine types this emulator actually offers, so a config naming one is
           checked rather than substituted on a guess;
         * the networks and bridges this host has, so ``adapter_name`` is validated at
-          validate time instead of failing when the domain starts.
+          validate time instead of failing when the domain starts;
+        * whether ``passt`` is installed, because it is the only backend libvirt will
+          accept ``<portForward>`` with -- so without it, port forwarding is not a
+          capability of this host however new the libvirt is (E-10).
 
         Nothing raises: an unanswerable question leaves the static value alone.
         """
         caps = self.capabilities
         machines = self._probe_machines()
         interfaces = self._probe_interfaces()
-        if not machines and not interfaces:
+        forwarding = caps.port_forwards if shutil.which("passt") else Support.UNSUPPORTED
+        if not machines and not interfaces and forwarding is caps.port_forwards:
             return caps
         evidence = caps.evidence
         asked = []
@@ -190,10 +194,12 @@ class LibvirtBackend(BaseProvider):
             asked.append(
                 ", ".join(f"{len(names)} {mode}" for mode, names in sorted(interfaces.items()))
             )
+        asked.append("passt " + ("present" if forwarding.usable else "absent"))
         return replace(
             caps,
             machine_types=machines or caps.machine_types,
             host_interfaces=interfaces or caps.host_interfaces,
+            port_forwards=forwarding,
             evidence=(f"{evidence} Asked this host directly (E-05): " + "; ".join(asked) + "."),
         )
 

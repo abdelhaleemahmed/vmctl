@@ -262,3 +262,53 @@ def test_an_optical_drive_is_not_a_disk_to_worry_about(live):
     )
 
     assert plan_convergence(live, desired, stated).warnings == []
+
+
+# ---------------------------------------------------------------------------
+# F-46: a stated list must not reset the fields it does not mention
+# ---------------------------------------------------------------------------
+
+
+def test_a_stated_device_keeps_the_fields_the_file_does_not_mention(live):
+    """The device-level version of "a default is not a request". A file saying
+    `storage: [{name: system, size_mb: 20480}]` was replacing the whole device, so
+    `bootable`, `discard`, `allocation` and the rest went back to the model's defaults
+    -- and the first symptom was VirtualBox warning about a storage layout that had not
+    changed at all."""
+    live.storage[0].bootable = True
+    live.storage[0].discard = True
+    live.storage[0].nonrotational = True
+    desired, stated = _from_file({"name": "web", "storage": [{"name": "system", "size_mb": 40960}]})
+
+    device = overlay(live, desired, stated).storage[0]
+
+    assert device.size_mb == 40960  # what the file asked for
+    assert device.bootable is True and device.discard is True and device.nonrotational is True
+    assert device.name == "system"  # the file's own label for it
+
+
+def test_a_stated_adapter_keeps_the_rest_of_its_settings(live):
+    live.networks[0].promiscuous_mode = True
+    desired, stated = _from_file({"name": "web", "networks": [{"model": "virtio"}]})
+
+    adapter = overlay(live, desired, stated).networks[0]
+
+    assert adapter.model.value == "virtio"
+    assert adapter.promiscuous_mode is True
+    assert adapter.mac_address == "080027AABBCC"
+
+
+def test_a_device_the_file_adds_is_taken_from_the_file_entirely(live):
+    desired, stated = _from_file(
+        {
+            "name": "web",
+            "storage": [
+                {"name": "root", "size_mb": 20480},
+                {"name": "data", "size_mb": 4096, "slot": 1, "discard": True},
+            ],
+        }
+    )
+
+    added = overlay(live, desired, stated).storage[1]
+
+    assert added.name == "data" and added.discard is True

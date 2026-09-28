@@ -349,6 +349,13 @@
           ],
           "type": "string"
         },
+        "port_forwards": {
+          "description": "Host ports forwarded into the guest. Only meaningful on a NAT adapter -- every other mode reaches the guest directly -- and not every provider can express them (E-10).",
+          "items": {
+            "$ref": "#/$defs/PortForward"
+          },
+          "type": "array"
+        },
         "promiscuous_mode": {
           "default": false,
           "description": "Allow the adapter to receive packets not addressed to it.",
@@ -357,6 +364,42 @@
         "provider_options": {
           "description": "Native details with no neutral equivalent, by provider name. This is what keeps a same-provider round trip exact where the neutral vocabulary is deliberately coarser: VirtualBox has three Intel PRO/1000 variants that are all ``e1000`` to the model, and re-creating the VM should give the guest back the same card, not the family's default (A-10).",
           "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "PortForward": {
+      "additionalProperties": false,
+      "properties": {
+        "guest_ip": {
+          "default": "",
+          "description": "Which guest address to send to. Empty means the address the guest's DHCP gave it, which is what a NAT adapter normally wants.",
+          "type": "string"
+        },
+        "guest_port": {
+          "default": 0,
+          "description": "The port inside the guest. Required.",
+          "type": "integer"
+        },
+        "host_ip": {
+          "default": "",
+          "description": "Which host address to listen on. Empty means all of them, which is what every provider means by leaving it out -- and a reason to set it: ``127.0.0.1`` keeps a lab's forwarded ports off the network.",
+          "type": "string"
+        },
+        "host_port": {
+          "default": 0,
+          "description": "The port on this machine. Required; there is no default worth guessing.",
+          "type": "integer"
+        },
+        "name": {
+          "default": "",
+          "description": "What the rule is called. VirtualBox needs one and requires it to be unique; the others have no such concept, so vmctl fills one in rather than making every config carry a field only one provider reads.",
+          "type": "string"
+        },
+        "protocol": {
+          "default": "tcp",
+          "description": "``tcp`` or ``udp``.",
+          "type": "string"
         }
       },
       "type": "object"

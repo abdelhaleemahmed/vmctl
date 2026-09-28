@@ -152,6 +152,13 @@ class LibvirtCapabilities:
             # domain, and the snapshot lives *inside* the qcow2 -- a raw disk is
             # refused with "internal snapshot for disk sda unsupported for storage
             # type raw", so the format is the mechanism rather than a preference.
+            # Measured on libvirt 11.10: `<portForward>` is accepted only with
+            # `<backend type='passt'/>` on a user-mode interface -- "The <portForward>
+            # element can only be used with the 'passt' backend" -- and a domain
+            # defined that way started with the forwarded port listening. passt is a
+            # separate package, so `probe()` turns this off when it is not installed
+            # rather than emitting a domain libvirt will refuse.
+            port_forwards=Support.NATIVE,
             snapshots=Support.NATIVE,
             snapshot_descriptions=True,
             snapshot_formats=(DiskFormat.QCOW2,),

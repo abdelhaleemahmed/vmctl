@@ -192,6 +192,16 @@ class Capabilities:
     removable_extensions: Tuple[str, ...] = ()
 
     supported_network_types: Tuple[str, ...] = ()
+    #: Whether a NAT adapter's host-to-guest port forwards can be expressed (E-10).
+    #: Measured: VirtualBox's ``--natpf`` and QEMU's ``hostfwd=`` are native; libvirt
+    #: needs the passt backend and says so if it is missing, which is why this is one
+    #: of the fields :meth:`~vmctl.providers.base.BaseProvider.probe` can change;
+    #: VMware has no per-VM setting at all -- its NAT forwarding lives in the
+    #: host-wide ``vmnetnat.conf``.
+    port_forwards: Support = Support.UNSUPPORTED
+    #: Whether a forwarding rule has a name of its own. VirtualBox requires one and
+    #: requires it to be unique; nothing else has the concept.
+    port_forward_names: bool = False
     #: What this *host* actually has, per network mode: the bridged interfaces, the
     #: host-only networks, the NAT networks. Keyed by the mode's value; an empty or
     #: missing entry means "not probed", and nothing is validated against it.

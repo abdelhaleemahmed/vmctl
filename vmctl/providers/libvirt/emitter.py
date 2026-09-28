@@ -34,6 +34,7 @@ from ...core.translate import Policy, Substitution, Translator
 from ...core.vmconfig import (
     DEFAULT_DISK_MB,
     DeviceKind,
+    NetworkConfig,
     VMConfig,
     keeping_existing_images,
 )
@@ -495,6 +496,66 @@ class LibvirtEmitter:
             )
             if net.mac_address:
                 ET.SubElement(iface, "mac", address=_format_mac(net.mac_address))
+            self._add_port_forwards(net, iface, kind, index, translator)
+
+    def _add_port_forwards(
+        self,
+        net: NetworkConfig,
+        iface: ET.Element,
+        kind: str,
+        index: int,
+        translator: Optional[Translator],
+    ) -> None:
+        """Add ``<portForward>`` elements, which need the passt backend (E-10).
+
+        Measured on libvirt 11.10: the element is refused anywhere else, with *"The
+        <portForward> element can only be used with the 'passt' backend of interface
+        type='user' or type='vhostuser'"*. So asking for a forward on a NAT adapter
+        also decides its backend, from slirp to passt -- a change within user-mode
+        networking, and one that needs passt installed. The declaration says whether
+        it is (``port_forwards``, refined by ``probe()``), so this reports rather than
+        emitting a domain libvirt will reject.
+
+        ``<portForward>`` has no attribute for a guest *address*: passt forwards to the
+        guest, whatever address it has. A rule that names one is reported.
+        """
+        if not net.port_forwards:
+            return
+        where = f"networks[{index}].port_forwards"
+        rules = "; ".join(rule.label for rule in net.port_forwards)
+        if kind != "user":
+            if translator is not None:
+                translator.drop(
+                    where,
+                    rules,
+                    "libvirt forwards ports only on a user-mode interface; a bridged "
+                    "or network-backed guest is reachable directly",
+                )
+            return
+        if not self.capabilities.port_forwards.usable:
+            if translator is not None:
+                translator.drop(
+                    where,
+                    rules,
+                    "this libvirt can only forward ports through the passt backend, "
+                    "and passt is not installed",
+                )
+            return
+
+        ET.SubElement(iface, "backend", type="passt")
+        for rule in net.port_forwards:
+            if rule.guest_ip and translator is not None:
+                translator.drop(
+                    f"{where}[{rule.name}].guest_ip",
+                    rule.guest_ip,
+                    "libvirt's <portForward> forwards to the guest itself and has no "
+                    "field for a guest address",
+                )
+            attributes = {"proto": rule.protocol}
+            if rule.host_ip:
+                attributes["address"] = rule.host_ip
+            forward = ET.SubElement(iface, "portForward", attributes)
+            ET.SubElement(forward, "range", start=str(rule.host_port), to=str(rule.guest_port))
 
     # -- plans ---------------------------------------------------------------
 

@@ -2117,6 +2117,14 @@ def cmd_capabilities(ctx, fmt):
         )
     )
     click.echo("network:  " + (", ".join(caps.supported_network_types) or "-"))
+    click.echo(
+        "forwards: "
+        + (
+            "yes" + (", rules are named" if caps.port_forward_names else "")
+            if caps.port_forwards.usable
+            else "no -- a NAT port forward cannot be expressed here"
+        )
+    )
     for mode in sorted(caps.host_interfaces):
         names = caps.interfaces_for(mode)
         if names:
@@ -2206,6 +2214,10 @@ def _capabilities_as_dict(caps) -> dict:
             "max_network_adapters": caps.max_network_adapters,
             "max_vram_mb": caps.max_vram_mb,
             "name_max_length": caps.name_max_length,
+        },
+        "port_forwards": {
+            "support": caps.port_forwards.value,
+            "named_rules": caps.port_forward_names,
         },
         "snapshots": {
             "support": caps.snapshots.value,

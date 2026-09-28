@@ -248,3 +248,32 @@ def test_a_faithful_round_trip_shows_nothing(vbox_capture, parser):
     serializer = YAMLSerializer()
     reloaded = VMConfig.from_dict(serializer.to_dict(live))
     assert diff(live, reloaded, stated=stated_paths(serializer.to_dict(live))) == []
+
+
+def test_port_forwards_are_compared_by_what_they_do():
+    """A rule's name is a label only VirtualBox stores, so a file calling a forward
+    `ssh` would otherwise disagree for ever with a QEMU VM that calls the same forward
+    `tcp-2222` -- drift `apply` could never converge (E-10)."""
+    from vmctl.core.vmconfig import PortForward
+
+    live = _vm()
+    live.networks[0].port_forwards = [PortForward(host_port=2222, guest_port=22, name="tcp-2222")]
+    desired = _vm()
+    desired.networks[0].port_forwards = [PortForward(host_port=2222, guest_port=22, name="ssh")]
+
+    assert diff(live, desired, stated=_paths("networks", "networks.port_forwards")) == []
+
+
+def test_a_forward_that_really_differs_is_reported_readably():
+    from vmctl.core.vmconfig import PortForward
+
+    live = _vm()
+    live.networks[0].port_forwards = [PortForward(host_port=2222, guest_port=22)]
+    desired = _vm()
+    desired.networks[0].port_forwards = [PortForward(host_port=2223, guest_port=22)]
+
+    changes = diff(live, desired, stated=_paths("networks", "networks.port_forwards"))
+
+    assert len(changes) == 1
+    assert "tcp *:2222 -> guest:22" in changes[0].render()
+    assert "tcp *:2223 -> guest:22" in changes[0].render()
