@@ -981,3 +981,40 @@ def test_redefining_the_same_domain_keeps_its_uuid(vm):
 
     xml = next(step.content for step in plan.steps if step.kind is StepKind.WRITE_FILE)
     assert "bae108f2-a77c-4abe-b252-e9277e0b32f4" in xml
+
+
+def test_libvirt_does_not_warn_that_the_io_apic_is_off():
+    """It cannot be turned off, so there was nothing to warn about. `info qtree` on a
+    q35 machine started with `-smp 2` and nothing asking for an interrupt controller
+    reports `dev: ioapic`, and each CPU carries a `/lapic (apic)`; same on `pc`. The
+    shared warning named a knob that does not exist and printed on most multi-CPU
+    domains -- including every one re-imported from its own export, which is how the
+    hands-on run found it."""
+    from vmctl.validators.vm_validator import VMValidator
+
+    caps = LibvirtCapabilities.get()
+    assert caps.ioapic_optional is False
+
+    vm = VMConfig.from_dict(
+        {"name": "smp", "cpu": {"count": 4}, "memory": {"mb": 128}, "boot": {"ioapic": False}}
+    )
+
+    warnings = VMValidator(caps).validate(vm)
+
+    assert not [w for w in warnings if "ioapic" in w]
+
+
+def test_virtualbox_still_warns_because_there_it_really_is_a_setting():
+    """`VBoxManage modifyvm --ioapic off` is a real setting with a real effect, so the
+    warning is right there. Turning it off everywhere would have traded a false alarm
+    for a missing one."""
+    from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+    from vmctl.validators.vm_validator import VMValidator
+
+    vm = VMConfig.from_dict(
+        {"name": "smp", "cpu": {"count": 4}, "memory": {"mb": 128}, "boot": {"ioapic": False}}
+    )
+
+    warnings = VMValidator(VirtualBoxCapabilities.get()).validate(vm)
+
+    assert [w for w in warnings if "ioapic" in w]

@@ -60,6 +60,17 @@ FOUND = [
         "`usb-storage` takes `port`.",
     ),
     (
+        "libvirt warned that the I/O APIC was off, which it cannot be",
+        'Every libvirt case printed "an x86 guest needs an I/O APIC to use them, and '
+        'libvirt will not give it one" -- for a VM that was fine. Measured before '
+        "changing anything: `info qtree` on q35 with `-smp 2` and nothing asking for an "
+        "interrupt controller reports `dev: ioapic`, and each CPU carries a `/lapic "
+        "(apic)`; the same on `pc`. Neither can be removed -- libvirt's `<ioapic>` only "
+        "selects which component emulates one -- so the warning named a knob that does "
+        "not exist. VirtualBox still warns, because `--ioapic off` there is a real "
+        "setting with a real effect.",
+    ),
+    (
         "`export` wrote the file and then died printing that it had, on Windows",
         "`UnicodeEncodeError: 'charmap' codec can't encode character '\\u2192'` -- the "
         "arrow in the success line has no room in cp1252. The export sat on disk, "
@@ -218,26 +229,8 @@ def main() -> int:
     lines += [
         "Every one of them is a defect in the path a user takes first, and not one was "
         "visible to the test suite. Three are round-trip breaks -- export a VM, import "
-        "it back -- which is the thing vmctl exists to do. All four are fixed, each with "
+        "it back -- which is the thing vmctl exists to do. All five are fixed, each with "
         "a regression test that fails without the fix.",
-        "",
-        "### Still open",
-        "",
-        "**A libvirt VM re-imported from its own export warns about something that is "
-        "not wrong.** Every libvirt case in this run printed:",
-        "",
-        "```",
-        "Warning: more than one CPU is configured but ioapic is off; an x86 guest needs",
-        "an I/O APIC to use them, and libvirt will not give it one",
-        "```",
-        "",
-        "The q35 chipset always provides an I/O APIC; libvirt's `<ioapic>` element only "
-        "chooses its driver, so a domain that omits it still has one. `boot.ioapic` "
-        "therefore reads back false and the validator objects to a VM that is fine. It "
-        "is the same shape as F-51, already fixed for QEMU (\"QEMU's machine types "
-        'provide an I/O APIC; there is no setting"), and libvirt needs the same '
-        "treatment. Not fixed here: it needs the capability measured rather than "
-        "assumed, and it costs a warning, not a VM.",
         "",
     ]
 

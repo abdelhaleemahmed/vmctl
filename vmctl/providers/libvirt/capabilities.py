@@ -196,6 +196,15 @@ class LibvirtCapabilities:
             nic_models=dict(NIC_MODEL_TO_LIBVIRT),
             cpu_topology=True,
             cpu_model_choice=True,
+            # Measured, not assumed: `info qtree` on a q35 machine started with
+            # `-smp 2` and nothing asking for an interrupt controller reports
+            # `dev: ioapic`, and each CPU carries a `/lapic (apic)`. Same on `pc`.
+            # Both APICs are part of the chipset and libvirt has no element that
+            # removes either -- `<ioapic>` only chooses which component emulates it.
+            # So the shared warning "ioapic is off ... libvirt will not give it one"
+            # named a knob that does not exist, and printed on most multi-CPU
+            # domains, including every one re-imported from its own export.
+            ioapic_optional=False,
             # libvirt records a guest OS as a libosinfo id, so what it can
             # express is exactly what vmctl has an id for.
             supported_os_types=tuple(GUEST_OS_TO_OSINFO) + tuple(GUEST_OS_APPROXIMATE),

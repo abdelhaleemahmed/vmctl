@@ -64,7 +64,18 @@ restating it.
   against qemu-kvm 10.1.0 before changing: `scsi-hd` takes `scsi-id`/`lun`,
   `usb-storage` takes `port`, both from 0.
 
-  Both of these were found by driving the CLI on real hypervisors, not by the test
+- **libvirt warned that the I/O APIC was off, which it cannot be.** Any libvirt VM
+  with more than one CPU and no `boot.ioapic` in its file -- which is every VM
+  re-imported from its own export -- printed "an x86 guest needs an I/O APIC to use
+  them, and libvirt will not give it one". Measured before changing anything: `info
+  qtree` on a q35 machine started with `-smp 2` and nothing asking for an interrupt
+  controller reports `dev: ioapic`, and each CPU carries a `/lapic (apic)`; the same
+  on `pc`. Neither device can be removed -- libvirt's `<ioapic>` only selects which
+  component emulates one -- so the warning named a knob that does not exist.
+  `ioapic_optional=False` now, as QEMU and VMware already had it. VirtualBox still
+  warns, because `--ioapic off` there is a real setting with a real effect.
+
+  All three were found by driving the CLI on real hypervisors, not by the test
   suite -- see `TEST-REPORT.md`.
 
 ### Changed

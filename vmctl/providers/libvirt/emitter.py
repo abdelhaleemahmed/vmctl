@@ -237,6 +237,15 @@ class LibvirtEmitter:
         if vm.boot.acpi:
             ET.SubElement(features, "acpi")
         if vm.boot.ioapic:
+            # libvirt's `<apic/>` is the *local* APIC feature flag, not the I/O APIC
+            # -- that is `<ioapic driver=.../>`, which only selects the component
+            # that emulates one. Neither device can be removed: both are measured
+            # present on q35 and pc with nothing asking for them (see
+            # capabilities.py). So this field switches a feature flag rather than a
+            # device's existence, which is why it is not warned about any more. The
+            # mapping is kept as it is because it round-trips: `<apic/>` is written
+            # when the field is set and read back into it, and a VM's `diff` against
+            # the file it came from is clean either way.
             ET.SubElement(features, "apic")
         if vm.firmware.secure_boot:
             # Secure boot needs an SMM-capable machine as well as EFI firmware.

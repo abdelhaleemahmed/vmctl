@@ -236,9 +236,12 @@ class Capabilities:
     cpu_topology: bool = False
     #: Whether a CPU model can be chosen (``host``, ``host-model``, a named one).
     cpu_model_choice: bool = False
-    #: Whether the I/O APIC can be turned *off*. VirtualBox and libvirt both let a
-    #: VM run without one; QEMU's machines always have it and offer no setting, so
-    #: warning about it there describes a knob that does not exist.
+    #: Whether the I/O APIC can be turned *off*. VirtualBox can: ``--ioapic off`` is
+    #: a real setting with a real effect. QEMU, libvirt and VMware cannot -- their
+    #: machines instantiate one whatever the configuration says, so warning that it
+    #: is off there describes a knob that does not exist. This said libvirt could,
+    #: which was wrong: `info qtree` on q35 and on pc, with ``-smp 2`` and nothing
+    #: asking, reports ``dev: ioapic`` either way.
     ioapic_optional: bool = True
 
     #: Every guest OS label this provider accepts, beyond the neutral ids in
