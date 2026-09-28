@@ -2518,6 +2518,25 @@ the model (E-03, E-05) want Phase 5 first.
 
 ### Tier B — quality of life
 
+> **Status: complete, and verified on all four hypervisors.** E-07 (`--format json`),
+> E-08 (`-v`/`-q`), E-09 (snapshots), E-10 (NAT port forwards), E-11 (`extends:`) and
+> E-12 (`doctor`) are done.
+>
+> Two of them paid for themselves beyond their own feature. `E-08` forced the
+> **execution loop into one place**: four providers had four copies of "write a file,
+> run an argv, refuse anything else", and they had already drifted. `E-12` found three
+> bugs on its first run -- `F-42`, `F-43`, `F-44` -- because a command whose whole job
+> is to report what is wrong is a command that looks where nothing else does.
+>
+> Six findings in all: `F-42` (a `TypeError` where "install VirtualBox" belonged),
+> `F-43` (VMware reported missing on a host where it worked), `F-44` (five libosinfo
+> ids this database does not have), `F-45` (a VM vmctl had snapshotted could not be
+> deleted by vmctl), `F-46` (a stated list reset the fields it did not mention).
+>
+> The pattern across all six: each was found by *using* the feature against a real
+> product, and none would have been found by a test written from the same
+> understanding that produced the code.
+
 - **E-07 `--json` output on `list` / `status` / `validate` · S. *(done)*** The README
   pitches CI pipelines; machine-readable output is what those need. `simple`
   covers names only today.
