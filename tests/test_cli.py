@@ -136,6 +136,26 @@ def test_export_writes_a_file(runner, vbox, tmp_path):
     assert out.exists()
 
 
+def test_export_reads_the_format_off_the_filename(runner, vbox, tmp_path):
+    """`export -o vm.json` wrote YAML into it, because `--format` had a default and
+    so "not given" and "given as yaml" were the same thing -- while `import` has
+    always inferred from the extension. An explicit `--format` still wins, because
+    someone naming a file `.json` and asking for yaml means it."""
+    import json
+
+    inferred = tmp_path / "vm.json"
+    runner.invoke(cli, ["export", "bios-minimal", "-o", str(inferred)])
+    assert json.loads(inferred.read_text())["name"] == "bios-minimal"
+
+    as_yaml = tmp_path / "vm.yaml"
+    runner.invoke(cli, ["export", "bios-minimal", "-o", str(as_yaml)])
+    assert not as_yaml.read_text().lstrip().startswith("{")
+
+    overridden = tmp_path / "forced.json"
+    runner.invoke(cli, ["export", "bios-minimal", "-o", str(overridden), "--format", "yaml"])
+    assert not overridden.read_text().lstrip().startswith("{")
+
+
 # ---------------------------------------------------------------------------
 # Dry-run is the default for everything that mutates
 # ---------------------------------------------------------------------------

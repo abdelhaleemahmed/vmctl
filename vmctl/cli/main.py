@@ -672,9 +672,8 @@ def cmd_read(ctx, vm_name, fmt):
     "--format",
     "fmt",
     type=click.Choice(["yaml", "json"]),
-    default="yaml",
-    show_default=True,
-    help="Output format (inferred from extension if not specified).",
+    default=None,
+    help="Output format. Inferred from -o's extension when not given; yaml otherwise.",
 )
 @click.pass_context
 def cmd_export(ctx, vm_name, output, export_all, directory, fmt):
@@ -689,9 +688,10 @@ def cmd_export(ctx, vm_name, output, export_all, directory, fmt):
     \b
     Examples:
       vmctl export ubuntu-server -o ubuntu-server.yaml
-      vmctl export ubuntu-server -o ubuntu-server.json --format json
+      vmctl export ubuntu-server -o ubuntu-server.json     # JSON, from the extension
       vmctl export --all -d lab/                  # one file per VM, plus a manifest
     """
+    fmt = fmt or _format_for(output)
     if export_all:
         if vm_name or output:
             _fail(ValidationError("--all exports every VM, so it takes -d, not a name or -o"))
@@ -712,6 +712,20 @@ def cmd_export(ctx, vm_name, output, export_all, directory, fmt):
         click.echo(f"Exported '{vm_name}' → {output}")
     except VMToolError as e:
         _fail(e)
+
+
+def _format_for(output: Optional[Path]) -> str:
+    """Return the serializer an output path is asking for.
+
+    ``export -o vm.json`` wrote YAML into it. ``--format`` carried a default, so
+    the command could not tell "not given" from "given as yaml", and the inference
+    its own help promised could never happen -- the workaround was to pass
+    ``--format json`` every time, which the help's own example did. ``import`` has
+    always inferred from the extension, so writing was the asymmetric half.
+    """
+    if output is not None and output.suffix.lower() == ".json":
+        return "json"
+    return "yaml"
 
 
 def _export_all(ctx, directory: Path, fmt: str) -> None:
