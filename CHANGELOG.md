@@ -29,6 +29,13 @@ on, which found four things that only held here.
   files reformatted and requires Python 3.10, which the 3.9 this project supports
   cannot install -- so an open bound meant a release nobody made could both fail
   CI and be impossible to satisfy locally.
+- **`pip install` worked on every Python except the oldest one supported.**
+  `license = "MIT"` is the PEP 639 form and needs setuptools 77+, but the newest
+  setuptools that supports Python 3.8 predates it -- so on 3.8 the install failed
+  while resolving the build backend, before any vmctl code ran. Back to the table
+  form, which current setuptools accepts until 2027-02-18. Python 3.8 has been
+  end-of-life since October 2024 and this is the second thing it has cost; when
+  `requires-python` rises to 3.9, the string form goes back in.
 - Smaller: `docs/sphinx/_static` is tracked, so a fresh clone does not warn (and
   with `-W`, fail) when building the documentation; the stderr-separation test
   works on Click 8.1 and 8.2+, which removed `mix_stderr`; `regenerate_golden.py`

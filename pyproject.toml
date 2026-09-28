@@ -10,7 +10,14 @@ dynamic = ["version"]
 description = "Manage VMs as configuration files on VirtualBox, libvirt/QEMU, plain QEMU and VMware"
 readme = "README.md"
 requires-python = ">=3.8"
-license = "MIT"
+# The table form, not the PEP 639 string. `license = "MIT"` needs setuptools 77+,
+# and the newest setuptools that still supports Python 3.8 predates it -- so with
+# the string form, `pip install` on the oldest Python this project claims to
+# support fails while resolving the build backend, before any vmctl code runs.
+# Current setuptools accepts this form with a deprecation warning and stops
+# supporting it on 2027-02-18, so this is borrowed time: drop 3.8 from
+# requires-python before then and switch to the string in the same change.
+license = {text = "MIT"}
 authors = [
     {name = "Ahmed Abdelhaleem Ahmed", email = "ahmedhal@gmail.com"}
 ]
