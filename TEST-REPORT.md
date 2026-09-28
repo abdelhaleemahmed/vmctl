@@ -69,10 +69,10 @@ Every one of them is a defect in the path a user takes first, and not one was vi
 
 Each run was recorded with asciinema. Play one with `asciinema play casts/<provider>.cast`.
 
-- `casts/libvirt.cast` (32 KB)
-- `casts/qemu.cast` (37 KB)
+- `casts/libvirt.cast` (33 KB)
+- `casts/qemu.cast` (39 KB)
 - `casts/virtualbox.cast` (104 KB)
-- `casts/vmware.cast` (38 KB)
+- `casts/vmware.cast` (37 KB)
 
 ## libvirt
 
