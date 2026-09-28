@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-Python 3.8 or later, and at least one hypervisor's command-line tools. vmctl drives
+Python 3.13 or later, and at least one hypervisor's command-line tools. vmctl drives
 four, and needs only the one you use:
 
 .. list-table::

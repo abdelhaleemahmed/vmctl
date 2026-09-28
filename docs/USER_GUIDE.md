@@ -28,7 +28,7 @@ pip install -e .
 
 ### Prerequisites
 
-Python 3.8 or later, and at least one hypervisor's command-line tools:
+Python 3.13 or later, and at least one hypervisor's command-line tools:
 
 | Hypervisor | vmctl needs | Check it |
 |---|---|---|

@@ -9,15 +9,13 @@ name = "vmctl"
 dynamic = ["version"]
 description = "Manage VMs as configuration files on VirtualBox, libvirt/QEMU, plain QEMU and VMware"
 readme = "README.md"
-requires-python = ">=3.8"
-# The table form, not the PEP 639 string. `license = "MIT"` needs setuptools 77+,
-# and the newest setuptools that still supports Python 3.8 predates it -- so with
-# the string form, `pip install` on the oldest Python this project claims to
-# support fails while resolving the build backend, before any vmctl code runs.
-# Current setuptools accepts this form with a deprecation warning and stops
-# supporting it on 2027-02-18, so this is borrowed time: drop 3.8 from
-# requires-python before then and switch to the string in the same change.
-license = {text = "MIT"}
+# 3.13 because the support window is what matters for a tool people install once
+# and keep: 3.13 has security support to October 2029, and CI also runs 3.14
+# (October 2030) so this does not go stale unnoticed. Everything below was either
+# end-of-life or within a month of it, and the last three of 3.8's own defects
+# were only visible because 3.8 was still declared here.
+requires-python = ">=3.13"
+license = "MIT"
 authors = [
     {name = "Ahmed Abdelhaleem Ahmed", email = "ahmedhal@gmail.com"}
 ]
@@ -30,11 +28,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Systems Administration",
     "Topic :: Utilities",
 ]
@@ -62,10 +57,10 @@ dev = [
     "pytest-cov>=4.0",
     # Pinned below the next style year on purpose. black reformats on a yearly
     # cadence, so an open upper bound means a release nobody made can fail CI and
-    # leave the repository formatted differently from every developer's checkout --
-    # which is what happened: black 26 wanted 15 files changed, and it needs Python
-    # 3.10, so the 3.9 this project still supports cannot even install it. Raise
-    # this deliberately, with the reformatting in its own commit.
+    # leave the repository formatted differently from every checkout -- which is
+    # what happened: black 26 wanted 15 files changed. The 3.10 floor it needs is
+    # no longer the obstacle; the churn is. Raise this deliberately, with the
+    # reformatting as its own commit and nothing else in it.
     "black>=25.0,<26",
     "flake8>=5.0",
     "mypy>=0.991",
@@ -118,11 +113,10 @@ filterwarnings = ["error::DeprecationWarning:vmctl.*"]
 
 [tool.black]
 line-length = 100
-target-version = ["py38", "py39", "py310", "py311", "py312"]
+target-version = ["py313"]
 
 [tool.mypy]
-# The package supports 3.8 at runtime (CI runs the tests there), but modern mypy
-# will not target anything below 3.9, so type-check against 3.9.
-python_version = "3.9"
+# The floor, so mypy judges the code by the Python it actually has to run on.
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true

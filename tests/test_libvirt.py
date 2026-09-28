@@ -943,26 +943,3 @@ def test_a_config_can_be_validated_and_planned_with_no_virsh(monkeypatch):
 
     with pytest.raises(DependencyError):
         backend.list_vms()  # running against libvirt still needs the tool
-
-
-def test_the_domain_document_is_identical_without_et_indent(monkeypatch, vm):
-    """``ET.indent`` arrived in Python 3.9 and this project supports 3.8, where
-    calling it is an AttributeError -- so every libvirt operation failed there, not
-    just the formatting. The fallback has to produce the *same bytes*: a domain
-    document is compared by `diff`, written to a file by `--out` and read by people,
-    so indentation that depends on the interpreter would be drift with no cause."""
-    emitter = LibvirtEmitter("indent-demo", location=directory("/vms", nest_per_vm=True))
-
-    reference = None
-    if hasattr(ET, "indent"):
-        reference = emitter.build_domain_xml(vm)
-        monkeypatch.delattr(ET, "indent")  # what 3.8 looks like
-    # On 3.8 there is nothing to compare against, because the fallback is the only
-    # path there -- so that run asserts the document is still indented, and the
-    # runs that *can* compare assert the two are the same bytes.
-
-    fallback = emitter.build_domain_xml(vm)
-
-    if reference is not None:
-        assert fallback == reference
-    assert f"\n  <name>{vm.name}</name>" in fallback

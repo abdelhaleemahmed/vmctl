@@ -9,6 +9,35 @@ restating it.
 
 ## [Unreleased]
 
+### Changed
+
+- **vmctl requires Python 3.13 or later** (was 3.8). This is a breaking change for
+  anyone on an older interpreter, and wants a major version when it is released.
+
+  The reason is the support window, which is what matters for a tool people
+  install once and keep: 3.13 has security support until October 2029. Everything
+  below it was either end-of-life already (3.8 since October 2024, 3.9 since
+  October 2025) or within a month of it (3.10 on 2026-10-31). CPython has no LTS
+  releases -- every version gets about two years of bugfixes and three more of
+  security fixes -- so "the long-support one" means the newest, and CI now runs
+  **3.13 and 3.14** so that a break on the newer one is a failure here rather than
+  a bug report after somebody upgrades.
+
+  Three of the six defects found while publishing 3.0.0 existed only because 3.8
+  was still declared supported. With the floor raised, the workarounds they needed
+  are gone rather than carried:
+
+  - `ET.indent` is called directly again; the hand-written fallback is deleted.
+  - `license = "MIT"`, the PEP 639 form, is back -- so the metadata now carries
+    `License-Expression: MIT` instead of a deprecated table that setuptools stops
+    accepting in February 2027.
+  - `entry_points()` has one code path instead of a modern one and a 3.9 dict
+    fallback beside it.
+
+  `black` stays pinned below the next style year: the 3.10 floor it wanted is no
+  longer the obstacle, but the 15 files of reformatting still are, and that belongs
+  in its own commit.
+
 ### Fixed
 
 Publishing 3.0.0 ran the suite on a machine that was not the one it was developed
