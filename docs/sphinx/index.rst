@@ -8,7 +8,7 @@ different hypervisor, see what has drifted away from the file, and converge it b
 
 .. code-block:: bash
 
-   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
+   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v4.0.0/vmctl-4.0.0-py3-none-any.whl
 
    # Export an existing VM
    vmctl export my-vm -o my-vm.yaml

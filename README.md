@@ -16,7 +16,7 @@ machine.
 ## Install
 
 ```bash
-pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
+pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v4.0.0/vmctl-4.0.0-py3-none-any.whl
 ```
 
 Or from source: `git clone https://github.com/abdelhaleemahmed/vmctl.git && cd vmctl && pip install -e .`

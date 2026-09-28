@@ -14,7 +14,7 @@ libvirt/QEMU-KVM, plain QEMU or VMware Workstation, with the same commands and t
 same files.
 
 ```bash
-pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
+pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v4.0.0/vmctl-4.0.0-py3-none-any.whl
 ```
 
 - Export/import VM configs as YAML/JSON

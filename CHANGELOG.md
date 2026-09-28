@@ -7,7 +7,29 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
-## [Unreleased]
+## [4.0.0] - 2026-09-28
+
+**Five defects in the path a user takes first, found by using the tool instead of
+testing it.**
+
+The 3.0.0 artifacts were verified by 1194 passing tests and `vmctl selftest` on two
+real hypervisors, and `vmctl export vm -o vm.json` still wrote YAML into the file.
+Both of those checks are written against vmctl's own idea of itself, so when that
+idea is wrong they agree and pass. This release comes from driving the command line
+the way a person does -- 21 real VMs across all four hypervisors, every image format
+each one can create on every bus that can carry a disk, reading the files that land
+on disk rather than asserting about them. `TEST-REPORT.md` is the record, with an
+asciinema cast per hypervisor.
+
+Three of the five are round-trip breaks: export a VM, import it back. That is the
+thing vmctl exists to do.
+
+### Why 4.0.0 and not 3.0.1
+
+`requires-python` moved from 3.8 to 3.13, which stops vmctl installing on five
+interpreter versions it used to support. A patch number would say "bugfix only"
+while silently refusing to install on the Python someone already has.
+
 
 ### Added
 
