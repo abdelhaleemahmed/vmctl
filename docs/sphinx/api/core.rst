@@ -180,6 +180,13 @@ Building one config on another
    :members:
    :show-inheritance:
 
+Overrides stated on the command line
+------------------------------------
+
+.. automodule:: vmctl.core.overrides
+   :members:
+   :show-inheritance:
+
 Host and hypervisor health
 --------------------------
 

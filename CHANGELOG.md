@@ -9,6 +9,64 @@ restating it.
 
 ## [Unreleased]
 
+### Added
+
+- **The command line can say "like this file, but".** `import` accepted `--new-name`
+  and `--disk-format` and nothing else, so the two things anyone actually wants to
+  change from a file -- how much RAM and how many CPUs -- could not be changed at
+  all without editing it first. Four flags now do it, on `import` and `create`:
+
+  ```
+  vmctl import vm.yaml --set memory.mb=4096 --set cpu.count=8
+  vmctl import vm.yaml --add-disk size_mb=40960,bus=virtio-blk,format=qcow2
+  vmctl import vm.yaml --add-nic network_type=bridged,model=virtio
+  vmctl import vm.yaml --patch bigger.yaml
+  ```
+
+  They are *merges over the mapping*, applied before it becomes a `VMConfig` -- the
+  same thing `extends:` already does, using the same `merge()` walk. So the model
+  validates an overridden field as it validates a written one, the validator checks
+  it against the provider's measured capabilities, the translator applies `--policy`
+  to it, and the emitters place it. `--add-disk format=vdi` against VMware is
+  refused under `strict` and substituted under `nearest` with no provider code
+  involved, and there is no path that reaches a provider bypassing the checks.
+
+  `--disk-format` stops being special: it is now the "every disk" layer of one
+  precedence order (file, `--patch`, new devices, `--disk-format`, each device's own
+  fields, `--set`), so `--disk-format vdi --add-disk format=qcow2` has an answer --
+  the narrower flag wins -- and the run *says so* rather than resolving it silently:
+
+  ```
+  note: storage[1].format is 'qcow2' from --add-disk, which outranks --disk-format ('vdi')
+  ```
+
+  Field names are the schema's own (`size_mb`, not `size`), so there is no second
+  vocabulary to keep in step. Overrides are applied to the configuration as the model
+  sees it, so they reach a disk written the 1.1.x way (`disks:`) and one the file
+  never spelled out.
+
+### Fixed
+
+- **A libvirt VM could not be exported and recreated while the original existed.**
+  An export carries the domain's UUID -- which is what makes redefining *that* domain
+  work -- so importing it under a new name asked libvirt to define a second domain
+  with the first one's identity, and libvirt refuses: `domain 'x' is already defined
+  with uuid ...`. That is the tool's central promise failing on a whole provider.
+  Creating a domain now never claims an identity read from another one; the rename
+  path in `emit_modify_vm` had already worked this out, and this is the other half.
+- **A QEMU VM with two disks on `virtio-scsi` or `usb` could not be exported and
+  re-imported.** The `.0` after those controllers is the controller's own bus, shared
+  by every device on it, so unlike SATA it cannot carry a device's address -- and the
+  emitter left the address out entirely. QEMU assigned LUNs itself and the command
+  line, which for this provider *is* the VM, did not record which disk was which.
+  Both read back at port 0, and the export then failed validation for colliding
+  slots. Now written as `scsi-id=` and `port=` and read back from them. Measured
+  against qemu-kvm 10.1.0 before changing: `scsi-hd` takes `scsi-id`/`lun`,
+  `usb-storage` takes `port`, both from 0.
+
+  Both of these were found by driving the CLI on real hypervisors, not by the test
+  suite -- see `TEST-REPORT.md`.
+
 ### Changed
 
 - **vmctl requires Python 3.13 or later** (was 3.8). This is a breaking change for

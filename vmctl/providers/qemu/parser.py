@@ -283,7 +283,7 @@ class QemuParser:
                 size = int(probe(source).get("size_mb") or 0)
 
             controller = seen.setdefault(bus, self._controller_for(bus))
-            port, unit = _address(address)
+            port, unit = _address(options)
             devices.append(
                 StorageDevice(
                     name=drive_id.replace("drive-", "") or f"device{index}",
@@ -349,8 +349,22 @@ class QemuParser:
         return networks
 
 
-def _address(address: str):
-    """Return ``(port, unit)`` from a QEMU bus address such as ``sata0.2``."""
+def _address(options: Dict[str, str]):
+    """Return ``(port, unit)`` for a device, from whichever property carries it.
+
+    QEMU addresses three bus families three ways: a SATA or IDE device's address is
+    the suffix of its bus (``sata0.2``), a SCSI device's is ``scsi-id=`` with an
+    optional ``lun=``, and a USB device's is ``port=``. On those last two the ``.0``
+    is the controller's own bus and is the same for every device on it -- so reading
+    only the suffix reported every SCSI and USB disk at port 0, and a VM with two of
+    them exported a file placing both at one address, which the validator rightly
+    refused on the way back in.
+    """
+    if "scsi-id" in options:
+        return (_int(options.get("scsi-id"), 0), _int(options.get("lun"), 0))
+    if "port" in options:
+        return (_int(options.get("port"), 0), 0)
+    address = options.get("bus", "")
     if not address or "." not in address:
         return (None, None)
     _, _, tail = address.partition(".")

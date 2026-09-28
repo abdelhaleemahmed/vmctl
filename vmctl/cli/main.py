@@ -14,6 +14,8 @@ from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
 from vmctl.core.include import bases_of, resolve
+from vmctl.core import overrides as overrides_layer
+from vmctl.core.include import format_for
 from vmctl.core.apply import Action, plan_convergence
 from vmctl.core.clone import Origin, plan_clone
 from vmctl.core.convert import convert as plan_convert, plan_conversions
@@ -25,7 +27,7 @@ from vmctl.core.schema import build as build_schema
 from vmctl.core import selftest as selftest_run
 from vmctl.core.migrate import plan_migration
 from vmctl.core.translate import Policy
-from vmctl.core.vmconfig import DeviceKind, DiskFormat
+from vmctl.core.vmconfig import DeviceKind, DiskFormat, VMConfig
 from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 from vmctl.core.batch import BatchCreator
 from vmctl.core.exceptions import (
@@ -74,22 +76,105 @@ def _complete_vm_names(ctx, param, incomplete):
 DISK_FORMATS = sorted(f.value for f in VirtualBoxCapabilities.get().creatable_formats())
 
 
-def _apply_disk_format(vm, disk_format: Optional[str]) -> None:
-    """Override the image format of every disk that gets created.
+def _override_options(command):
+    """The flags that say "like this file, but".
 
-    Removable devices are left alone: a DVD or floppy drive holds an existing
-    medium, so it has no format of its own to choose.
-
-    Args:
-        vm: Configuration to modify in place.
-        disk_format: Format name, or None to leave the config as it is.
+    One decorator rather than four options repeated per command, so ``import`` and
+    ``create`` cannot drift apart -- and so a new one is added in a single place.
     """
-    if not disk_format:
+    for option in reversed(
+        [
+            click.option(
+                "--patch",
+                "patches",
+                multiple=True,
+                type=click.Path(path_type=Path),
+                help="Merge a YAML/JSON fragment over the configuration. Repeatable; "
+                "later files win. Use it for anything structural.",
+            ),
+            click.option(
+                "--set",
+                "sets",
+                multiple=True,
+                metavar="FIELD=VALUE",
+                help="Set one field, e.g. memory.mb=4096 or storage[0].size_mb=40960. "
+                "Repeatable. The last word: it outranks every other flag.",
+            ),
+            click.option(
+                "--add-disk",
+                "add_disks",
+                multiple=True,
+                metavar="FIELD=VALUE,...",
+                help="Add a disk, e.g. size_mb=20480,bus=virtio-blk,format=qcow2. "
+                "Field names are the schema's own. Repeatable.",
+            ),
+            click.option(
+                "--add-nic",
+                "add_nics",
+                multiple=True,
+                metavar="FIELD=VALUE,...",
+                help="Add a network adapter, e.g. network_type=bridged,model=virtio. "
+                "Repeatable.",
+            ),
+        ]
+    ):
+        command = option(command)
+    return command
+
+
+def _overridden(
+    mapping: dict,
+    *,
+    patches=(),
+    disk_format=None,
+    add_disks=(),
+    add_nics=(),
+    sets=(),
+    new_name=None,
+) -> tuple:
+    """Apply the command line's overrides to a configuration mapping.
+
+    One call, used by every command that starts from a configuration, so there is a
+    single precedence order in the tool (see :mod:`vmctl.core.overrides`) rather than
+    one per command. ``--new-name`` is part of it: it is the narrowest statement of
+    all, so it goes last and cannot be undone by anything else.
+    """
+    # Normalised through the model first, because an override applies to the machine
+    # as it will be, not to the shorthand it was written in: a file may say `disks:`
+    # rather than `storage:` (M-02) and may leave out everything the model fills in --
+    # so without this, `--disk-format` misses a disk written the older way and
+    # `--set storage[0].size_mb` cannot reach a disk the file never spelled out.
+    merged, applied = overrides_layer.apply(
+        VMConfig.from_dict(mapping).to_dict(),
+        patches=[_read_mapping(Path(path)) for path in patches],
+        disk_format=disk_format,
+        disks=add_disks,
+        nics=add_nics,
+        sets=sets,
+    )
+    if new_name:
+        applied.extend(overrides_layer.set_path(merged, "name", new_name, "--new-name"))
+    return merged, applied
+
+
+def _report_overrides(applied) -> None:
+    """Say what the flags did, and name the loser when two of them disagreed.
+
+    A dry run that silently resolved a contradiction would be the failure this whole
+    ordering exists to prevent: ``--disk-format vdi --add-disk format=qcow2`` has an
+    answer, and the user is entitled to see it without running the command twice.
+    """
+    if not applied:
         return
-    chosen = DiskFormat(disk_format)
-    for disk in vm.storage:
-        if not disk.is_removable:
-            disk.format = chosen
+    click.echo("Overrides applied:", err=True)
+    for override in applied:
+        click.echo(f"  {override}", err=True)
+    for earlier, later in overrides_layer.outranked(applied):
+        click.echo(
+            f"  note: {later.path} is {later.value!r} from {later.source}, "
+            f"which outranks {earlier.source} ({earlier.value!r})",
+            err=True,
+        )
 
 
 def _engine(ctx=None) -> VMCtlEngine:
@@ -814,8 +899,22 @@ def _export_all(ctx, directory: Path, fmt: str) -> None:
     help="Also copy the disk contents, when the images can be read from this machine. "
     "Off by default: it is the slow, space-hungry part of creating a VM.",
 )
+@_override_options
 @click.pass_context
-def cmd_import(ctx, config_file, new_name, disk_format, policy, execute, out, clone_disks):
+def cmd_import(
+    ctx,
+    config_file,
+    new_name,
+    disk_format,
+    policy,
+    execute,
+    out,
+    clone_disks,
+    patches,
+    sets,
+    add_disks,
+    add_nics,
+):
     """Create a VM from a YAML or JSON configuration file.
 
     Without --execute the command prints the VBoxManage commands that
@@ -830,15 +929,32 @@ def cmd_import(ctx, config_file, new_name, disk_format, policy, execute, out, cl
       vmctl import ubuntu-server.yaml --new-name test-server
       vmctl import ubuntu-server.yaml --new-name test-server --execute
       vmctl import ubuntu-server.yaml --new-name test-server --disk-format vmdk
+      vmctl import ubuntu-server.yaml --set memory.mb=4096 --set cpu.count=8
+      vmctl import ubuntu-server.yaml --add-disk size_mb=40960,bus=virtio-blk
       vmctl import ubuntu-server.yaml --new-name restored --clone-disks --execute
     """
     try:
         engine = _engine(ctx)
-        vm = engine.import_vm(config_file, new_name)
-        # Read before --disk-format rewrites the formats: what the images *are* is
-        # not what the new VM is being asked for (F-38).
+        # The overrides are merged over the *mapping*, before it becomes a VMConfig,
+        # so the model, the validator, the translator and the emitter all see an
+        # overridden field exactly as they see a written one (E-20).
+        # The extension still decides whether this is a file vmctl reads at all.
+        format_for(Path(config_file))
+        mapping, applied = _overridden(
+            _read_mapping(Path(config_file)),
+            patches=patches,
+            disk_format=disk_format,
+            add_disks=add_disks,
+            add_nics=add_nics,
+            sets=sets,
+            new_name=new_name,
+        )
+        vm = VMConfig.from_dict(mapping)
+        _report_overrides(applied)
+        # What the images *are* is not what the new VM is being asked for (F-38), and
+        # the request is what the overrides changed -- so the origins are read from
+        # the configuration as it now stands, whose disk paths the file supplied.
         origins = _origins(vm)
-        _apply_disk_format(vm, disk_format)
         if execute:
             _require_absent(engine, vm.name)
         copies = _clone_disks(engine, vm, origins) if clone_disks else None
@@ -898,9 +1014,23 @@ def cmd_import(ctx, config_file, new_name, disk_format, policy, execute, out, cl
     help="Also copy the disk contents, when the images can be read from this machine. "
     "Off by default: it is the slow, space-hungry part of creating a VM.",
 )
+@_override_options
 @click.pass_context
 def cmd_create(
-    ctx, source_vm, new_name, memory, cpus, disk_format, policy, execute, out, clone_disks
+    ctx,
+    source_vm,
+    new_name,
+    memory,
+    cpus,
+    disk_format,
+    policy,
+    execute,
+    out,
+    clone_disks,
+    patches,
+    sets,
+    add_disks,
+    add_nics,
 ):
     """Clone a VM configuration from an existing VirtualBox VM.
 
@@ -924,12 +1054,25 @@ def cmd_create(
         # Where the source's data is and what it is, read before the name and the
         # formats change: the copies come from the original VM's images.
         origins = _origins(vm)
-        vm.name = new_name
+        # Through the same layer as `import`, so there is one precedence order in the
+        # tool. The live VM is turned back into a mapping to get there, which the
+        # round-trip tests already require to be lossless.
+        stated = {}
         if memory:
-            vm.memory.mb = memory
+            stated["memory.mb"] = memory
         if cpus:
-            vm.cpu.count = cpus
-        _apply_disk_format(vm, disk_format)
+            stated["cpu.count"] = cpus
+        mapping, applied = _overridden(
+            vm.to_dict(),
+            patches=patches,
+            disk_format=disk_format,
+            add_disks=add_disks,
+            add_nics=add_nics,
+            sets=[f"{field}={value}" for field, value in stated.items()] + list(sets),
+            new_name=new_name,
+        )
+        vm = VMConfig.from_dict(mapping)
+        _report_overrides(applied)
         if execute:
             _require_absent(engine, vm.name)
         copies = _clone_disks(engine, vm, origins) if clone_disks else None

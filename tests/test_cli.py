@@ -1446,3 +1446,76 @@ def test_a_missing_base_is_reported_not_a_traceback(runner, vbox, tmp_path):
 
     assert result.exit_code == 1
     assert "nope.yaml" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Command-line overrides (E-20)
+# ---------------------------------------------------------------------------
+
+
+def test_import_can_override_memory_and_cpu_which_it_could_not_before(runner, vbox, tmp_path):
+    """`import` accepted --new-name and --disk-format and nothing else, so the two
+    things anyone wants to change from a file -- how much RAM and how many CPUs --
+    could not be changed at all without editing the file first."""
+    config = tmp_path / "vm.yaml"
+    config.write_text("name: ov\ncpu:\n  count: 1\nmemory:\n  mb: 128\n")
+
+    result = runner.invoke(
+        cli, ["import", str(config), "--set", "memory.mb=4096", "--set", "cpu.count=8"]
+    )
+
+    assert result.exit_code == 0
+    assert "--memory 4096" in result.output
+    assert "--cpus 8" in result.output
+
+
+def test_import_can_add_a_disk_and_the_provider_checks_it_like_any_other(runner, vbox, tmp_path):
+    config = tmp_path / "vm.yaml"
+    config.write_text("name: ov\ncpu:\n  count: 1\nmemory:\n  mb: 128\n")
+
+    result = runner.invoke(
+        cli,
+        ["import", str(config), "--add-disk", "name=data,size_mb=20480,bus=sata,format=vmdk"],
+    )
+
+    assert result.exit_code == 0
+    assert "--format VMDK" in result.output
+    assert "ov_data.vmdk" in result.output
+
+
+def test_a_per_device_format_outranks_disk_format_and_the_run_says_so(runner, vbox, tmp_path):
+    """The conflict `--disk-format vdi --add-disk format=vmdk` had no stated answer.
+    It has one now, and a dry run names the flag that lost rather than resolving it in
+    silence."""
+    config = tmp_path / "vm.yaml"
+    config.write_text(
+        "name: ov\ncpu:\n  count: 1\nmemory:\n  mb: 128\n"
+        "storage:\n  - name: system\n    size_mb: 20480\n"
+    )
+
+    result = runner.invoke(
+        cli,
+        [
+            "import",
+            str(config),
+            "--disk-format",
+            "vdi",
+            "--add-disk",
+            "name=data,size_mb=1024,format=vmdk",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "ov_system.vdi" in result.output
+    assert "ov_data.vmdk" in result.output
+    assert "outranks --disk-format" in result.output
+
+
+def test_a_bad_override_is_an_error_not_a_traceback(runner, vbox, tmp_path):
+    config = tmp_path / "vm.yaml"
+    config.write_text("name: ov\ncpu:\n  count: 1\nmemory:\n  mb: 128\n")
+
+    result = runner.invoke(cli, ["import", str(config), "--set", "memory.mb"])
+
+    assert result.exit_code != 0
+    assert "field=value" in result.output

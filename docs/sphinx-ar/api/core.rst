@@ -114,6 +114,10 @@
    :members:
    :show-inheritance:
 
+.. automodule:: vmctl.core.overrides
+   :members:
+   :show-inheritance:
+
 .. automodule:: vmctl.core.include
    :members:
    :show-inheritance:

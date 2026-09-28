@@ -943,3 +943,41 @@ def test_a_config_can_be_validated_and_planned_with_no_virsh(monkeypatch):
 
     with pytest.raises(DependencyError):
         backend.list_vms()  # running against libvirt still needs the tool
+
+
+def test_creating_a_domain_never_claims_another_ones_uuid(vm):
+    """`export` records the domain's UUID, which is what makes redefining *that*
+    domain work. Importing the export under a new name then asked libvirt to define a
+    second domain with the first one's identity, and libvirt refuses:
+
+        error: operation failed: domain 'x' is already defined with uuid ...
+
+    So export-then-recreate -- the tool's central promise -- could not work on libvirt
+    at all while the original still existed. Found by doing it on a real domain, not by
+    a test: nothing in the suite had ever imported a file that carried a UUID."""
+    emitter = LibvirtEmitter("copy", location=directory("/vms", nest_per_vm=True))
+    vm.metadata = {"libvirt_uuid": "bae108f2-a77c-4abe-b252-e9277e0b32f4"}
+
+    plan = emitter.emit_create_vm(vm)
+
+    xml = next(step.content for step in plan.steps if step.kind is StepKind.WRITE_FILE)
+    assert "<uuid>" not in xml
+    # and the caller's configuration is left as it was
+    assert vm.metadata["libvirt_uuid"] == "bae108f2-a77c-4abe-b252-e9277e0b32f4"
+
+
+def test_redefining_the_same_domain_keeps_its_uuid(vm):
+    """The other half: an edit must keep the identity, or libvirt treats it as a new
+    domain colliding with an existing name."""
+    import copy
+
+    emitter = LibvirtEmitter(vm.name, location=directory("/vms", nest_per_vm=True))
+    current = copy.deepcopy(vm)
+    current.metadata = {"libvirt_uuid": "bae108f2-a77c-4abe-b252-e9277e0b32f4"}
+    desired = copy.deepcopy(current)
+    desired.memory.mb = current.memory.mb + 256
+
+    plan = emitter.emit_modify_vm(current, desired)
+
+    xml = next(step.content for step in plan.steps if step.kind is StepKind.WRITE_FILE)
+    assert "bae108f2-a77c-4abe-b252-e9277e0b32f4" in xml

@@ -648,6 +648,23 @@ class LibvirtEmitter:
                 )
             )
 
+        # A create is a new domain, so it must not claim an identity read from another
+        # one. An exported configuration carries the UUID of the domain it was read
+        # from -- which is what makes redefining *that* domain work -- and importing it
+        # under a new name then asked libvirt to define a second domain with the first
+        # one's UUID, which it refuses:
+        #
+        #   error: operation failed: domain 'x' is already defined with uuid ...
+        #
+        # So `export` followed by `import --new-name` could not work on libvirt at all
+        # while the original still existed, which is the tool's central promise. The
+        # rename path in emit_modify_vm already dropped it for the same reason; this is
+        # the other half. libvirt assigns a fresh UUID, which is right even when the
+        # original is gone: as far as libvirt is concerned this domain is new.
+        if vm.metadata and "libvirt_uuid" in vm.metadata:
+            vm = copy.deepcopy(vm)
+            vm.metadata.pop("libvirt_uuid", None)
+
         xml = self.build_domain_xml(vm, translator)
         definition = Path(self.definition_dir) / f"{vm.name}.xml"
         plan.add(

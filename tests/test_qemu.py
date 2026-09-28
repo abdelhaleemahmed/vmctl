@@ -654,3 +654,60 @@ def test_a_plan_can_be_emitted_on_a_machine_with_no_qemu(monkeypatch, vm, tmp_pa
     script = next(s.content for s in plan.steps if s.kind is StepKind.WRITE_FILE)
     assert script is not None
     assert qemu_backend.CONVENTIONAL_BINARY in script
+
+
+@pytest.mark.parametrize(
+    "bus,marker",
+    [(BusType.VIRTIO_SCSI, "scsi-id"), (BusType.USB, "port")],
+)
+def test_two_disks_on_one_controller_get_distinct_addresses(bus, marker):
+    """The `.0` after a SCSI or USB controller's id is the controller's own bus, shared
+    by every device on it -- so unlike SATA it cannot carry the device's address, and
+    these buses spell it separately. Both were left out, so QEMU assigned LUNs itself
+    and the command line -- which for this provider *is* the VM -- did not record which
+    disk was which. Two such disks then read back at the same address and the export
+    could not be imported again: the validator refused it for colliding slots."""
+    from vmctl.providers.qemu.emitter import QemuEmitter
+
+    vm = VMConfig.from_dict(
+        {
+            "name": "two",
+            "memory": {"mb": 128},
+            "storage": [
+                {"name": "system", "size_mb": 64, "bus": bus.value},
+                {"name": "data", "size_mb": 32, "bus": bus.value},
+            ],
+        }
+    )
+    emitter = QemuEmitter("two", location=directory("/vms", nest_per_vm=True))
+
+    argv = emitter.build_argv(vm)
+
+    addressed = [tok for tok in argv if marker + "=" in tok]
+    assert len(addressed) == 2
+    assert f"{marker}=0" in addressed[0]
+    assert f"{marker}=1" in addressed[1]
+
+
+@pytest.mark.parametrize("bus", [BusType.VIRTIO_SCSI, BusType.USB])
+def test_the_address_survives_being_read_back(bus):
+    """The round trip the matrix run exercises: what the emitter writes, the parser has
+    to recover, or `export` produces a file that cannot be imported."""
+    from vmctl.providers.qemu.emitter import QemuEmitter
+
+    vm = VMConfig.from_dict(
+        {
+            "name": "two",
+            "memory": {"mb": 128},
+            "storage": [
+                {"name": "system", "size_mb": 64, "bus": bus.value},
+                {"name": "data", "size_mb": 32, "bus": bus.value},
+            ],
+        }
+    )
+    emitter = QemuEmitter("two", location=directory("/vms", nest_per_vm=True))
+    argv = emitter.build_argv(vm)
+
+    again = QemuParser().parse_argv("two", argv, probe=lambda path: {"size_mb": 64})
+
+    assert [d.slot for d in again.storage] == [0, 1]

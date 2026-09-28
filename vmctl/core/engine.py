@@ -143,14 +143,11 @@ class VMCtlEngine:
 
     def import_vm(self, config_path: Path, new_name: Optional[str] = None) -> VMConfig:
         """Import VM configuration from file"""
-        # Detect format from extension
-        suffix = config_path.suffix.lower()
-        if suffix == ".json":
-            serializer = self.serializers["json"]
-        elif suffix in (".yaml", ".yml"):
-            serializer = self.serializers["yaml"]
-        else:
-            raise SerializationError(f"Unsupported file format: {suffix}")
+        # The extension names the serializer; include.format_for is the one place
+        # that decides, so `import` and `diff` cannot disagree about what `.yml` is.
+        from .include import format_for
+
+        serializer = self.serializers[format_for(config_path)]
 
         # Load configuration
         vm = serializer.load(config_path)

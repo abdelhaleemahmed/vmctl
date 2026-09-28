@@ -64,15 +64,23 @@ BUS_DEVICES: Dict[BusType, BusDevices] = {
         cdrom="virtio-blk-pci,drive={drive}",
         addresses=False,
     ),
+    # The `.0` is the controller's own bus, which every device on it shares -- so
+    # unlike SATA it cannot carry the device's address, and these two spell it
+    # separately: `scsi-id=` for SCSI, `port=` for USB. Both were left out, so QEMU
+    # assigned LUNs itself and the command line -- which for this provider *is* the
+    # VM -- did not record which disk was which. Two disks on one of these buses then
+    # read back at the same address, and the export could not be imported again.
+    # Measured on qemu-kvm 10.1.0: scsi-hd takes scsi-id/lun, usb-storage takes port,
+    # and both accept 0 as the first value.
     BusType.VIRTIO_SCSI: BusDevices(
         controller="virtio-scsi-pci,id={bus}",
-        disk="scsi-hd,bus={bus}.0,drive={drive}",
-        cdrom="scsi-cd,bus={bus}.0,drive={drive}",
+        disk="scsi-hd,bus={bus}.0,scsi-id={port},drive={drive}",
+        cdrom="scsi-cd,bus={bus}.0,scsi-id={port},drive={drive}",
     ),
     BusType.USB: BusDevices(
         controller="qemu-xhci,id={bus}",
-        disk="usb-storage,bus={bus}.0,drive={drive}",
-        cdrom="usb-storage,bus={bus}.0,drive={drive}",
+        disk="usb-storage,bus={bus}.0,port={port},drive={drive}",
+        cdrom="usb-storage,bus={bus}.0,port={port},drive={drive}",
     ),
     BusType.FLOPPY: BusDevices(
         controller="isa-fdc,id={bus}",

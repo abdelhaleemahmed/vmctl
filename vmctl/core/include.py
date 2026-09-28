@@ -38,7 +38,7 @@ which fields it actually states (E-01).
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .exceptions import SerializationError
 
@@ -49,6 +49,26 @@ EXTENDS = "extends"
 #: has a worse problem than this error -- but a cycle through a symlink would
 #: otherwise be an infinite loop rather than a message.
 MAX_DEPTH = 16
+
+
+#: Which serializer an extension names. The one place that decides, so the engine and
+#: this module cannot come to disagree about what ``.yml`` is.
+SUFFIXES = {".json": "json", ".yaml": "yaml", ".yml": "yaml"}
+
+
+def format_for(path: Path) -> str:
+    """Return the serializer name a file's extension asks for.
+
+    Raises:
+        SerializationError: If the extension names nothing vmctl can read.
+    """
+    suffix = Path(path).suffix.lower()
+    if suffix not in SUFFIXES:
+        raise SerializationError(
+            f"Unsupported file format: {suffix}",
+            recovery_hint="name the file .yaml, .yml or .json",
+        )
+    return SUFFIXES[suffix]
 
 
 def load_mapping(path: Path) -> Dict[str, Any]:
@@ -159,14 +179,35 @@ def merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
         base: What to start from.
         override: What wins.
     """
+    return merge_tracked(base, override)[0]
+
+
+def merge_tracked(
+    base: Dict[str, Any], override: Dict[str, Any], prefix: str = ""
+) -> Tuple[Dict[str, Any], List[Tuple[str, Any, Any]]]:
+    """Merge, and also say which values changed and what they were.
+
+    The same walk as :func:`merge` -- there is only one, so ``extends:`` and a
+    command-line override cannot come to differ about what merging means. The record
+    is what lets an override be *reported*: a fragment that quietly halved the memory
+    is the kind of silent disagreement vmctl exists to refuse (E-20).
+
+    Returns:
+        The merged mapping, and ``(path, new, old)`` for each value replaced, with
+        paths spelled the way ``diff`` spells a field.
+    """
     result = dict(base)
+    changed: List[Tuple[str, Any, Any]] = []
     for key, value in override.items():
+        path = f"{prefix}.{key}" if prefix else key
         current = result.get(key)
         if isinstance(current, dict) and isinstance(value, dict):
-            result[key] = merge(current, value)
+            result[key], nested = merge_tracked(current, value, path)
+            changed.extend(nested)
         else:
             result[key] = value
-    return result
+            changed.append((path, value, current))
+    return result, changed
 
 
 def bases_of(path: Path) -> List[str]:
