@@ -29,6 +29,46 @@ HOW = {
 }
 
 
+#: What these runs turned up, in the order they were found. Written here rather than
+#: derived from the results because the results only record that a check failed; what
+#: it meant, and why no test had caught it, is the part worth reading. Each is fixed,
+#: with a regression test, and written up in CHANGELOG.md.
+FOUND = [
+    (
+        "`export -o vm.json` wrote YAML into the file",
+        "Found on libvirt before the matrix existed, by exporting one real VM. "
+        '`--format` carried a default, so the command could not tell "not given" '
+        'from "given as yaml" and the inference its own help promised never ran. '
+        "`json.load` on the result failed at line 1. Nothing in the suite had ever "
+        "asked for a `.json` file without also passing `--format`.",
+    ),
+    (
+        "A libvirt VM could not be exported and recreated while the original existed",
+        "An export carries the domain's UUID, so importing it under a new name asked "
+        "libvirt to define a second domain with the first one's identity: "
+        "`domain 'x' is already defined with uuid ...`. The tool's central promise, "
+        "failing on a whole provider. Caught by all four libvirt cases at step 8.",
+    ),
+    (
+        "A QEMU VM with two disks on `virtio-scsi` or `usb` could not be re-imported",
+        "The `.0` after those controllers is the controller's own bus, shared by every "
+        "device on it, so it cannot carry a device's address -- and the emitter left "
+        "the address out. QEMU assigned LUNs itself and the command line, which for "
+        "this provider *is* the VM, did not record which disk was which. Both read "
+        "back at port 0 and the export failed validation for colliding slots. "
+        "Measured against qemu-kvm 10.1.0 before fixing: `scsi-hd` takes `scsi-id`, "
+        "`usb-storage` takes `port`.",
+    ),
+    (
+        "`export` wrote the file and then died printing that it had, on Windows",
+        "`UnicodeEncodeError: 'charmap' codec can't encode character '\\u2192'` -- the "
+        "arrow in the success line has no room in cp1252. The export sat on disk, "
+        "correct, while the command exited 1 with a traceback. All seven VirtualBox "
+        "cases failed on this and nothing else. No test on Linux could have caught it.",
+    ),
+]
+
+
 def _version(provider: str) -> str:
     """Ask the provider what it is, for the record."""
     try:
@@ -171,6 +211,35 @@ def main() -> int:
         f = sum(len(case["failed"]) for case in data["cases"])
         lines.append(f"| {provider} | {len(data['cases'])} | {c} | {f} |")
     lines.append("")
+
+    lines += ["## What these runs found", ""]
+    for title, detail in FOUND:
+        lines += [f"**{title}**", "", detail, ""]
+    lines += [
+        "Every one of them is a defect in the path a user takes first, and not one was "
+        "visible to the test suite. Three are round-trip breaks -- export a VM, import "
+        "it back -- which is the thing vmctl exists to do. All four are fixed, each with "
+        "a regression test that fails without the fix.",
+        "",
+        "### Still open",
+        "",
+        "**A libvirt VM re-imported from its own export warns about something that is "
+        "not wrong.** Every libvirt case in this run printed:",
+        "",
+        "```",
+        "Warning: more than one CPU is configured but ioapic is off; an x86 guest needs",
+        "an I/O APIC to use them, and libvirt will not give it one",
+        "```",
+        "",
+        "The q35 chipset always provides an I/O APIC; libvirt's `<ioapic>` element only "
+        "chooses its driver, so a domain that omits it still has one. `boot.ioapic` "
+        "therefore reads back false and the validator objects to a VM that is fine. It "
+        "is the same shape as F-51, already fixed for QEMU (\"QEMU's machine types "
+        'provide an I/O APIC; there is no setting"), and libvirt needs the same '
+        "treatment. Not fixed here: it needs the capability measured rather than "
+        "assumed, and it costs a warning, not a VM.",
+        "",
+    ]
 
     lines += [
         "## Recordings",
