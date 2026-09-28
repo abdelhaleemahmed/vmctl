@@ -7,6 +7,38 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
+## [Unreleased]
+
+### Fixed
+
+Four things in shared code that still assumed VirtualBox was the only provider.
+
+- **`--disk-format` offered every provider VirtualBox's formats.** The list was built
+  once when the module loaded, so `vmctl -p vmware import f.yaml --disk-format vdi`
+  was advertised by `--help` and by tab completion, and then refused by validation --
+  VMware creates one format, libvirt and QEMU two, VirtualBox seven. Completion now
+  offers what the selected hypervisor can create, the help names `vmctl capabilities`
+  rather than reciting one provider's answer, and a misspelling is caught against the
+  vocabulary while "can this hypervisor create it" stays with the validator, which has
+  a measured reason and honours `--policy`. Same for `convert --to`.
+- **Tab completion offered VirtualBox's VM names whatever `-p` said.** It ran
+  `VBoxManage list vms` itself, so on a machine with only libvirt it offered nothing
+  and on one with both it offered the wrong list. It asks the provider now. Fixing
+  that exposed a second half: Click parses options but does not call callbacks while
+  completing, so `ctx.obj` is empty there and the first fix still answered for the
+  default provider -- `-p` is now found whether the callback has run or not. Verified
+  by driving the real bash-completion protocol with one VM on each of two
+  hypervisors.
+- **`export -o -` created a file named `-`** in the working directory and reported
+  success, so a pipeline got nothing and a stray file appeared. `-` means stdout now,
+  as it does everywhere else, and nothing else is printed there -- the document is the
+  output.
+- **Six help strings described a VirtualBox-only tool**, including the first line of
+  `vmctl --help`: "Manage VirtualBox VMs with config-as-code support". Also the
+  extension-to-format lookup in `convert` consulted VirtualBox's table for every
+  provider, which is invisible only while the extension happens to be spelled the
+  same.
+
 ## [4.0.0] - 2026-09-28
 
 **Five defects in the path a user takes first, found by using the tool instead of

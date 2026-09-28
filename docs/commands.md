@@ -11,7 +11,7 @@
 - **`vmctl capabilities`** -- Print what this hypervisor can actually do.
 - **`vmctl completion`** -- Print the shell completion script to stdout.
 - **`vmctl convert`** -- Convert a disk image from one format to another.
-- **`vmctl create`** -- Clone a VM configuration from an existing VirtualBox VM.
+- **`vmctl create`** -- Clone a VM configuration from one the hypervisor already has.
 - **`vmctl delete`** -- Unregister a VM and delete all associated disk files.
 - **`vmctl diff`** -- Show how a VM differs from a configuration file.
 - **`vmctl doctor`** -- Check whether this machine can actually run VMs.

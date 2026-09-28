@@ -419,12 +419,63 @@ def test_dry_run_stdout_carries_only_commands(runner, vbox, tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_disk_format_offers_only_creatable_formats(runner):
-    """VirtualBox can attach a VHDX but not create one, so it is not offered."""
+def test_disk_format_completion_offers_what_this_provider_can_create(monkeypatch):
+    """The offered list was VirtualBox's, resolved once when the module loaded, so all
+    four providers were told they could create `parallels`, `qed` and `vdi` -- libvirt
+    and QEMU can create two formats, VMware one. `vmctl -p vmware import --disk-format
+    vdi` was advertised by --help and by tab completion and then refused by validation.
+    The list follows -p now."""
+    from types import SimpleNamespace
+
+    from vmctl.cli import main as cli_main
+    from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+    from vmctl.providers.qemu.capabilities import QemuCapabilities
+    from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
+    from vmctl.providers.vmware.capabilities import VMwareCapabilities
+
+    for capabilities, expected in (
+        (LibvirtCapabilities.get(), ["qcow2", "raw"]),
+        (QemuCapabilities.get(), ["qcow2", "raw"]),
+        (VMwareCapabilities.get(), ["vmdk"]),
+        (
+            VirtualBoxCapabilities.get(),
+            ["parallels", "qcow2", "qed", "raw", "vdi", "vhd", "vmdk"],
+        ),
+    ):
+        monkeypatch.setattr(
+            cli_main,
+            "_engine",
+            lambda ctx=None, caps=capabilities: SimpleNamespace(capabilities=caps),
+        )
+
+        assert cli_main._complete_disk_formats(None, None, "") == expected
+        # and it still filters by what has been typed
+        assert cli_main._complete_disk_formats(None, None, "q") == [
+            value for value in expected if value.startswith("q")
+        ]
+
+
+def test_the_help_no_longer_recites_one_providers_formats(runner):
+    """It cannot: the answer depends on -p, which --help does not know. It names
+    `vmctl capabilities` instead, which does."""
     result = runner.invoke(cli, ["import", "--help"])
-    assert "vdi" in result.output and "vmdk" in result.output
-    assert "qcow2" in result.output
-    assert "vhdx" not in result.output
+
+    assert "parallels" not in result.output  # VirtualBox's, once offered to everyone
+    assert "capabilities" in result.output
+
+
+def test_a_misspelled_disk_format_says_what_the_words_are(runner, vbox, tmp_path):
+    """click.Choice used to catch a typo, and it went with the wrong list. The
+    vocabulary check replaces it: the *spelling* is checked here, and whether this
+    hypervisor can create it stays with the validator, which has a measured reason."""
+    path = tmp_path / "vm.yaml"
+    path.write_text("name: v\ncpu:\n  count: 1\nmemory:\n  mb: 128\n")
+
+    result = runner.invoke(cli, ["import", str(path), "--disk-format", "qcow"])
+
+    assert result.exit_code != 0
+    assert "not an image format vmctl knows" in result.output
+    assert "qcow2" in result.output  # the real one it was probably meant to be
 
 
 def test_disk_format_is_refused_when_unsupported(runner, tmp_path):
@@ -1554,3 +1605,59 @@ def test_nothing_vmctl_prints_needs_more_than_ascii():
     ]
     offenders = [line.strip() for line in printed if any(ord(ch) > 127 for ch in line)]
     assert offenders == []
+
+
+def test_export_to_stdout(runner, vbox, tmp_path, monkeypatch):
+    """`-o -` is the convention cp, tar and everything else honours. vmctl created a
+    file *called* `-` in the working directory and reported success, so a pipeline got
+    nothing and a stray file appeared instead."""
+    import yaml
+
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(cli, ["export", "bios-minimal", "-o", "-"])
+
+    assert result.exit_code == 0
+    assert yaml.safe_load(result.output)["name"] == "bios-minimal"
+    assert not (tmp_path / "-").exists()
+
+
+def test_export_to_stdout_as_json_stays_parseable(runner, vbox, tmp_path, monkeypatch):
+    """Nothing else may go to stdout: the document *is* the output, so a confirmation
+    line would corrupt what the caller is piping."""
+    import json
+
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(cli, ["export", "bios-minimal", "-o", "-", "--format", "json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["name"] == "bios-minimal"
+    assert "Exported" not in result.output
+
+
+def test_completion_finds_the_provider_before_the_callback_has_run():
+    """Click parses the options but does not call callbacks while it is completing, so
+    `ctx.obj` -- which the group fills in -- is empty there. Reading only that made
+    `vmctl -p qemu read <TAB>` offer the *default* provider's VM names: verified by
+    driving the real bash-completion protocol against two hypervisors, each with one
+    VM, and getting the wrong one back."""
+    import click
+
+    from vmctl.cli.main import _selected_provider
+
+    # what a command sees: the group's callback has filled ctx.obj
+    with click.Context(click.Command("read")) as parent:
+        parent.obj = {"provider": "qemu"}
+        with click.Context(click.Command("read"), parent=parent) as child:
+            assert _selected_provider(child) == "qemu"
+
+    # what completion sees: parsed parameters, no obj
+    with click.Context(click.Command("read")) as parent:
+        parent.params = {"provider": "vmware"}
+        with click.Context(click.Command("read"), parent=parent) as child:
+            assert _selected_provider(child) == "vmware"
+
+    # and nothing selected is still nothing, so detection decides
+    with click.Context(click.Command("read")) as bare:
+        assert _selected_provider(bare) is None

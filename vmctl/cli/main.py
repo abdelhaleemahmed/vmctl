@@ -28,7 +28,6 @@ from vmctl.core import selftest as selftest_run
 from vmctl.core.migrate import plan_migration
 from vmctl.core.translate import Policy
 from vmctl.core.vmconfig import DeviceKind, DiskFormat, VMConfig
-from vmctl.providers.virtualbox.capabilities import VirtualBoxCapabilities
 from vmctl.core.batch import BatchCreator
 from vmctl.core.exceptions import (
     BatchError,
@@ -47,33 +46,65 @@ from vmctl.core.exceptions import (
 
 
 def _complete_vm_names(ctx, param, incomplete):
-    """Return VirtualBox VM names that match *incomplete* for tab completion."""
-    try:
-        import subprocess
+    """Return the selected hypervisor's VM names, for tab completion.
 
-        result = subprocess.run(
-            ["VBoxManage", "list", "vms"], capture_output=True, text=True, check=False
-        )
-        names = []
-        for line in result.stdout.strip().splitlines():
-            if line.startswith('"'):
-                name = line.split('"')[1]
-                if name.startswith(incomplete):
-                    names.append(name)
-        return names
+    This used to run ``VBoxManage list vms`` itself, so completing a name offered
+    VirtualBox's VMs whatever ``-p`` said -- on a machine with only libvirt it
+    offered nothing at all, and on one with both it offered the wrong list. The
+    provider already knows how to list its VMs; ask it.
+    """
+    try:
+        return [name for name in _engine(ctx).list_vms() if name.startswith(incomplete)]
     except Exception:
+        # Completion must never be the thing that fails: no hypervisor, no daemon
+        # running, a half-finished shell line. Offer nothing instead.
         return []
+
+
+def _complete_disk_formats(ctx, param, incomplete):
+    """Return the image formats the selected hypervisor can create.
+
+    The offered list used to be VirtualBox's, resolved once at import: all four
+    providers were told they could create ``parallels``, ``qed`` and ``vdi``, when
+    libvirt and QEMU can create two formats and VMware one. Falls back to the whole
+    vocabulary when the provider cannot be reached, which is better than an empty
+    list on a machine that has no hypervisor yet.
+    """
+    try:
+        available = sorted(fmt.value for fmt in _engine(ctx).capabilities.creatable_formats())
+    except Exception:
+        available = sorted(fmt.value for fmt in DiskFormat)
+    return [value for value in available if value.startswith(incomplete)]
+
+
+def _known_disk_format(value, flag: str):
+    """Check a format name against the vocabulary, not against one provider's list.
+
+    Whether *this* hypervisor can create it is a different question, and the
+    validator answers it with a measured reason and honours ``--policy`` -- so
+    ``--disk-format vdi`` against VMware is refused under ``strict`` and substituted
+    under ``nearest``, rather than being rejected by the option parser with a list
+    that belonged to VirtualBox.
+    """
+    if value is None:
+        return None
+    try:
+        DiskFormat(value)
+    except ValueError:
+        raise ValidationError(
+            f"{flag}: {value!r} is not an image format vmctl knows",
+            field=flag,
+            value=value,
+            recovery_hint="one of "
+            + ", ".join(sorted(fmt.value for fmt in DiskFormat))
+            + "; `vmctl capabilities` says which of them this hypervisor can create",
+        )
+    return value
 
 
 # ---------------------------------------------------------------------------
 # Error reporting
 # ---------------------------------------------------------------------------
-
-
-# Formats the provider can actually create, measured rather than assumed -- see
-# providers/virtualbox/capabilities.py. A-03 will make this follow --provider;
-# until then VirtualBox is the only provider, so the list is resolved once.
-DISK_FORMATS = sorted(f.value for f in VirtualBoxCapabilities.get().creatable_formats())
 
 
 def _override_options(command):
@@ -177,6 +208,26 @@ def _report_overrides(applied) -> None:
         )
 
 
+def _selected_provider(ctx) -> Optional[str]:
+    """Return the ``-p`` value, whether the group's callback has run or not.
+
+    The group fills in ``ctx.obj``, and reading only that was right for a command and
+    wrong for completion: Click parses the options but does not call callbacks when it
+    is completing, so ``ctx.obj`` is empty there and ``vmctl -p qemu read <TAB>``
+    offered the *default* provider's VM names. Walking up the contexts finds the
+    parsed parameter as well, which is the same answer either way.
+    """
+    node = ctx
+    while node is not None:
+        if node.obj and node.obj.get("provider"):
+            return str(node.obj["provider"])
+        parsed = (node.params or {}).get("provider")
+        if parsed:
+            return str(parsed)
+        node = node.parent
+    return None
+
+
 def _engine(ctx=None) -> VMCtlEngine:
     """Build an engine for the provider the user selected.
 
@@ -188,9 +239,9 @@ def _engine(ctx=None) -> VMCtlEngine:
     """
     name = None
     verbose = False
-    if ctx is not None and ctx.obj:
-        name = ctx.obj.get("provider")
-        verbose = bool(ctx.obj.get("verbose"))
+    if ctx is not None:
+        name = _selected_provider(ctx)
+        verbose = bool(ctx.obj and ctx.obj.get("verbose"))
     engine = VMCtlEngine(name)
     if verbose:
         # Printed *before* each step runs, which is the whole point: the last line
@@ -494,9 +545,11 @@ def _fail(exc: Exception) -> None:
 def cli(ctx, provider, verbose, quiet):
     """vmctl — Virtual Machine Management Tool.
 
-    Manage VirtualBox VMs with config-as-code support.  Export any VM to YAML
-    or JSON, recreate it anywhere, and spin up entire clusters from a single
-    batch file.
+    Describe a virtual machine in a file and get a real one -- on VirtualBox,
+    libvirt/QEMU-KVM, plain QEMU or VMware Workstation, with the same commands and
+    the same files.  Export any VM to YAML or JSON, recreate it on the same
+    hypervisor or another one, see what has drifted from the file, and spin up
+    entire clusters from a single batch file.
 
     \b
     Quick start:
@@ -633,8 +686,8 @@ def cmd_status(ctx, vm_name, fmt):
 def cmd_start(ctx, vm_name):
     """Start a VM in headless mode.
 
-    The VM has no GUI window.  Use VirtualBox GUI or SSH to interact
-    with the guest once it has booted.
+    The VM has no GUI window.  Reach the guest over SSH, or through the
+    hypervisor's own console, once it has booted.
 
     \b
     Example:
@@ -709,8 +762,8 @@ def cmd_stop(ctx, vm_name, force, wait):
 def cmd_read(ctx, vm_name, fmt):
     """Print a VM's configuration to stdout.
 
-    Reads the live configuration directly from VirtualBox and outputs
-    it as YAML (default) or JSON.
+    Reads the live configuration from the hypervisor and outputs it as YAML
+    (default) or JSON.  Use `export -o FILE` to write it to a file instead.
 
     \b
     Examples:
@@ -738,7 +791,7 @@ def cmd_read(ctx, vm_name, fmt):
     "-o",
     type=click.Path(path_type=Path),
     default=None,
-    help="Output file path (.yaml or .json). Required unless --all is given.",
+    help="Output file path (.yaml or .json), or - for stdout. Required unless " "--all is given.",
 )
 @click.option(
     "--all",
@@ -793,10 +846,22 @@ def cmd_export(ctx, vm_name, output, export_all, directory, fmt):
         )
     try:
         engine = _engine(ctx)
+        if str(output) == STDOUT:
+            # `-` is the stdout convention every other tool honours, and vmctl wrote a
+            # file *called* `-` in the working directory and reported success. Nothing
+            # else goes to stdout here: the document is the output, so a confirmation
+            # line would corrupt what the caller is piping.
+            click.echo(engine.get_serializer(fmt).to_string(engine.read_vm(vm_name)), nl=False)
+            return
         engine.export_vm(vm_name, output, fmt)
         click.echo(f"Exported '{vm_name}' -> {output}")
     except VMToolError as e:
         _fail(e)
+
+
+#: What ``-o`` means "write to stdout". The convention cp, tar and every other tool
+#: uses; vmctl used to create a file with this name instead.
+STDOUT = "-"
 
 
 def _format_for(output: Optional[Path]) -> str:
@@ -867,9 +932,12 @@ def _export_all(ctx, directory: Path, fmt: str) -> None:
 @click.option("--new-name", default=None, help="Override the VM name from the file.")
 @click.option(
     "--disk-format",
-    type=click.Choice(DISK_FORMATS),
+    metavar="FORMAT",
+    shell_complete=_complete_disk_formats,
     default=None,
-    help="Create the VM's disks in this image format instead of the one in the file.",
+    help="Create the VM's disks in this image format instead of the one in the file. "
+    "Completion offers what the selected hypervisor can create; `vmctl capabilities` "
+    "lists them.",
 )
 @click.option(
     "--execute",
@@ -917,8 +985,8 @@ def cmd_import(
 ):
     """Create a VM from a YAML or JSON configuration file.
 
-    Without --execute the command prints the VBoxManage commands that
-    would be run but does not touch VirtualBox (dry-run mode).
+    Without --execute the command prints what it would run and changes nothing
+    (dry-run mode).
 
     By default the new VM gets blank disks: a configuration file describes a machine,
     not its contents. Pass --clone-disks to copy the images the file points at, when
@@ -940,6 +1008,7 @@ def cmd_import(
         # overridden field exactly as they see a written one (E-20).
         # The extension still decides whether this is a file vmctl reads at all.
         format_for(Path(config_file))
+        disk_format = _known_disk_format(disk_format, "--disk-format")
         mapping, applied = _overridden(
             _read_mapping(Path(config_file)),
             patches=patches,
@@ -982,9 +1051,11 @@ def cmd_import(
 @click.option("--cpus", type=int, default=None, help="Override CPU count.")
 @click.option(
     "--disk-format",
-    type=click.Choice(DISK_FORMATS),
+    metavar="FORMAT",
+    shell_complete=_complete_disk_formats,
     default=None,
-    help="Create the new VM's disks in this image format.",
+    help="Create the new VM's disks in this image format. Completion offers what the "
+    "selected hypervisor can create; `vmctl capabilities` lists them.",
 )
 @click.option(
     "--execute",
@@ -1032,10 +1103,10 @@ def cmd_create(
     add_disks,
     add_nics,
 ):
-    """Clone a VM configuration from an existing VirtualBox VM.
+    """Clone a VM configuration from one the hypervisor already has.
 
-    Reads the source VM's configuration live from VirtualBox, applies
-    any overrides, and creates a new VM with the same hardware profile.
+    Reads the source VM's configuration live, applies any overrides, and creates a
+    new VM with the same hardware profile.
 
     Disk contents are not copied unless --clone-disks is given: the default is a
     machine with the same shape and blank disks, which is fast and costs no space.
@@ -1049,6 +1120,7 @@ def cmd_create(
       vmctl create ubuntu-server --new-name full-clone --clone-disks --execute
     """
     try:
+        disk_format = _known_disk_format(disk_format, "--disk-format")
         engine = _engine(ctx)
         vm = engine.read_vm(source_vm)
         # Where the source's data is and what it is, read before the name and the
@@ -1522,9 +1594,11 @@ def cmd_migrate(ctx, vm_name, target_name, source_name, new_name, with_disks, po
 @click.option(
     "--to",
     "target_format",
-    type=click.Choice(DISK_FORMATS),
+    metavar="FORMAT",
+    shell_complete=_complete_disk_formats,
     default=None,
-    help="Format to write. Inferred from TARGET's extension when omitted.",
+    help="Format to write. Inferred from TARGET's extension when omitted. Completion "
+    "offers what the selected hypervisor can write.",
 )
 @click.option(
     "--from",
@@ -1553,6 +1627,8 @@ def cmd_convert(ctx, source, target, target_format, source_format, execute):
       vmctl convert disk.img disk.qcow2 --from raw --to qcow2
     """
     try:
+        target_format = _known_disk_format(target_format, "--to")
+        source_format = _known_disk_format(source_format, "--from")
         engine = _engine(ctx)
         converter = engine.backend.converter()
         if converter is None:
@@ -1564,7 +1640,7 @@ def cmd_convert(ctx, source, target, target_format, source_format, execute):
                 )
             )
 
-        chosen = _format_from(target_format, target)
+        chosen = _format_from(target_format, target, engine.capabilities)
         plan = plan_convert(
             source=str(source),
             target=str(target),
@@ -1584,12 +1660,15 @@ def cmd_convert(ctx, source, target, target_format, source_format, execute):
         _fail(e)
 
 
-def _format_from(explicit, target_path) -> DiskFormat:
+def _format_from(explicit, target_path, capabilities=None) -> DiskFormat:
     """Decide the target format from the option, or the file extension.
 
     Args:
         explicit: The ``--to`` value, if given.
         target_path: The destination path.
+        capabilities: The selected provider's, whose table says which extensions it
+            uses. VirtualBox's was consulted for every provider, which is only
+            invisible while the extension happens to be spelled the same.
 
     Returns:
         The format to write.
@@ -1604,9 +1683,11 @@ def _format_from(explicit, target_path) -> DiskFormat:
         if fmt.value == suffix:
             return fmt
     # The extension a provider uses is not always the format's own name.
-    for fmt in DiskFormat:
-        if suffix in VirtualBoxCapabilities.get().format_spec(fmt).extensions:
-            return fmt
+    if capabilities is not None:
+        for fmt in DiskFormat:
+            spec = capabilities.format_spec(fmt)
+            if spec is not None and suffix in spec.extensions:
+                return fmt
     raise ValidationError(
         f"cannot tell what format {target_path} should be",
         field="target",
@@ -2496,8 +2577,9 @@ def _capabilities_as_dict(caps) -> dict:
 def cmd_completion(shell):
     """Print the shell completion script to stdout.
 
-    Evaluate the output to enable tab completion for vmctl commands and for VM
-    names read live from VirtualBox.
+    Evaluate the output to enable tab completion for vmctl commands, for VM names
+    read live from the selected hypervisor, and for the image formats it can
+    create.
 
     \b
     Setup:
