@@ -2897,8 +2897,11 @@ Two tests enforce this, in every release:
   this box. Only **TCG** is available — the host VM has `nested-hw-virt="off"`,
   so there is no `/dev/kvm` and `<domain type='kvm'/>` is not offered. That is
   sufficient for P-01, which needs libvirt to *define and read* domains, not to
-  boot them quickly. Booting a guest for E-19 `selftest` would need nested virt
-  enabled on the host VM (a power-cycle of this machine).
+  boot them quickly. **And sufficient for E-19 `selftest`, which turned out not to
+  need nested virt at all** -- it starts a VM with an empty disk and asserts the
+  hypervisor reports it as running, which is the question ("will this thing run the
+  definition?") without the part that needs speed. Booting a real guest OS still
+  would, and nothing here does.
 - **The support matrices must be probed, not recalled.** Every cell in M-03 and
   in each provider's table is a version-specific claim about a third-party tool.
   Probe on a real host at the version floor, commit the probe output as a
