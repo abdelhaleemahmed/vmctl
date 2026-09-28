@@ -27,7 +27,7 @@ from ...core.exceptions import (
     VMNotFoundError,
     VMStateError,
 )
-from ...core.plan import Plan, StepKind
+from ...core.plan import Plan, Step
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
@@ -93,24 +93,46 @@ class VMwareBackend(BaseProvider):
         """Return provider capabilities."""
         return self._capabilities
 
-    @property
-    def tools_dir(self) -> Optional[str]:
-        """Return the directory VMware's tools are in, if one can be found.
+    @staticmethod
+    def find_tools() -> Optional[str]:
+        """Search for the directory VMware's tools are in.
 
         Three answers, not two: a directory, ``""`` for "on PATH", and None for "not
         installed". Collapsing the first two -- an empty string is falsy -- made a
         provider that had found its tools on PATH report itself missing.
+
+        A static search because two questions need it: where to run ``vmrun`` from,
+        and whether this provider is usable at all (F-43). Answering the second by
+        looking only on PATH said "not installed" on a host where VMware Workstation
+        was installed and working, because its installer does not put its tools on
+        PATH -- so ``vmctl providers`` was wrong, auto-detection never chose VMware,
+        and ``vmctl doctor`` agreed with both.
         """
-        if self._searched:
-            return self._tools_dir
-        self._searched = True
         for candidate in TOOL_DIRS:
             if os.path.isfile(os.path.join(candidate, "vmrun")) or os.path.isfile(
                 os.path.join(candidate, "vmrun.exe")
             ):
-                self._tools_dir = candidate
                 return candidate
-        self._tools_dir = "" if shutil.which("vmrun") else None
+        return "" if shutil.which("vmrun") else None
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Whether VMware Workstation is installed, searched the same way.
+
+        Never raises: this is used to choose a provider.
+        """
+        try:
+            return cls.find_tools() is not None
+        except Exception:  # pragma: no cover - a search that cannot be done
+            return False
+
+    @property
+    def tools_dir(self) -> Optional[str]:
+        """Return the directory VMware's tools are in, remembering the answer."""
+        if self._searched:
+            return self._tools_dir
+        self._searched = True
+        self._tools_dir = self.find_tools()
         return self._tools_dir
 
     def tool(self, name: str) -> str:
@@ -143,6 +165,48 @@ class VMwareBackend(BaseProvider):
             match = re.search(r"vmrun version ([\d.]+)", out)
             self._version = match.group(1) if match else "unknown"
         return self._version
+
+    def diagnostics(self):
+        """Report VMware's own two tools, which are usually not on PATH.
+
+        The default check looks for ``vmrun`` on PATH and would call VMware missing
+        on a perfectly good Workstation install, because the installer does not put
+        its tools there -- so the *directory* is what matters here, and that is what
+        the provider already had to find in order to work at all.
+        """
+        from ...core.doctor import Check
+        from ...core.hostinfo import free_space_mb
+
+        checks = []
+        directory_found = self.tools_dir
+        if directory_found is None:
+            checks.append(
+                Check(
+                    "vmware tools directory",
+                    "not found",
+                    False,
+                    "install VMware Workstation, or pass its directory; the tools "
+                    "needed are vmrun and vmware-vdiskmanager",
+                )
+            )
+        else:
+            checks.append(Check("vmware tools directory", directory_found or "on PATH", True))
+            for name in ("vmrun", "vmware-vdiskmanager"):
+                path = self.tool(name)
+                present = os.path.isfile(path) or shutil.which(path) is not None
+                checks.append(Check(name, path if present else f"{path} (missing)", present))
+            try:
+                checks.append(Check("vmrun version", self.version(), True))
+            except Exception as exc:
+                checks.append(Check("vmrun version", f"could not be read: {exc}", False))
+
+        # Said even when VMware is missing: where a VM would go and whether there is
+        # room for it are half the questions, and neither needs the tools to answer.
+        checks.append(Check("vm directory", self.state_dir))
+        free = free_space_mb(self.state_dir)
+        if free is not None:
+            checks.append(Check("free space there", f"{free} MB"))
+        return checks
 
     def storage_location(self) -> StorageLocation:
         """Return the VM directory, one subdirectory per VM.
@@ -227,32 +291,22 @@ class VMwareBackend(BaseProvider):
             raise ProviderError(f"vmrun {' '.join(args)} failed: {out.strip()}")
         return out
 
-    def run_plan(self, plan: Plan) -> None:
-        """Execute every step in a plan, in order.
+    def run_argv(self, step: Step) -> None:
+        """Run one command, and read its *output* as well as its exit status.
+
+        The one genuinely different thing about executing a plan here: ``vmrun``
+        prints ``Error: ...`` and exits 0, so trusting the exit status reported
+        success for a VM that was never touched.
 
         Raises:
-            ProviderError: If a step fails or is a kind this provider cannot run.
+            ProviderError: If the command fails or says it did.
         """
-        for step in plan:
-            if step.kind is StepKind.WRITE_FILE and step.path is not None:
-                step.path.parent.mkdir(parents=True, exist_ok=True)
-                step.path.write_text(step.content or "")
-            elif step.kind is StepKind.EXEC and step.argv:
-                argv = list(step.argv)
-                if argv[0] == "mkdir":
-                    # The emitted plan reads as a shell script for a reader; making a
-                    # directory does not need one.
-                    os.makedirs(argv[-1], exist_ok=True)
-                    continue
-                result = subprocess.run(argv, capture_output=True, text=True)
-                output = (result.stdout or "") + (result.stderr or "")
-                if result.returncode != 0 or re.search(r"^Error:", output, re.MULTILINE):
-                    raise ProviderError(f"{step.description} failed: {output.strip()}")
-            else:
-                raise ProviderError(
-                    f"the vmware provider cannot run a {step.kind.value} step "
-                    f"({step.description})"
-                )
+        result = subprocess.run(
+            self.resolve_argv(list(step.argv or [])), capture_output=True, text=True
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        if result.returncode != 0 or re.search(r"^Error:", output, re.MULTILINE):
+            raise ProviderError(f"{step.description} failed: {output.strip()}")
 
     # -- the directory -------------------------------------------------------
 

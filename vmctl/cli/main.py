@@ -18,6 +18,7 @@ from vmctl.core.clone import Origin, plan_clone
 from vmctl.core.convert import convert as plan_convert, plan_conversions
 from vmctl.core.plan import Plan
 from vmctl.core.diff import diff, stated_paths, summarise
+from vmctl.core.doctor import failures, report as doctor_report
 from vmctl.core.naming import safe_filename
 from vmctl.core.schema import build as build_schema
 from vmctl.core.migrate import plan_migration
@@ -99,13 +100,37 @@ def _engine(ctx=None) -> VMCtlEngine:
         VMCtlEngine: bound to the chosen provider.
     """
     name = None
+    verbose = False
     if ctx is not None and ctx.obj:
         name = ctx.obj.get("provider")
-    return VMCtlEngine(name)
+        verbose = bool(ctx.obj.get("verbose"))
+    engine = VMCtlEngine(name)
+    if verbose:
+        # Printed *before* each step runs, which is the whole point: the last line
+        # you see is the command that failed, not the one after it (E-08).
+        engine.backend.on_step = _echo_step
+    return engine
+
+
+def _echo_step(step) -> None:
+    """Print one step as it is about to run, on stderr.
+
+    Stderr, because ``--verbose`` is commentary: a command whose stdout is being
+    piped into `jq` must not suddenly have running commentary in it.
+    """
+    click.echo(f"+ {step.render()}", err=True)
+
+
+#: Set by ``--quiet``. Warnings are the only thing it silences: an error still
+#: prints and still exits non-zero, and output a caller *asked* for is not
+#: commentary. A flag that hid failures would be worse than no flag.
+_QUIET = False
 
 
 def _warn(message: str) -> None:
     """Print a validation warning to stderr, so stdout stays pipeable."""
+    if _QUIET:
+        return
     click.echo(f"Warning: {message}", err=True)
 
 
@@ -267,6 +292,33 @@ def _clone_disks(engine, vm, origins=None) -> Optional[Plan]:
     return plan_conversions(result.requests, engine.backend.converter(), engine.provider_name)
 
 
+def _error_as_data(exc: Exception) -> dict:
+    """Return an error as the same facts the prose form prints.
+
+    vmctl's own errors carry the field at fault, what was expected and a recovery
+    hint, and ``_fail`` prints all of it. Machine-readable output that threw that
+    away would be a second, worse error report.
+    """
+    if not isinstance(exc, VMToolError):
+        return {"message": str(exc)}
+    data: dict = {"message": exc.message, "summary": get_error_summary(exc)}
+    if exc.context:
+        data["context"] = {key: value for key, value in exc.context.items()}
+    if exc.recovery_hint:
+        data["hint"] = exc.recovery_hint
+    return data
+
+
+def _emit_json(data) -> None:
+    """Print data as JSON on stdout, the way a pipeline wants it (E-07).
+
+    Sorted keys and a trailing newline, so two runs of the same command produce the
+    same bytes -- the property that makes output diffable and committable, the same
+    reason ``export --all``'s manifest carries no timestamp.
+    """
+    click.echo(json.dumps(data, indent=2, sort_keys=True, default=str))
+
+
 def _read_mapping(path: Path) -> dict:
     """Return a config file as the plain mapping it is.
 
@@ -342,8 +394,21 @@ def _fail(exc: Exception) -> None:
     help="Hypervisor to talk to. Defaults to $VMCTL_PROVIDER, then whichever "
     "is installed. See 'vmctl providers'.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="Print each command on stderr as it runs, so a failure part-way through a "
+    "plan can be traced to the step it happened on.",
+)
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="Suppress warnings. Errors are still reported and still exit non-zero.",
+)
 @click.pass_context
-def cli(ctx, provider):
+def cli(ctx, provider, verbose, quiet):
     """vmctl — Virtual Machine Management Tool.
 
     Manage VirtualBox VMs with config-as-code support.  Export any VM to YAML
@@ -358,8 +423,11 @@ def cli(ctx, provider):
       vmctl import my-vm.yaml --new-name test-vm --execute
       vmctl batch create cluster.yaml --execute
     """
+    global _QUIET
     ctx.ensure_object(dict)
     ctx.obj["provider"] = provider
+    ctx.obj["verbose"] = verbose
+    _QUIET = quiet
 
 
 # ---------------------------------------------------------------------------
@@ -371,26 +439,42 @@ def cli(ctx, provider):
 @click.option(
     "--format",
     "fmt",
-    type=click.Choice(["table", "simple"]),
+    type=click.Choice(["table", "simple", "json"]),
     default="table",
     show_default=True,
     help="Output format.",
 )
 @click.pass_context
 def cmd_list(ctx, fmt):
-    """List all VMs registered in VirtualBox.
+    """List all VMs the hypervisor knows about.
 
     TABLE format (default) shows each VM name alongside its current status.
-    SIMPLE format prints only the names, one per line — useful for scripting.
+    SIMPLE prints only the names, one per line. JSON prints a list of objects with
+    ``name``, ``status`` and ``provider`` -- what a pipeline needs.
 
     \b
     Examples:
       vmctl list
       vmctl list --format simple
+      vmctl list --format json | jq -r '.[] | select(.status=="running").name'
     """
     try:
         engine = _engine(ctx)
         vms = engine.list_vms()
+        if fmt == "json":
+            # No "No VMs found." here: an empty list is the answer, and a sentence
+            # in place of JSON is what breaks a pipeline that asked for JSON.
+            _emit_json(
+                [
+                    {
+                        "name": vm,
+                        "status": _status_or_unknown(engine, vm),
+                        "provider": engine.provider_name,
+                    }
+                    for vm in vms
+                ]
+            )
+            return
         if not vms:
             click.echo("No VMs found.")
             return
@@ -401,13 +485,20 @@ def cmd_list(ctx, fmt):
             click.echo(f"{'NAME':<30} {'STATUS':<12}")
             click.echo("-" * 42)
             for vm in vms:
-                try:
-                    status = engine.get_vm_status(vm)
-                except ProviderError:
-                    status = "unknown"
-                click.echo(f"{vm:<30} {status:<12}")
+                click.echo(f"{vm:<30} {_status_or_unknown(engine, vm):<12}")
     except VMToolError as e:
         _fail(e)
+
+
+def _status_or_unknown(engine, vm_name: str) -> str:
+    """Return a VM's status, or "unknown" when it cannot be read.
+
+    One VM that cannot be asked must not cost the listing of the other fifty.
+    """
+    try:
+        return str(engine.get_vm_status(vm_name))
+    except ProviderError:
+        return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -417,20 +508,32 @@ def cmd_list(ctx, fmt):
 
 @cli.command("status")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["plain", "json"]),
+    default="plain",
+    show_default=True,
+    help="Output format.",
+)
 @click.pass_context
-def cmd_status(ctx, vm_name):
+def cmd_status(ctx, vm_name, fmt):
     """Show the current state of a VM.
 
     Possible states: running, stopped, paused, saved, aborted,
     starting, stopping, unknown.
 
     \b
-    Example:
+    Examples:
       vmctl status ubuntu-server
+      vmctl status ubuntu-server --format json
     """
     try:
         engine = _engine(ctx)
         status = engine.get_vm_status(vm_name)
+        if fmt == "json":
+            _emit_json({"name": vm_name, "status": status, "provider": engine.provider_name})
+            return
         click.echo(status)
     except VMToolError as e:
         _fail(e)
@@ -932,30 +1035,67 @@ def cmd_delete(ctx, vm_name, force):
 
 @cli.command("validate")
 @click.argument("config_file", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["plain", "json"]),
+    default="plain",
+    show_default=True,
+    help="Output format. JSON reports a failure as data too, on stdout.",
+)
 @click.pass_context
-def cmd_validate(ctx, config_file):
+def cmd_validate(ctx, config_file, fmt):
     """Validate a YAML or JSON VM configuration file.
 
     Runs four validation phases: schema, provider limits, logical
     constraints, and warnings.  Exits with code 1 on error.
 
+    What is valid depends on the provider: a bus or a disk format one hypervisor
+    has and another does not is the common case, so pass -p to check against the
+    one you mean.
+
     \b
-    Example:
+    Examples:
       vmctl validate my-config.yaml
+      vmctl validate my-config.yaml --format json
+      vmctl -p libvirt validate my-config.yaml
     """
     try:
         engine = _engine(ctx)
         vm = engine.import_vm(config_file)
         warnings = engine.validate_vm(vm)
-        for w in warnings:
-            _warn(w)
-        click.echo("Configuration is valid!")
-        click.echo(f"  VM Name: {vm.name}")
-        click.echo(f"  CPU:     {vm.cpu.count} cores")
-        click.echo(f"  Memory:  {vm.memory.mb} MB")
-        click.echo(f"  Disks:   {len(vm.storage)}")
     except VMToolError as e:
+        if fmt == "json":
+            # A pipeline that asked for JSON gets JSON for the failure as well:
+            # prose on stderr and nothing on stdout is what makes `|| true` the
+            # only way to handle an invalid file.
+            _emit_json({"valid": False, "file": str(config_file), "error": _error_as_data(e)})
+            sys.exit(1)
         _fail(e)
+        return
+
+    if fmt == "json":
+        _emit_json(
+            {
+                "valid": True,
+                "file": str(config_file),
+                "provider": engine.provider_name,
+                "name": vm.name,
+                "cpus": vm.cpu.count,
+                "memory_mb": vm.memory.mb,
+                "devices": len(vm.storage),
+                "warnings": list(warnings),
+            }
+        )
+        return
+
+    for w in warnings:
+        _warn(w)
+    click.echo("Configuration is valid!")
+    click.echo(f"  VM Name: {vm.name}")
+    click.echo(f"  CPU:     {vm.cpu.count} cores")
+    click.echo(f"  Memory:  {vm.memory.mb} MB")
+    click.echo(f"  Disks:   {len(vm.storage)}")
 
 
 # ---------------------------------------------------------------------------
@@ -1349,6 +1489,76 @@ def cmd_providers():
 
 
 # ---------------------------------------------------------------------------
+# doctor (E-12)
+# ---------------------------------------------------------------------------
+
+
+@cli.command("doctor")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["plain", "json"]),
+    default="plain",
+    show_default=True,
+    help="Output format.",
+)
+@click.pass_context
+def cmd_doctor(ctx, fmt):
+    """Check whether this machine can actually run VMs.
+
+    Looks at the host -- memory, CPUs, hardware virtualisation, bridges -- and at
+    the hypervisor: its tool and version, where images go, how much room is there,
+    and whatever else that particular provider knows about itself. Read-only.
+
+    Exits 1 if anything found will stop vmctl working, so it can gate a pipeline.
+    A slow-but-working setup is reported, not failed: no hardware virtualisation
+    means emulation, which is worth knowing before concluding vmctl is slow.
+
+    \b
+    Examples:
+      vmctl doctor
+      vmctl -p libvirt doctor
+      vmctl doctor --format json
+    """
+    # Built without the engine's usual failure path: a broken setup is exactly what
+    # this command is for, so it must report rather than exit.
+    try:
+        engine = _engine(ctx)
+        backend = engine.backend
+        provider_name = engine.provider_name
+    except VMToolError as exc:
+        if fmt == "json":
+            _emit_json({"provider": None, "ok": False, "checks": [], "error": _error_as_data(exc)})
+            sys.exit(1)
+        click.echo(get_error_summary(exc), err=True)
+        click.echo("Run 'vmctl providers' to see which hypervisors vmctl can talk to.")
+        sys.exit(1)
+
+    checks = doctor_report(backend)
+    broken = failures(checks)
+
+    if fmt == "json":
+        _emit_json(
+            {
+                "provider": provider_name,
+                "ok": not broken,
+                "checks": [check.as_dict() for check in checks],
+            }
+        )
+        if broken:
+            sys.exit(1)
+        return
+
+    click.echo(f"provider: {provider_name}")
+    for check in checks:
+        click.echo(check.render())
+    if broken:
+        click.echo(f"\n{len(broken)} problem(s) will stop vmctl working.")
+        sys.exit(1)
+    click.echo("\nNothing found that would stop vmctl working.")
+
+
+# ---------------------------------------------------------------------------
 # schema
 # ---------------------------------------------------------------------------
 
@@ -1392,8 +1602,16 @@ def cmd_schema(output):
 @cli.command("diff")
 @click.argument("vm_name", shell_complete=_complete_vm_names)
 @click.argument("config_file", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["plain", "json"]),
+    default="plain",
+    show_default=True,
+    help="Output format.",
+)
 @click.pass_context
-def cmd_diff(ctx, vm_name, config_file):
+def cmd_diff(ctx, vm_name, config_file, fmt):
     """Show how a VM differs from a configuration file.
 
     Read-only. Reads the VM from the hypervisor, loads the file, and compares them
@@ -1429,6 +1647,21 @@ def cmd_diff(ctx, vm_name, config_file):
         return
 
     changes = diff(live, desired, stated)
+    if fmt == "json":
+        _emit_json(
+            {
+                "vm": vm_name,
+                "file": str(config_file),
+                "provider": engine.provider_name,
+                "differs": bool(changes),
+                "summary": summarise(changes),
+                "changes": [change.as_dict() for change in changes],
+            }
+        )
+        if changes:
+            sys.exit(1)
+        return
+
     if not changes:
         click.echo(f"{vm_name} matches {config_file}")
         return

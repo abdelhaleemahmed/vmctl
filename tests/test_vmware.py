@@ -11,6 +11,8 @@ one key at most, the PCI bridges, and port limits vmctl has to enforce because
 VMware will not.
 """
 
+import os
+
 import pytest
 
 from vmctl.core.devices import Allocation, BusType, DeviceKind, DiskFormat
@@ -517,3 +519,55 @@ def test_editing_does_not_run_vdiskmanager_over_an_existing_disk(emitter, vm):
     assert not [step for step in plan if "vmware-vdiskmanager" in " ".join(step.argv or [])]
     # ...and the file is still written, because that is the actual change.
     assert [step for step in plan if step.kind is StepKind.WRITE_FILE]
+
+
+# ---------------------------------------------------------------------------
+# F-43: availability has to be asked the way the provider asks it
+# ---------------------------------------------------------------------------
+
+
+def test_vmware_is_available_when_installed_but_not_on_path(monkeypatch):
+    """Measured on the real host: Workstation's installer does not put its tools on
+    PATH, so checking PATH reported "not installed" on a machine where vmctl had just
+    created and deleted a VM. `vmctl providers` said unavailable, auto-detection never
+    chose VMware, and `vmctl doctor` agreed with both."""
+    import shutil as _shutil
+
+    from vmctl.providers.vmware import backend as vmware_backend
+
+    installed = vmware_backend.TOOL_DIRS[0]
+    monkeypatch.setattr(_shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        vmware_backend.os.path,
+        "isfile",
+        lambda path: path
+        in (os.path.join(installed, "vmrun"), os.path.join(installed, "vmrun.exe")),
+    )
+
+    assert vmware_backend.VMwareBackend.is_available() is True
+    assert vmware_backend.VMwareBackend().tools_dir == installed
+
+
+def test_vmware_is_unavailable_when_nothing_is_there(monkeypatch):
+    import shutil as _shutil
+
+    from vmctl.providers.vmware import backend as vmware_backend
+
+    monkeypatch.setattr(_shutil, "which", lambda name: None)
+    monkeypatch.setattr(vmware_backend.os.path, "isfile", lambda path: False)
+
+    assert vmware_backend.VMwareBackend.is_available() is False
+
+
+def test_tools_on_path_still_count_as_installed(monkeypatch):
+    """The empty string means "on PATH", and it is falsy -- which is how a provider
+    that had found its tools once reported itself missing."""
+    import shutil as _shutil
+
+    from vmctl.providers.vmware import backend as vmware_backend
+
+    monkeypatch.setattr(vmware_backend.os.path, "isfile", lambda path: False)
+    monkeypatch.setattr(_shutil, "which", lambda name: "/usr/bin/vmrun")
+
+    assert vmware_backend.VMwareBackend.find_tools() == ""
+    assert vmware_backend.VMwareBackend.is_available() is True

@@ -1068,3 +1068,172 @@ def test_a_real_virtualbox_failure_is_still_a_provider_error(monkeypatch):
     monkeypatch.setattr(subprocess, "run", fake_run)
     with pytest.raises(ProviderError):
         VirtualBoxParser().get_vm_info("broken")
+
+
+# ---------------------------------------------------------------------------
+# Machine-readable output (E-07)
+# ---------------------------------------------------------------------------
+
+
+def test_list_as_json_is_a_list_of_objects(runner, vbox):
+    import json as _json
+
+    result = runner.invoke(cli, ["list", "--format", "json"])
+    assert result.exit_code == 0
+    vms = _json.loads(result.output)
+    assert isinstance(vms, list) and vms
+    assert set(vms[0]) == {"name", "status", "provider"}
+
+
+def test_list_as_json_of_an_empty_host_is_an_empty_list(runner, vbox, monkeypatch):
+    """A sentence where JSON was asked for is what breaks a pipeline."""
+    import json as _json
+
+    monkeypatch.setattr(
+        "vmctl.providers.virtualbox.backend.VirtualBoxBackend.list_vms", lambda self: []
+    )
+    result = runner.invoke(cli, ["list", "--format", "json"])
+    assert result.exit_code == 0
+    assert _json.loads(result.output) == []
+
+
+def test_status_as_json_names_the_vm(runner, vbox):
+    import json as _json
+
+    result = runner.invoke(cli, ["status", "vmctl-t-bios", "--format", "json"])
+    assert _json.loads(result.output)["name"] == "vmctl-t-bios"
+
+
+def test_validate_as_json_reports_a_valid_file(runner, vbox, tmp_path):
+    import json as _json
+
+    result = runner.invoke(cli, ["validate", str(_write_config(tmp_path)), "--format", "json"])
+    assert result.exit_code == 0
+    data = _json.loads(result.output)
+    assert data["valid"] is True
+    assert data["name"] == "from-file"
+    assert isinstance(data["warnings"], list)
+
+
+def test_validate_as_json_reports_a_failure_as_json_too(runner, vbox, tmp_path):
+    """On stdout and still exit 1: prose on stderr and nothing on stdout is what makes
+    `|| true` the only way for a pipeline to handle an invalid file."""
+    import json as _json
+
+    path = tmp_path / "bad.yaml"
+    path.write_text("name: bad\ncpu:\n  count: 9999\n")
+
+    result = runner.invoke(cli, ["validate", str(path), "--format", "json"])
+
+    assert result.exit_code == 1
+    data = _json.loads(result.output)
+    assert data["valid"] is False
+    assert "cpu.count" in _json.dumps(data["error"])
+
+
+def test_diff_as_json_carries_the_same_changes_as_the_text(runner, vbox, tmp_path):
+    import json as _json
+
+    exported = tmp_path / "vm.yaml"
+    runner.invoke(cli, ["export", "vmctl-t-bios", "-o", str(exported)])
+    exported.write_text(exported.read_text().replace("mb: 128", "mb: 512"))
+
+    result = runner.invoke(cli, ["diff", "vmctl-t-bios", str(exported), "--format", "json"])
+
+    assert result.exit_code == 1  # diff(1): they differ
+    data = _json.loads(result.output)
+    assert data["differs"] is True
+    assert data["changes"] == [{"path": "memory.mb", "kind": "changed", "vm": "128", "file": "512"}]
+
+
+def test_json_output_is_byte_for_byte_repeatable(runner, vbox):
+    first = runner.invoke(cli, ["list", "--format", "json"]).output
+    assert runner.invoke(cli, ["list", "--format", "json"]).output == first
+
+
+# ---------------------------------------------------------------------------
+# --verbose / --quiet (E-08)
+# ---------------------------------------------------------------------------
+
+
+def test_verbose_echoes_each_command_as_it_runs(runner, vbox, tmp_path):
+    result = runner.invoke(cli, ["-v", "import", str(_write_config(tmp_path)), "--execute"])
+    assert result.exit_code == 0
+    echoed = [line for line in result.output.splitlines() if line.startswith("+ ")]
+    assert echoed
+    assert any("createvm" in line for line in echoed)
+
+
+def test_the_echo_stops_at_the_command_that_failed(runner, vbox, tmp_path, monkeypatch):
+    """The whole point of E-08: the last line you see is the step that failed, not the
+    one after it."""
+    calls = []
+
+    def fail_on_modifyvm(cmd, *args, **kwargs):
+        calls.append(cmd)
+        if len(cmd) > 1 and cmd[1] == "modifyvm":
+            raise subprocess.CalledProcessError(1, cmd, stderr="VBoxManage: error: nope")
+        if len(cmd) > 1 and cmd[1] == "list":
+            return FakeCompleted(stdout=read_fixture("list_vms.txt"))
+        return FakeCompleted()
+
+    monkeypatch.setattr(subprocess, "run", fail_on_modifyvm)
+    result = runner.invoke(cli, ["-v", "import", str(_write_config(tmp_path)), "--execute"])
+
+    assert result.exit_code == 1
+    echoed = [line for line in result.output.splitlines() if line.startswith("+ ")]
+    assert "modifyvm" in echoed[-1]
+
+
+def test_quiet_suppresses_warnings_but_not_errors(runner, vbox, tmp_path):
+    noisy = tmp_path / "noisy.yaml"
+    noisy.write_text(
+        "name: noisy\ncpu:\n  count: 2\nmemory:\n  mb: 128\n"
+        "disks:\n  - name: system\n    size_mb: 1024\nnetworks: []\nostype: NotAnOsType\n"
+    )
+    loud = runner.invoke(cli, ["validate", str(noisy)])
+    quiet = runner.invoke(cli, ["-q", "validate", str(noisy)])
+
+    assert "Warning:" in loud.output
+    assert "Warning:" not in quiet.output
+    assert quiet.exit_code == 0
+
+    broken = tmp_path / "broken.yaml"
+    broken.write_text("name: broken\ncpu:\n  count: 9999\n")
+    assert runner.invoke(cli, ["-q", "validate", str(broken)]).exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# doctor (E-12)
+# ---------------------------------------------------------------------------
+
+
+def test_doctor_reports_the_host_and_the_provider(runner, vbox):
+    result = runner.invoke(cli, ["doctor"])
+    assert "provider: virtualbox" in result.output
+    assert "host memory" in result.output
+    assert "image location" in result.output
+
+
+def test_doctor_as_json_says_whether_anything_is_broken(runner, vbox):
+    import json as _json
+
+    data = _json.loads(runner.invoke(cli, ["doctor", "--format", "json"]).output)
+    assert data["provider"] == "virtualbox"
+    assert isinstance(data["ok"], bool)
+    assert all({"check", "value", "ok", "hint"} == set(c) for c in data["checks"])
+
+
+def test_doctor_exits_1_when_something_will_stop_vmctl_working(runner, monkeypatch):
+    """So it can gate a pipeline. A missing hypervisor is the case it is for."""
+
+    def missing(*args, **kwargs):
+        raise FileNotFoundError(2, "no such file")
+
+    monkeypatch.setattr(subprocess, "run", missing)
+    monkeypatch.setattr("shutil.which", lambda name: None)
+
+    result = runner.invoke(cli, ["-p", "virtualbox", "doctor"])
+
+    assert result.exit_code == 1
+    assert "will stop vmctl working" in result.output

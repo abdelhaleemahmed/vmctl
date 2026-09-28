@@ -86,7 +86,7 @@ OSINFO_NS = "http://libosinfo.org/xmlns/libvirt/domain/1.0"
 #: Neutral guest id -> libosinfo os id. Only the ids vmctl names neutrally; a
 #: provider string passes through, and cannot be expressed here.
 GUEST_OS_TO_OSINFO = {
-    "linux": "http://libosinfo.org/linux/2019",
+    "linux": "http://libosinfo.org/linux/2022",
     "ubuntu20.04": "http://ubuntu.com/ubuntu/20.04",
     "ubuntu22.04": "http://ubuntu.com/ubuntu/22.04",
     "ubuntu24.04": "http://ubuntu.com/ubuntu/24.04",
@@ -99,18 +99,36 @@ GUEST_OS_TO_OSINFO = {
     "opensuse": "http://opensuse.org/opensuse/15.5",
     "oracle9": "http://oracle.com/ol/9.0",
     "archlinux": "http://archlinux.org/archlinux/rolling",
-    "alpine": "http://alpinelinux.org/alpine/3.19",
+    "alpine": "http://alpinelinux.org/alpinelinux/3.19",
     "win10": "http://microsoft.com/win/10",
     "win11": "http://microsoft.com/win/11",
     "win2019": "http://microsoft.com/win/2k19",
     "win2022": "http://microsoft.com/win/2k22",
     "freebsd": "http://freebsd.org/freebsd/14.0",
     "openbsd": "http://openbsd.org/openbsd/7.4",
-    "macos": "http://apple.com/macos/10.15",
-    "solaris11": "http://oracle.com/solaris/11.4",
+    "macos": "http://apple.com/macosx/10.7",
+    "solaris11": "http://oracle.com/solaris/11",
 }
 
-#: The same, reversed.
+#: What a whole *family* becomes when a configuration names no version.
+#:
+#: Kept apart from the table above because these are not exact: vmctl's ``ubuntu``
+#: means "Ubuntu, version unspecified" and libosinfo has no such id, so the closest
+#: true statement is its generic modern Linux. The emitter reports using one of these
+#: as a substitution rather than emitting it silently, and they are deliberately *not*
+#: in the reverse map -- three ids mapping to one url would make a round trip return a
+#: different guest OS than it was given, which is worse than saying "approximated".
+#:
+#: ``rhel`` and ``other`` are exact: libosinfo really does have "unknown version of
+#: RHEL" and "unknown OS", which is precisely what is meant.
+GUEST_OS_APPROXIMATE = {
+    "ubuntu": "http://libosinfo.org/linux/2022",
+    "debian": "http://libosinfo.org/linux/2022",
+    "rhel": "http://redhat.com/rhel/unknown",
+    "other": "http://libosinfo.org/unknown",
+}
+
+#: The same, reversed. Only the exact table: see ``GUEST_OS_APPROXIMATE``.
 GUEST_OS_FROM_OSINFO = {v: k for k, v in GUEST_OS_TO_OSINFO.items()}
 
 #: Device kind -> libvirt ``<disk device='...'>``.

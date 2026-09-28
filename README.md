@@ -211,6 +211,46 @@ host, the MAC the hypervisor generated, a libvirt domain's UUID. Disks on an exi
 VM are never created, resized or removed; `apply` says what it left alone instead. It
 reads the VM back afterwards and lists anything that did not converge, which exits 1.
 
+### For Scripts and Pipelines
+
+`list`, `status`, `validate`, `diff` and `doctor` all take `--format json`. Keys are
+sorted, so two runs give the same bytes; an invalid file reports its error as JSON on
+stdout and still exits 1, so nothing has to be scraped off stderr.
+
+```
+$ vmctl list --format json | jq -r '.[] | select(.status=="running").name'
+$ vmctl validate web.yaml --format json | jq .valid
+$ vmctl doctor --format json | jq -r '.checks[] | select(.ok==false)'
+```
+
+`vmctl -v` prints each command on stderr as it runs, which is how a plan that fails
+half way through is traced to the step it failed on; `vmctl -q` drops warnings and
+keeps errors.
+
+### Is This Machine Set Up?
+
+`vmctl doctor` answers the questions that otherwise arrive as bug reports, and exits 1
+when something found will stop vmctl working.
+
+```
+$ vmctl doctor
+provider: libvirt
+[ok  ] python: 3.9
+[--  ] host memory: 3655 MB
+[--  ] hardware virtualisation: unavailable; guests will be emulated and slow
+         hint: on a nested setup, enable VT-x/AMD-V for this VM; otherwise check ...
+[ok  ] virsh: /usr/bin/virsh
+[ok  ] libvirt version: 11.10.0
+[--  ] image location: directory /home/vagrant/.local/share/libvirt/images
+[--  ] free space there: 13790 MB
+[ok  ] connection works: yes, 4 domain(s)
+[--  ] provider qemu: usable here
+```
+
+The host half is the same wherever vmctl runs; the hypervisor half is each provider's
+own answer, so libvirt reports its connection, QEMU its accelerator, VirtualBox its
+kernel module and VMware the directory its tools are in.
+
 ### What Can This Hypervisor Do?
 
 `vmctl capabilities` prints the declaration the validator and the translator read,
@@ -393,15 +433,16 @@ VM — set it in the config file.
 | Command | Description |
 |---------|-------------|
 | `vmctl providers` | List hypervisors and whether they work here |
+| `vmctl doctor [--format json]` | Check this machine: host, hypervisor, disk space; exit 1 if something will stop vmctl working |
 | `vmctl export --all -d <dir>` | Export every VM, one file each, plus a manifest |
 | `vmctl schema [-o <file>]` | JSON Schema for config files, generated from the model |
-| `vmctl diff <vm> <file>` | Show how a VM differs from a config file (exit 1 when it does) |
+| `vmctl diff <vm> <file> [--format json]` | Show how a VM differs from a config file (exit 1 when it does) |
 | `vmctl apply <file> [--execute] [--out PATH]` | Create the VM, or change only what drifted from the file |
 | `vmctl capabilities [--format json]` | Print what this hypervisor supports: formats, buses, the attach matrix, limits — and where each figure was measured |
 | `vmctl migrate <vm> --to PROVIDER [--with-disks] [--execute] [--out PATH]` | Recreate a VM on another hypervisor |
 | `vmctl convert <src> <dst> [--to FMT] [--execute]` | Convert a disk image between formats |
-| `vmctl list [--format table\|simple]` | List all VMs with status |
-| `vmctl status <vm>` | Show current VM state |
+| `vmctl list [--format table\|simple\|json]` | List all VMs with status |
+| `vmctl status <vm> [--format json]` | Show current VM state |
 | `vmctl start <vm>` | Start VM in headless mode |
 | `vmctl stop <vm> [-f] [--wait SECONDS]` | Stop VM (graceful or forced), optionally waiting for it |
 | `vmctl read <vm> [--format yaml\|json]` | Print VM configuration |
@@ -410,7 +451,7 @@ VM — set it in the config file.
 | `vmctl create <vm> --new-name <n> [--clone-disks] [--execute]` | Clone VM config from existing VM |
 | `vmctl edit <vm> [--memory MB] [--vram MB] [--cpus N] [--new-name <n>] [--execute]` | Change a stopped VM's CPU, memory or name (dry-run by default) |
 | `vmctl delete <vm> [-f]` | Delete VM and disk files |
-| `vmctl validate <file>` | Validate config file |
+| `vmctl validate <file> [--format json]` | Validate config file |
 | `vmctl batch create <file> [--execute] [--continue-on-error]` | Create multiple VMs from batch file |
 | `vmctl batch template [-o <file>]` | Generate a starter batch template |
 

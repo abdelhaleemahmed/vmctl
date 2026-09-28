@@ -88,6 +88,20 @@ class Change:
     live: Any = None
     desired: Any = None
 
+    def as_dict(self) -> Dict[str, Any]:
+        """Return this difference as JSON-safe data.
+
+        The same rendering as :meth:`render` uses for its values, so the text and
+        the JSON cannot disagree about what a VM has -- a second opinion about how
+        to print an enum is how the two drift apart.
+        """
+        return {
+            "path": self.path,
+            "kind": self.kind.value,
+            "vm": None if self.live is None else _show(self.live),
+            "file": None if self.desired is None else _show(self.desired),
+        }
+
     def render(self) -> str:
         """Return one line describing this difference."""
         if self.kind is ChangeKind.ADDED:

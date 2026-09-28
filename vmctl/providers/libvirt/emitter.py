@@ -45,6 +45,8 @@ from .tables import (
     DISCARD_ON,
     FIRMWARE_TO_LIBVIRT,
     FORMAT_TO_DRIVER,
+    GUEST_OS_APPROXIMATE,
+    GUEST_OS_FROM_OSINFO,
     GUEST_OS_TO_OSINFO,
     KIND_TO_DEVICE,
     NETWORK_TO_LIBVIRT,
@@ -432,10 +434,29 @@ class LibvirtEmitter:
         ``<metadata>`` -- which libvirt stores and returns unchanged, so this is
         what makes the guest OS survive a round trip here.
 
-        A guest vmctl cannot name neutrally (a VirtualBox id carried through, say)
-        has no libosinfo id, so there is nothing to write and it is reported.
+        A family without a version -- vmctl's ``ubuntu`` rather than ``ubuntu22.04``,
+        which is also the model's default -- has no exact libosinfo id, so the closest
+        true one is used and reported as the substitution it is. Dropping it instead
+        meant every VM created from a configuration that never mentioned a guest OS
+        was reported as having lost a setting nobody asked for.
+
+        A guest vmctl cannot name neutrally (a VirtualBox id carried through, say) has
+        no libosinfo id at all, so there is nothing to write and it is reported.
         """
-        osinfo = GUEST_OS_TO_OSINFO.get((vm.guest_os or "").strip().lower())
+        wanted = (vm.guest_os or "").strip().lower()
+        osinfo = GUEST_OS_TO_OSINFO.get(wanted)
+        if not osinfo:
+            approximate = GUEST_OS_APPROXIMATE.get(wanted)
+            if approximate and translator is not None:
+                translator.report.substitutions.append(
+                    Substitution(
+                        "guest_os",
+                        vm.guest_os,
+                        GUEST_OS_FROM_OSINFO.get(approximate, approximate),
+                        "libosinfo has no id for a family without a version",
+                    )
+                )
+            osinfo = approximate
         if not osinfo:
             if translator is not None and vm.guest_os:
                 translator.drop(

@@ -96,6 +96,36 @@ things prevented that:
 
 ### Added
 
+- **Machine-readable output**: `--format json` on `list`, `status`, `validate` and
+  `diff`, and a new `doctor`. Sorted keys, so two runs produce the same bytes. An
+  invalid file reports the error as JSON on stdout and still exits 1, because prose on
+  stderr and nothing on stdout is what forces a pipeline to write `|| true`.
+- **`vmctl -v`** prints each command on stderr as it runs, so a plan that fails
+  part-way through can be traced to the step it failed on -- the last line printed is
+  the command that failed. **`vmctl -q`** suppresses warnings; errors still print and
+  still exit non-zero.
+- **`vmctl doctor`** checks whether this machine can run VMs at all: memory, CPUs,
+  hardware virtualisation and bridges on the host side; the hypervisor's tool and
+  version, where images go and how much room is there on the other -- plus whatever
+  that provider knows about itself, such as libvirt's connection, QEMU's accelerator,
+  VirtualBox's kernel module or VMware's tools directory. It exits 1 when something
+  will stop vmctl working, so it can gate a pipeline. A working-but-slow setup (no
+  hardware virtualisation, so guests are emulated) is reported, not failed.
+- Fixed: on a machine without VirtualBox, vmctl raised a `TypeError` from inside
+  itself instead of saying "install VirtualBox and make sure VBoxManage is on your
+  PATH". Found by the first run of `doctor`; every provider is now required to report
+  a missing tool as a dependency error, which found the same shape in the QEMU
+  provider.
+- Fixed: VMware was reported as "not installed" on machines where it works, because
+  Workstation's installer does not put `vmrun` on PATH. `vmctl providers` said
+  unavailable, and vmctl would never pick VMware automatically.
+- Fixed: four of the libosinfo guest-OS ids vmctl writes into a libvirt domain are not
+  in libosinfo's database at all, including the generic Linux one, so they resolved to
+  nothing in tools that read them. Measured against `osinfo-query` and corrected, with
+  the database's ids committed as a fixture so the claim stays checked. A guest OS
+  named by family without a version -- `ubuntu` rather than `ubuntu22.04`, which is the
+  default -- is now recorded as the closest id libosinfo does have and reported as a
+  substitution, instead of being dropped and reported as a lost setting on every VM.
 - **`vmctl apply <file>`** makes the hypervisor match a configuration file, and is
   meant to be run repeatedly: it creates the VM when there is none, changes only what
   drifted when there is, and says "already matches the file" when there is nothing to

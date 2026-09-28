@@ -5,9 +5,11 @@ All hypervisor providers (VirtualBox, libvirt, QEMU, etc.) must implement
 this abstract base class to ensure consistent API across providers.
 """
 
+import os
 import shutil
+import subprocess
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 try:  # pragma: no cover - typing_extensions fallback for older interpreters
     from typing import Protocol, runtime_checkable
@@ -16,10 +18,14 @@ except ImportError:  # pragma: no cover
 
 from ..core.capabilities import Capabilities
 from ..core.convert import MediumConverter
-from ..core.plan import Plan
+from ..core.exceptions import ProviderError
+from ..core.plan import Plan, Step, StepKind
 from ..core.storage import StorageLocation
 from ..core.translate import Policy
 from ..core.vmconfig import VMConfig
+
+if TYPE_CHECKING:  # pragma: no cover - doctor imports providers, not the other way
+    from ..core.doctor import Check
 
 
 @runtime_checkable
@@ -46,6 +52,82 @@ class BaseProvider(ABC):
     #: Executable this provider needs on PATH. Used by the default
     #: :meth:`is_available`; override that method for anything more involved.
     REQUIRED_BINARY: Optional[str] = None
+
+    #: Called with each step just before it runs. What ``vmctl -v`` prints, and the
+    #: only way to see which command a failure happened *on* rather than after
+    #: (E-08). Set by the engine; None means say nothing.
+    on_step: Optional[Callable[[Step], None]] = None
+
+    # -- running a plan ------------------------------------------------------
+    #
+    # One loop, here, rather than one per provider. Four copies of "write a file,
+    # run an argv, refuse anything else" had already drifted: `mkdir` interception
+    # was added to three of them separately (F-36), and only VMware knew that its
+    # tool reports failure in its *output* rather than its exit status. What is
+    # genuinely per-provider is one command, so that is the only thing a provider
+    # overrides.
+
+    def run_plan(self, plan: Plan) -> None:
+        """Execute every step in a plan, in order.
+
+        Args:
+            plan: The plan to run.
+
+        Raises:
+            ProviderError: If a step fails, or is a kind this provider cannot run.
+        """
+        for step in plan:
+            if self.on_step is not None:
+                self.on_step(step)
+            self.run_step(step)
+
+    def run_step(self, step: Step) -> None:
+        """Execute one step.
+
+        Raises:
+            ProviderError: If the step fails, or is a kind this provider cannot run.
+        """
+        if step.kind is StepKind.WRITE_FILE and step.path is not None:
+            step.path.parent.mkdir(parents=True, exist_ok=True)
+            step.path.write_text(step.content or "")
+            return
+        if step.kind is StepKind.EXEC and step.argv:
+            if step.argv[0] == "mkdir":
+                # A plan reads as a shell script; it does not have to be run as one,
+                # and `mkdir -p` is neither portable nor a hypervisor's business.
+                os.makedirs(step.argv[-1], exist_ok=True)
+                return
+            self.run_argv(step)
+            return
+        raise ProviderError(
+            f"the {self.name} provider cannot run a {step.kind.value} step " f"({step.description})"
+        )
+
+    def resolve_argv(self, argv: List[str]) -> List[str]:
+        """Return the command to actually run for an emitted one.
+
+        A plan is emitted to be *read*, so it leaves out anything that is about this
+        machine rather than about the VM -- libvirt's connection URI, for one. This
+        is where that is put back.
+        """
+        return list(argv)
+
+    def run_argv(self, step: Step) -> None:
+        """Run one command, treating a non-zero exit as a failure.
+
+        Args:
+            step: The step, whose description is what a failure is reported as --
+                "create the root image failed" tells a user more than the argv does.
+
+        Raises:
+            ProviderError: If the command fails.
+        """
+        argv = self.resolve_argv(list(step.argv or []))
+        result = subprocess.run(argv, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise ProviderError(
+                f"{step.description} failed: " f"{result.stderr.strip() or result.stdout.strip()}"
+            )
 
     @abstractmethod
     def storage_location(self) -> StorageLocation:
@@ -75,6 +157,54 @@ class BaseProvider(ABC):
             The version string, or ``""`` when the provider cannot determine it.
         """
         return ""
+
+    def diagnostics(self) -> List["Check"]:
+        """Return what this provider can say about its own health (E-12).
+
+        The default covers what every provider has: a tool that must be on PATH, a
+        version, and somewhere images go with room for one. A provider that knows
+        more -- a connection URI, an acceleration mode, a second tool -- extends
+        this rather than the command doing it, so ``vmctl doctor`` stays a printer
+        and a fifth provider brings its own answers.
+
+        Never raises: a diagnostic that fails when something is wrong is useless
+        exactly when it is needed.
+        """
+        from ..core.doctor import Check
+        from ..core.hostinfo import free_space_mb
+
+        checks: List["Check"] = []
+        binary = self.REQUIRED_BINARY
+        if binary:
+            found = shutil.which(binary)
+            checks.append(
+                Check(
+                    binary,
+                    found or "not found on PATH",
+                    found is not None,
+                    None if found else f"install {self.name} and make sure {binary} is on PATH",
+                )
+            )
+        try:
+            version = self.version()
+        except Exception as exc:  # a tool that is present but will not answer
+            checks.append(Check(f"{self.name} version", f"could not be read: {exc}", False))
+        else:
+            checks.append(Check(f"{self.name} version", version or "unknown", bool(version)))
+
+        try:
+            location = self.storage_location()
+        except Exception as exc:
+            checks.append(Check("image location", f"could not be established: {exc}", False))
+            return checks
+        checks.append(Check("image location", location.describe()))
+        path = getattr(location, "value", "") or ""
+        free = free_space_mb(path) if path else None
+        if free is not None:
+            # Informational rather than a pass: how much is enough depends on the VM
+            # being created, and vmctl is not going to guess a threshold.
+            checks.append(Check("free space there", f"{free} MB"))
+        return checks
 
     def probe(self) -> Capabilities:
         """Return this provider's capabilities, refined by asking the host (E-05).

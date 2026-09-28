@@ -94,9 +94,9 @@ class VirtualBoxParser:
             raise ProviderError(f"Failed to get VM info for {vm_name}: {e}")
         except FileNotFoundError:
             raise DependencyError(
-                "VBoxManage",
-                reason="not found on PATH",
-                install_hint="Install VirtualBox and make sure VBoxManage is on " "your PATH.",
+                "VBoxManage is not on PATH",
+                dependency="VirtualBox",
+                install_command="Install VirtualBox and make sure VBoxManage is on your PATH",
             )
 
     # -- pure decoding -------------------------------------------------------

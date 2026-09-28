@@ -36,7 +36,7 @@ from ...core.exceptions import (
     VMNotFoundError,
     VMStateError,
 )
-from ...core.plan import Plan, StepKind
+from ...core.plan import Plan
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
@@ -120,9 +120,23 @@ class QemuBackend(BaseProvider):
         if self._version is None:
             import re
 
-            out = subprocess.run([self.binary, "--version"], capture_output=True, text=True).stdout
+            try:
+                out = subprocess.run(
+                    [self.binary, "--version"], capture_output=True, text=True
+                ).stdout
+            except OSError as exc:
+                # The binary was found once and has gone since, or is not executable.
+                # Either way this is the "install QEMU" answer, not a traceback: the
+                # docstring already promised a DependencyError (F-42's family).
+                raise DependencyError(
+                    "the QEMU binary could not be run",
+                    dependency="qemu-kvm",
+                    install_command="Install qemu-kvm (or qemu-system-x86_64)",
+                    original_exception=exc,
+                )
             match = re.search(r"(\d+\.\d+\.\d+)", out)
-            self._version = match.group(1) if match else out.strip().splitlines()[0]
+            lines = out.strip().splitlines()
+            self._version = match.group(1) if match else (lines[0] if lines else "")
         return self._version
 
     @property
@@ -134,6 +148,37 @@ class QemuBackend(BaseProvider):
         worse answer than saying tcg in the first place.
         """
         return "kvm" if os.path.exists("/dev/kvm") else "tcg"
+
+    def diagnostics(self):
+        """Add the two things a plain-QEMU VM's speed and existence depend on.
+
+        There is no daemon and no registry here, so the questions are simply: which
+        QEMU binary will be run, and will it be accelerated.
+        """
+        from ...core.doctor import Check
+
+        checks = super().diagnostics()
+        try:
+            binary = self.binary
+        except Exception as exc:
+            checks.append(
+                Check(
+                    "qemu binary",
+                    str(exc),
+                    False,
+                    "install qemu-kvm or qemu-system-x86_64",
+                )
+            )
+            return checks
+        checks.append(Check("qemu binary", binary, True))
+        checks.append(
+            Check(
+                "accelerator",
+                f"{self.accel}" + (" (emulated)" if self.accel == "tcg" else ""),
+            )
+        )
+        checks.append(Check("vm directory", self.state_dir))
+        return checks
 
     def probe(self) -> Capabilities:
         """Refine the declaration by asking this QEMU binary (E-05).
@@ -313,34 +358,6 @@ class QemuBackend(BaseProvider):
         return pid
 
     # -- transport -----------------------------------------------------------
-
-    def run_plan(self, plan: Plan) -> None:
-        """Execute every step in a plan, in order.
-
-        Raises:
-            ProviderError: If a step fails or is a kind this provider cannot run.
-        """
-        for step in plan:
-            if step.kind is StepKind.WRITE_FILE and step.path is not None:
-                step.path.parent.mkdir(parents=True, exist_ok=True)
-                step.path.write_text(step.content or "")
-            elif step.kind is StepKind.EXEC and step.argv:
-                if step.argv[0] == "mkdir":
-                    # A plan reads as a shell script; it does not have to be run as
-                    # one, and `mkdir -p` is not portable.
-                    os.makedirs(step.argv[-1], exist_ok=True)
-                    continue
-                result = subprocess.run(step.argv, capture_output=True, text=True)
-                if result.returncode != 0:
-                    raise ProviderError(
-                        f"{step.description} failed: "
-                        f"{result.stderr.strip() or result.stdout.strip()}"
-                    )
-            else:
-                raise ProviderError(
-                    f"the qemu provider cannot run a {step.kind.value} step "
-                    f"({step.description})"
-                )
 
     # -- lifecycle -----------------------------------------------------------
 

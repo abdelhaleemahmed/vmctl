@@ -8,10 +8,13 @@ A provider that fails any of these is not finished.
 
 import copy
 import inspect
+import shutil
+import subprocess
 
 import pytest
 
 from vmctl.core.capabilities import Capabilities, Support
+from vmctl.core.exceptions import DependencyError, ProviderError
 from vmctl.core.plan import Plan, StepKind
 from vmctl.core.vmconfig import DeviceKind
 from vmctl.providers.base import BaseProvider
@@ -108,6 +111,50 @@ def test_editing_never_re_creates_a_disk_the_vm_already_has(backend, vm_minimal,
 
     overlap = making_the_disk & words(plan)
     assert not overlap, f"{backend.name} would make the disk again: {sorted(overlap)}"
+
+
+def test_a_missing_tool_is_reported_as_a_dependency(backend, monkeypatch):
+    """F-42: the "VirtualBox is not installed" path raised a TypeError.
+
+    `DependencyError` was constructed with two keywords it does not take, so the very
+    first thing a user without VirtualBox saw was a traceback from inside vmctl
+    instead of "install VirtualBox". A misspelled keyword is invisible until the line
+    runs, and that line only runs on a machine the developer does not have.
+    """
+
+    def missing(*args, **kwargs):
+        raise FileNotFoundError(2, "No such file or directory")
+
+    monkeypatch.setattr(subprocess, "run", missing)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    try:
+        backend.version()
+    except (DependencyError, ProviderError) as exc:
+        assert str(exc)  # a message a person can act on, not an empty error
+    except Exception as exc:  # pragma: no cover - this is the failure being pinned
+        raise AssertionError(f"{backend.name}: {type(exc).__name__}: {exc}")
+
+
+def test_diagnostics_answer_rather_than_raise(backend, monkeypatch):
+    """`vmctl doctor` runs when things are broken, which is when it is needed.
+
+    So every check has to come back as a finding. A provider whose diagnostics raise
+    would take the command down exactly on the machine it was written for.
+    """
+
+    def missing(*args, **kwargs):
+        raise FileNotFoundError(2, "No such file or directory")
+
+    monkeypatch.setattr(subprocess, "run", missing)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    checks = backend.diagnostics()
+
+    assert checks, f"{backend.name} reports nothing about itself"
+    for check in checks:
+        assert check.label and check.value
+        assert check.ok in (True, False, None)
 
 
 # ---------------------------------------------------------------------------

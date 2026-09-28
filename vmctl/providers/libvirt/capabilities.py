@@ -28,7 +28,7 @@ PLAN.md -- for libvirt that is a requirement rather than a refinement.
 from ...core.capabilities import BusSpec, Capabilities, FormatSpec, Support
 from ...core.vmconfig import DiskFormat, DeviceKind, FirmwareType, BusType
 from ...core.platform import Arch
-from .tables import GUEST_OS_TO_OSINFO, NIC_MODEL_TO_LIBVIRT
+from .tables import GUEST_OS_APPROXIMATE, GUEST_OS_TO_OSINFO, NIC_MODEL_TO_LIBVIRT
 
 _BUS = BusType
 
@@ -184,7 +184,7 @@ class LibvirtCapabilities:
             cpu_model_choice=True,
             # libvirt records a guest OS as a libosinfo id, so what it can
             # express is exactly what vmctl has an id for.
-            supported_os_types=tuple(GUEST_OS_TO_OSINFO),
+            supported_os_types=tuple(GUEST_OS_TO_OSINFO) + tuple(GUEST_OS_APPROXIMATE),
             supported_network_types=("nat", "bridged", "hostonly", "internal"),
             evidence=(
                 "probed on libvirt 11.10.0 / QEMU 10.1.0, machine q35; see "

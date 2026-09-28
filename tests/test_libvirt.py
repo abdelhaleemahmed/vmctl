@@ -13,6 +13,7 @@ import pytest
 
 from vmctl.core.plan import StepKind
 from vmctl.core.storage import directory
+from vmctl.core.translate import Policy, Translator
 from vmctl.core.vmconfig import (
     BootConfig,
     CPUConfig,
@@ -824,3 +825,71 @@ def test_a_renamed_domain_does_not_claim_the_old_ones_images(emitter, vm):
     sources = [el.get("file") for el in ET.fromstring(document).iter("source") if el.get("file")]
 
     assert "/images/demo_root.qcow2" not in sources
+
+
+# ---------------------------------------------------------------------------
+# F-44: the guest-OS ids are claims about libosinfo's database
+# ---------------------------------------------------------------------------
+
+
+def _libosinfo_ids():
+    """Return the ids this host's libosinfo really has, from the committed capture."""
+    from conftest import read_fixture
+
+    return {
+        line.strip()
+        for line in read_fixture("libosinfo_ids.txt").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+
+
+def test_every_guest_os_id_exists_in_libosinfo():
+    """Measured, not remembered. Five of these were neither: ``linux/2019`` (this
+    database has 2016, 2018, 2020, 2022 and 2024), ``alpine/3.19`` (the path is
+    ``alpinelinux``), ``macos/10.15``, ``solaris/11.4``. An id libosinfo does not know
+    is stored happily by libvirt and then resolves to nothing in virt-manager."""
+    from vmctl.providers.libvirt.tables import GUEST_OS_APPROXIMATE, GUEST_OS_TO_OSINFO
+
+    known = _libosinfo_ids()
+    unknown = {
+        name: url
+        for name, url in {**GUEST_OS_TO_OSINFO, **GUEST_OS_APPROXIMATE}.items()
+        if url not in known
+    }
+    assert not unknown, unknown
+
+
+def test_a_family_without_a_version_is_approximated_not_dropped(emitter, vm):
+    """`guest_os: ubuntu` is the model's own default, so dropping it reported a lost
+    setting on every VM created from a file that never mentioned a guest OS."""
+    vm.guest_os = "ubuntu"
+    translator = Translator(emitter.capabilities, Policy.STRICT)
+
+    xml = emitter.build_domain_xml(vm, translator)
+
+    assert "http://libosinfo.org/linux/2022" in xml
+    assert not translator.report.drops
+    assert [(s.field, s.used) for s in translator.report.substitutions] == [("guest_os", "linux")]
+
+
+def test_an_id_that_means_exactly_unknown_is_used_as_is(emitter, vm):
+    """libosinfo really has "unknown version of RHEL", which is what `rhel` means."""
+    vm.guest_os = "rhel"
+    translator = Translator(emitter.capabilities, Policy.STRICT)
+
+    assert "http://redhat.com/rhel/unknown" in emitter.build_domain_xml(vm, translator)
+
+
+def test_the_reverse_map_stays_unambiguous():
+    """Three ids pointing at one url would make a round trip return a different guest
+    OS than it was given, which is worse than saying "approximated"."""
+    from vmctl.providers.libvirt.tables import (
+        GUEST_OS_APPROXIMATE,
+        GUEST_OS_FROM_OSINFO,
+        GUEST_OS_TO_OSINFO,
+    )
+
+    assert len(GUEST_OS_FROM_OSINFO) == len(GUEST_OS_TO_OSINFO)
+    for url in GUEST_OS_APPROXIMATE.values():
+        if url in GUEST_OS_FROM_OSINFO:
+            assert GUEST_OS_FROM_OSINFO[url] in GUEST_OS_TO_OSINFO

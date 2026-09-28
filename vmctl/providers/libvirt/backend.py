@@ -28,7 +28,7 @@ from ...core.exceptions import (
     VMNotFoundError,
     VMStateError,
 )
-from ...core.plan import Plan, StepKind
+from ...core.plan import Plan
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
@@ -125,6 +125,41 @@ class LibvirtBackend(BaseProvider):
         images flat, unlike VirtualBox's per-VM folders.
         """
         return directory(self.image_dir, nest_per_vm=False)
+
+    def diagnostics(self):
+        """Add what is specific to libvirt: which libvirt, and whether it answers.
+
+        The connection is what goes wrong here. ``virsh`` being installed says
+        nothing about whether the daemon is running or whether this user may talk to
+        it, and "qemu:///session vs qemu:///system" is why a user's VMs seem to have
+        vanished -- they are in the other one.
+        """
+        from ...core.doctor import Check
+
+        checks = super().diagnostics()
+        checks.append(Check("connection", self.connect or "virsh's own default"))
+        try:
+            domains = self.list_vms()
+        except Exception as exc:
+            checks.append(
+                Check(
+                    "connection works",
+                    f"no: {exc}",
+                    False,
+                    "check that libvirtd (or the session daemon) is running and that "
+                    "this user may connect",
+                )
+            )
+        else:
+            checks.append(Check("connection works", f"yes, {len(domains)} domain(s)", True))
+            checks.append(
+                Check(
+                    "domain type",
+                    f"{self.domain_type}"
+                    + (" (accelerated)" if self.domain_type == "kvm" else " (emulated)"),
+                )
+            )
+        return checks
 
     def probe(self) -> Capabilities:
         """Refine the declaration by asking libvirt about this host (E-05).
@@ -315,41 +350,16 @@ class LibvirtBackend(BaseProvider):
             raise ProviderError(f"virsh {' '.join(args)} failed: {result.stderr.strip()}")
         return result.stdout
 
-    def run_plan(self, plan: Plan) -> None:
-        """Execute every step in a plan, in order.
+    def resolve_argv(self, argv: List[str]) -> List[str]:
+        """Add our connection to a ``virsh`` command.
 
-        Args:
-            plan: The plan to run.
-
-        Raises:
-            ProviderError: If a step fails or cannot be run here.
+        A plan is emitted without a connection URI so that it reads cleanly and can
+        be handed to someone else; running it here has to say which libvirt.
         """
-        for step in plan:
-            if step.kind is StepKind.WRITE_FILE and step.path is not None:
-                step.path.parent.mkdir(parents=True, exist_ok=True)
-                step.path.write_text(step.content or "")
-            elif step.kind is StepKind.EXEC and step.argv:
-                if step.argv[0] == "mkdir":
-                    # A plan reads as a shell script; it does not have to be run as
-                    # one, and `mkdir -p` is not portable.
-                    os.makedirs(step.argv[-1], exist_ok=True)
-                    continue
-                argv = list(step.argv)
-                # A plan is emitted without a connection URI so it reads cleanly;
-                # add ours when actually running it.
-                if argv[0] == "virsh" and self.connect:
-                    argv = [argv[0], "--connect", self.connect] + argv[1:]
-                result = subprocess.run(argv, capture_output=True, text=True)
-                if result.returncode != 0:
-                    raise ProviderError(
-                        f"{step.description} failed: "
-                        f"{result.stderr.strip() or result.stdout.strip()}"
-                    )
-            else:
-                raise ProviderError(
-                    f"the libvirt provider cannot run a {step.kind.value} step "
-                    f"({step.description})"
-                )
+        command = list(argv)
+        if command and command[0] == "virsh" and self.connect:
+            return [command[0], "--connect", self.connect] + command[1:]
+        return command
 
     # -- lifecycle -----------------------------------------------------------
 

@@ -421,6 +421,60 @@ re-measured by starting a domain per model.
 One provider's table is not evidence for another's, even when one of them is a
 manager of the other.
 
+### F-42 — "VirtualBox is not installed" raised a TypeError · S *(fixed)*
+`vmctl/providers/virtualbox/{backend,parser}.py`
+
+Found by the first run of `vmctl doctor` (E-12) against a machine with no VirtualBox.
+`DependencyError` was constructed with two keywords it does not take:
+
+    DependencyError("VBoxManage", reason=..., install_hint=...)
+
+so the very first thing a user without VirtualBox saw was a `TypeError` from inside
+vmctl instead of "install VirtualBox and make sure VBoxManage is on your PATH". A
+misspelled keyword is invisible until the line runs, and that line only runs on a
+machine the developer does not have -- which is exactly the machine a new user has.
+
+The conformance suite now makes every provider answer a missing tool with a dependency
+error rather than a traceback, and that rule immediately found the same class of thing
+in the QEMU provider: `version()` let a raw `FileNotFoundError` escape, contradicting
+its own docstring.
+
+### F-43 — VMware reported itself missing on a host where it works · M *(fixed)*
+`vmctl/providers/vmware/backend.py`
+
+`vmctl doctor` on the Windows host said `provider vmware: not installed` about the
+same VMware Workstation vmctl had just created and deleted a VM with.
+
+Availability was the base class's default -- is `REQUIRED_BINARY` on PATH -- while the
+provider *itself* searches the well-known install directories, because Workstation's
+installer does not put its tools on PATH. So `vmctl providers` was wrong, auto-detection
+would never choose VMware, and `doctor` agreed with both. One search now answers both
+questions. Verified on the host: VMware went from `unavailable` to `usable`.
+
+### F-44 — Five libosinfo ids that this database does not have · M *(fixed)*
+`vmctl/providers/libvirt/tables.py`
+
+Found while looking at a warning `doctor`'s work had made visible: creating any libvirt
+VM from a configuration that did not mention a guest OS reported *"guest_os: ubuntu was
+not applied"* -- a lost setting for a value nobody had written down, since `ubuntu` is
+the model's own default.
+
+Measuring the table against `osinfo-query os --fields=id` found four ids that are not
+in this osinfo-db at all: `libosinfo.org/linux/2019` (it has 2016, 2018, 2020, 2022 and
+2024), `alpinelinux.org/alpine/3.19` (the path is `alpinelinux/3.19`),
+`apple.com/macos/10.15` and `oracle.com/solaris/11.4`. libvirt stores whatever string
+it is given, so nothing failed -- the ids simply resolve to nothing in any tool that
+reads them, including virt-manager. Written from memory; the same failure mode as F-31
+and F-37.
+
+A family without a version is now *approximated* and reported as the substitution it
+is, rather than dropped: `ubuntu` and `debian` become libosinfo's generic modern Linux,
+while `rhel` and `other` turn out to be exact -- libosinfo really does have "unknown
+version of RHEL" and "unknown OS". The approximations are deliberately kept out of the
+reverse map, because three ids pointing at one url would make a round trip hand back a
+different guest OS than it was given. The database's 954 ids are committed as
+`tests/fixtures/libosinfo_ids.txt`, so the claim is checked rather than trusted.
+
 ### F-39 — Editing a VM re-created its disks, destroying the data · **L** *(fixed)*
 `vmctl/providers/{qemu,vmware,libvirt}/emitter.py`, `vmctl/core/vmconfig.py`
 
@@ -2426,12 +2480,31 @@ the model (E-03, E-05) want Phase 5 first.
 
 ### Tier B — quality of life
 
-- **E-07 `--json` output on `list` / `status` / `validate` · S.** The README
+- **E-07 `--json` output on `list` / `status` / `validate` · S. *(done)*** The README
   pitches CI pipelines; machine-readable output is what those need. `simple`
   covers names only today.
-- **E-08 `-v/--verbose` command echo · S.** With `--execute`, print each
+
+  > Done, and `diff` got it too since that is the command a pipeline actually runs.
+  > Two decisions: **a failure is data as well** -- `validate --format json` prints the
+  > error on *stdout* and still exits 1, because prose on stderr and nothing on stdout
+  > is what makes `|| true` the only way to handle an invalid file -- and an empty
+  > answer is `[]`, not "No VMs found.". Sorted keys, so two runs of the same command
+  > produce the same bytes.
+- **E-08 `-v/--verbose` command echo · S. *(done)*** With `--execute`, print each
   VBoxManage command as it runs, so a mid-batch failure is diagnosable. Pair
   with a `--quiet`.
+
+  > Done as `vmctl -v` and `vmctl -q`, on stderr so that piping stdout into `jq` still
+  > works. Verified by making a step fail for real: the last echoed line is the command
+  > that failed, which is the entire point.
+  >
+  > It paid for itself immediately by forcing the **execution loop into one place**.
+  > Four providers had four copies of "write a file, run an argv, refuse anything
+  > else", and they had already drifted: `mkdir` interception was added to three of them
+  > separately (F-36), and only VMware knew that its own tool reports failure in its
+  > *output* rather than its exit status. `BaseProvider.run_plan` now owns the loop and
+  > a provider overrides one command -- libvirt's connection URI, VMware's output
+  > check, VirtualBox's wording. The QEMU provider's copy was deleted outright.
 - **E-09 Snapshots · M.** `vmctl snapshot take|list|restore|delete`. A thin
   wrapper over `VBoxManage snapshot`, and directly serves the documented
   "before a destructive test" workflow.
@@ -2441,9 +2514,21 @@ the model (E-03, E-05) want Phase 5 first.
 - **E-11 Config profiles / includes · M.** Let a config reference a base file
   (`extends: base.yaml`) so the batch file's base/override idea works for
   single VMs too, without duplicating YAML across a lab.
-- **E-12 `vmctl doctor` · S.** One command reporting VBoxManage presence and
+- **E-12 `vmctl doctor` · S. *(done)*** One command reporting VBoxManage presence and
   version, default machine folder, free disk space, host RAM, and kernel module
   status. Cheap to write and it will absorb a lot of support questions.
+
+  > Done, and split the way everything else here is: facts about the *machine* are
+  > neutral (`core/hostinfo.py` gained host RAM, free space and hardware
+  > virtualisation) and facts about a *hypervisor* are the provider's own, through
+  > `BaseProvider.diagnostics()`. So a fifth provider brings its own checks and the
+  > command does not change. Exits 1 when something found will stop vmctl working, so
+  > it can gate a pipeline; a slow-but-working setup is reported rather than failed.
+  >
+  > It found three real bugs on its first run, which is the argument for writing it:
+  > `F-42`, `F-43` and `F-44`. The host RAM reading works on Windows too -- asked
+  > through `ctypes` rather than `wmic`, which recent Windows does not have -- and was
+  > verified on the host: 32646 MB, 8 CPUs, the right machine folder.
 
 ### Tier C — strategic
 
@@ -2645,6 +2730,9 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-39 editing a VM re-created its disks, destroying the data
          [x] F-40 "no such VM" reported as a hypervisor failure
          [x] F-41 a file with no storage section read as "remove every disk"
+         [x] F-42 "VirtualBox is not installed" raised a TypeError
+         [x] F-43 VMware reported itself missing on a host where it works
+         [x] F-44 five libosinfo ids that this database does not have
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit
@@ -2674,5 +2762,7 @@ Phase 6  [x] P-01 libvirt/QEMU-KVM (first)  [x] P-02 VMware Workstation/Fusion
 Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [x] E-03 clone-disks  [x] E-05 capability probing
-         [x] E-02 apply  [ ] E-07..E-12 Tier B  [ ] E-14/E-15/E-18/E-19 Tier C
+         [x] E-02 apply  [x] E-07 json  [x] E-08 -v/-q  [x] E-12 doctor
+         [ ] E-09 snapshots  [ ] E-10 port forwards  [ ] E-11 extends
+         [ ] E-14/E-15/E-18/E-19 Tier C
 ```

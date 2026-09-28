@@ -2,13 +2,14 @@
 """
 VirtualBox backend implementation
 """
+import os
 import re
 import subprocess
 import time
 from dataclasses import replace
 from typing import Callable, Dict, List, Optional, Tuple, cast
 from ...core.capabilities import Capabilities
-from ...core.plan import Plan, StepKind
+from ...core.plan import Plan, Step
 from ...core.storage import StorageLocation, directory
 from ...core.translate import Policy
 from ...core.vmconfig import VMConfig
@@ -84,6 +85,34 @@ class VirtualBoxBackend(BaseProvider):
     def converter(self) -> CloneMediumConverter:
         """Return the ``VBoxManage clonemedium`` converter."""
         return CloneMediumConverter()
+
+    def diagnostics(self):
+        """Add the machine folder and, on Linux, the kernel module.
+
+        ``vboxdrv`` not being loaded is the classic VirtualBox failure: every
+        ``VBoxManage`` command that only reads still works, and starting a VM fails
+        with a driver error -- which reads like a vmctl bug.
+        """
+        from ...core.doctor import Check
+
+        checks = super().diagnostics()
+        checks.append(
+            Check(
+                "machine folder",
+                self.machine_folder or VirtualBoxEmitter.FALLBACK_MACHINE_FOLDER,
+            )
+        )
+        if os.path.isdir("/sys/module"):
+            loaded = os.path.isdir("/sys/module/vboxdrv")
+            checks.append(
+                Check(
+                    "vboxdrv module",
+                    "loaded" if loaded else "not loaded",
+                    loaded,
+                    None if loaded else "run 'sudo /sbin/vboxconfig', or modprobe vboxdrv",
+                )
+            )
+        return checks
 
     def probe(self) -> Capabilities:
         """Refine the declaration by asking this VirtualBox (E-05).
@@ -164,9 +193,10 @@ class VirtualBoxBackend(BaseProvider):
                 )
             except FileNotFoundError:
                 raise DependencyError(
-                    "VBoxManage",
-                    reason="not found on PATH",
-                    install_hint="Install VirtualBox and make sure VBoxManage is " "on your PATH.",
+                    "VBoxManage is not on PATH",
+                    dependency="VirtualBox",
+                    install_command="Install VirtualBox and make sure VBoxManage is on "
+                    "your PATH",
                 )
             if result.returncode != 0:
                 raise DependencyError(
@@ -488,27 +518,14 @@ class VirtualBoxBackend(BaseProvider):
                 install_command="Install VirtualBox and ensure VBoxManage is on your PATH",
             )
 
-    def run_plan(self, plan: Plan) -> None:
-        """Execute every step in a plan, in order.
-
-        Args:
-            plan: The plan to run.
+    def run_argv(self, step: Step) -> None:
+        """Run one VBoxManage command.
 
         Raises:
-            ProviderError: If a step fails, or the plan contains a kind this
-                provider cannot run.
+            ProviderError: If it fails, naming the command -- VBoxManage's own
+                message is usually the useful part, and it goes to stderr.
         """
-        for step in plan:
-            if step.kind is StepKind.EXEC and step.argv:
-                self._run_command(step.argv)
-            elif step.kind is StepKind.WRITE_FILE and step.path is not None:
-                step.path.parent.mkdir(parents=True, exist_ok=True)
-                step.path.write_text(step.content or "")
-            else:
-                raise ProviderError(
-                    f"the virtualbox provider cannot run a "
-                    f"{step.kind.value} step ({step.description})"
-                )
+        self._run_command(self.resolve_argv(list(step.argv or [])))
 
     def _run_command(self, command: List[str]) -> str:
         """Run a VBoxManage command."""
