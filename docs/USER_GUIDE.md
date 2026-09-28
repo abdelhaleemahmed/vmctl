@@ -218,6 +218,48 @@ vmctl diff web-01 web-01.yaml || vmctl apply web-01.yaml --execute
 
 ---
 
+## Building One Config on Another
+
+Most of a lab is the same machine with a different name, so a file can extend another:
+
+```yaml
+# lab/base.yaml
+guest_os: ubuntu22.04
+cpu: {count: 2}
+memory: {mb: 2048}
+networks:
+  - network_type: nat
+
+# lab/web-01.yaml
+extends: base.yaml
+name: web-01
+memory: {mb: 4096}          # overrides just the memory
+storage:
+  - name: system
+    size_mb: 40960
+```
+
+The rules:
+
+- **A mapping merges; the child wins.** `memory: {mb: 4096}` above keeps the base's
+  `vram_mb` if it had one.
+- **A list is replaced, not appended.** A file that writes `storage:` is stating the
+  whole list -- there is no key to merge list entries on, and this is the same rule
+  `vmctl apply` uses against a live VM.
+- **Paths are relative to the file that names them**, so a directory of configs works
+  wherever it is checked out.
+- `extends: [common.yaml, lab.yaml]` takes several bases, applied left to right, so the
+  last one wins. A chain of files works too, and a YAML file may extend a JSON base.
+
+`vmctl validate` prints what a file is built on. A missing base, or a cycle, is
+reported with the file that names it.
+
+> One thing to watch: anything in the base is in *every* VM built on it, including a
+> NAT port forward. Two VMs cannot both forward host port 2222, so put per-VM rules in
+> the per-VM file.
+
+---
+
 ## Port Forwarding on a NAT Adapter
 
 ```yaml

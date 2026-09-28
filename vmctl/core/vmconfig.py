@@ -975,7 +975,9 @@ class VMConfig:
         Raises:
             ValidationError: If the mapping cannot describe a VM.
         """
-        if data is None:
+        if not data:
+            # None *or* an empty mapping: a file that resolves to nothing is the same
+            # mistake either way, and only the first spelling used to be caught (F-06).
             raise ValidationError(
                 "The configuration is empty",
                 recovery_hint="A config file needs at least a 'name' field.",

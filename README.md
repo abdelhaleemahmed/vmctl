@@ -227,6 +227,28 @@ $ vmctl doctor --format json | jq -r '.checks[] | select(.ok==false)'
 half way through is traced to the step it failed on; `vmctl -q` drops warnings and
 keeps errors.
 
+### One Base, Many VMs
+
+A lab is mostly one machine repeated, so a config can say what it is built on:
+
+```yaml
+# base.yaml
+guest_os: ubuntu22.04
+memory: {mb: 2048}
+networks: [{network_type: nat}]
+
+# web-01.yaml
+extends: base.yaml
+name: web-01
+storage: [{name: system, size_mb: 40960}]
+```
+
+A mapping merges and the child wins; a list is replaced, because writing `storage:`
+means stating all of it. Paths are relative to the file that names them, `extends:`
+takes a list as well as a single file, and a YAML config can extend a JSON base.
+`vmctl validate` prints what a file is built on, which is the usual question about a
+merged config.
+
 ### Reaching the Guest
 
 A NAT adapter's port forwards are part of the config, so they survive a round trip:

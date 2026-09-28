@@ -13,6 +13,7 @@ from typing import List, Optional
 from vmctl import __version__
 from vmctl.core import registry
 from vmctl.core.engine import VMCtlEngine
+from vmctl.core.include import bases_of, resolve
 from vmctl.core.apply import Action, plan_convergence
 from vmctl.core.clone import Origin, plan_clone
 from vmctl.core.convert import convert as plan_convert, plan_conversions
@@ -320,18 +321,14 @@ def _emit_json(data) -> None:
 
 
 def _read_mapping(path: Path) -> dict:
-    """Return a config file as the plain mapping it is.
+    """Return a config file as the mapping it states, with ``extends:`` resolved.
 
     Loading it into a :class:`VMConfig` fills in every default, which is exactly what
     ``diff`` must not treat as a request -- so the file is read twice, once as a VM and
-    once as what was written.
+    once as what was written. Both readings resolve ``extends`` the same way (E-11), or
+    a file built on a base would appear to state nothing it inherited.
     """
-    text = path.read_text()
-    if path.suffix.lower() in (".json",):
-        return json.loads(text) or {}
-    import yaml
-
-    return yaml.safe_load(text) or {}
+    return resolve(path)
 
 
 def _fail_with(exc: Exception, code: int) -> None:
@@ -1074,6 +1071,8 @@ def cmd_validate(ctx, config_file, fmt):
         _fail(e)
         return
 
+    built_on = bases_of(config_file)
+
     if fmt == "json":
         _emit_json(
             {
@@ -1084,6 +1083,7 @@ def cmd_validate(ctx, config_file, fmt):
                 "cpus": vm.cpu.count,
                 "memory_mb": vm.memory.mb,
                 "devices": len(vm.storage),
+                "extends": built_on,
                 "warnings": list(warnings),
             }
         )
@@ -1092,6 +1092,10 @@ def cmd_validate(ctx, config_file, fmt):
     for w in warnings:
         _warn(w)
     click.echo("Configuration is valid!")
+    if built_on:
+        # Worth stating: what a file inherits is not in front of the reader, and the
+        # usual question about a merged config is "where did that value come from".
+        click.echo(f"  Built on: {', '.join(built_on)}")
     click.echo(f"  VM Name: {vm.name}")
     click.echo(f"  CPU:     {vm.cpu.count} cores")
     click.echo(f"  Memory:  {vm.memory.mb} MB")

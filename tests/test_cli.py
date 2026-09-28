@@ -1369,3 +1369,46 @@ def _qcow2_vm(name):
         boot=BootConfig(),
         storage_controllers=[],
     )
+
+
+# ---------------------------------------------------------------------------
+# extends (E-11)
+# ---------------------------------------------------------------------------
+
+
+def test_import_resolves_extends(runner, vbox, tmp_path):
+    (tmp_path / "base.yaml").write_text(
+        "guest_os: Ubuntu_64\ncpu:\n  count: 4\nmemory:\n  mb: 2048\n"
+        "networks:\n  - network_type: nat\n"
+    )
+    child = tmp_path / "web.yaml"
+    child.write_text(
+        "extends: base.yaml\nname: web-01\nstorage:\n  - name: system\n    size_mb: 20480\n"
+    )
+
+    result = runner.invoke(cli, ["import", str(child)])
+
+    assert result.exit_code == 0
+    assert "--name web-01" in result.output
+    assert "--memory 2048" in result.output and "--cpus 4" in result.output
+
+
+def test_validate_says_what_a_file_is_built_on(runner, vbox, tmp_path):
+    (tmp_path / "base.yaml").write_text("cpu:\n  count: 2\nmemory:\n  mb: 512\n")
+    child = tmp_path / "web.yaml"
+    child.write_text("extends: base.yaml\nname: web-01\n")
+
+    result = runner.invoke(cli, ["validate", str(child)])
+
+    assert result.exit_code == 0
+    assert "Built on: base.yaml" in result.output
+
+
+def test_a_missing_base_is_reported_not_a_traceback(runner, vbox, tmp_path):
+    child = tmp_path / "web.yaml"
+    child.write_text("extends: nope.yaml\nname: web-01\n")
+
+    result = runner.invoke(cli, ["validate", str(child)])
+
+    assert result.exit_code == 1
+    assert "nope.yaml" in result.output

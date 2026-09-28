@@ -7,6 +7,7 @@ from pathlib import Path
 from .base import VMConfigSerializer
 from ..core.vmconfig import VMConfig
 from ..core.exceptions import SerializationError
+from ..core.include import resolve
 
 
 class JSONSerializer(VMConfigSerializer):
@@ -22,13 +23,12 @@ class JSONSerializer(VMConfigSerializer):
             raise SerializationError(f"Failed to save JSON: {e}")
 
     def load(self, path: Path) -> VMConfig:
-        """Load VM configuration from JSON"""
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return self.from_dict(data)
-        except (IOError, json.JSONDecodeError) as e:
-            raise SerializationError(f"Failed to load JSON: {e}")
+        """Load VM configuration from JSON, resolving ``extends:`` (E-11).
+
+        The same loader the YAML serializer uses, so a base may be written in either
+        format -- see :mod:`vmctl.core.include`.
+        """
+        return self.from_dict(resolve(path))
 
     def to_string(self, vm: VMConfig) -> str:
         """Convert VMConfig to JSON string"""

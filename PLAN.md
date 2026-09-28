@@ -2609,9 +2609,25 @@ the model (E-03, E-05) want Phase 5 first.
   >
   > Also `F-46`, which this found in `E-02`: a stated `storage:` list was replacing
   > whole devices, so every unstated device field went back to the model's default.
-- **E-11 Config profiles / includes · M.** Let a config reference a base file
+- **E-11 Config profiles / includes · M. *(done)*** Let a config reference a base file
   (`extends: base.yaml`) so the batch file's base/override idea works for
   single VMs too, without duplicating YAML across a lab.
+
+  > Done in `core/include.py`, resolved at the **mapping** level rather than after
+  > loading -- which is the decision that matters. `diff` and `apply` work out what a
+  > file *asks for* from what it states (E-01, E-02), so a field inherited from a base
+  > has to be part of that; resolving later would have made a base unable to change
+  > anything.
+  >
+  > The merge rules are the ones vmctl already had rather than new ones: a mapping
+  > merges and the child wins, a list is replaced because writing `storage:` is stating
+  > all of it, and with several bases the last wins. Paths are relative to the file that
+  > names them, so a checked-out directory of configs works from anywhere; formats may
+  > mix, since both serializers now load through the same function.
+  >
+  > A cycle, a missing base and an `extends` that is not a file name each report the
+  > file that caused them. Verified on real QEMU: two VMs built from one base, each
+  > inheriting its CPU count and its NAT port forward.
 - **E-12 `vmctl doctor` · S. *(done)*** One command reporting VBoxManage presence and
   version, default machine folder, free disk space, host RAM, and kernel module
   status. Cheap to write and it will absorb a lot of support questions.
@@ -2863,6 +2879,6 @@ Phase 7  [x] E-01 diff   [x] E-04 export --all  [x] E-06 schema
          [x] E-16 --out native artifacts       [x] E-17 capabilities command
          [x] E-03 clone-disks  [x] E-05 capability probing
          [x] E-02 apply  [x] E-07 json  [x] E-08 -v/-q  [x] E-12 doctor
-         [x] E-09 snapshots  [x] E-10 port forwards  [ ] E-11 extends
+         [x] E-09 snapshots  [x] E-10 port forwards  [x] E-11 extends
          [ ] E-14/E-15/E-18/E-19 Tier C
 ```

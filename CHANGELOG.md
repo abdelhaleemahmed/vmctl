@@ -96,6 +96,14 @@ things prevented that:
 
 ### Added
 
+- **`extends:` in a config file**, so a lab does not repeat itself: a file can be built
+  on one or more base files, which may themselves extend others. A mapping merges and
+  the child wins; a list is replaced, because writing `storage:` means stating all of
+  it. Paths are relative to the file that names them, a YAML config may extend a JSON
+  base, and `vmctl validate` prints what a file is built on. A missing base or a cycle
+  is reported with the file that caused it.
+- Fixed: a config file containing nothing but whitespace was reported as missing a
+  field rather than as empty.
 - **NAT port forwarding** (`port_forwards:` on a network adapter), which the model had
   no word for -- so a lab VM's `ssh to localhost:2222` was lost on every round trip.
   VirtualBox and QEMU do it natively; libvirt needs its passt backend, and vmctl checks
