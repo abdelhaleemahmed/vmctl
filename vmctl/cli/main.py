@@ -794,7 +794,7 @@ def cmd_export(ctx, vm_name, output, export_all, directory, fmt):
     try:
         engine = _engine(ctx)
         engine.export_vm(vm_name, output, fmt)
-        click.echo(f"Exported '{vm_name}' → {output}")
+        click.echo(f"Exported '{vm_name}' -> {output}")
     except VMToolError as e:
         _fail(e)
 
@@ -842,7 +842,7 @@ def _export_all(ctx, directory: Path, fmt: str) -> None:
             _warn(f"{name} could not be exported: {exc}")
             continue
         exported.append({"name": name, "file": target.name})
-        click.echo(f"Exported '{name}' → {target}")
+        click.echo(f"Exported '{name}' -> {target}")
 
     manifest = directory / f"manifest.{suffix}"
     body = {"provider": engine.provider_name, "vms": exported}
@@ -1401,7 +1401,7 @@ def batch_template(ctx, output, fmt):
         engine = _engine(ctx)
         creator = BatchCreator(engine, on_warning=_warn)
         creator.generate_batch_template(output, fmt)
-        click.echo(f"Generated batch template → {output}")
+        click.echo(f"Generated batch template -> {output}")
     except VMToolError as e:
         _fail(e)
 
@@ -2531,8 +2531,34 @@ def cmd_completion(shell):
 # ---------------------------------------------------------------------------
 
 
+def _tolerate_a_narrow_console() -> None:
+    """Stop an unprintable character from being a traceback.
+
+    Windows consoles default to a legacy code page -- cp1252 here -- and writing a
+    character it has no room for raises UnicodeEncodeError from inside ``click.echo``,
+    after the work is done. `export` proved it: the file was written, the success line
+    contained an arrow, and the command died with a traceback and exit 1 on all seven
+    VirtualBox cases while the export sat on disk, correct.
+
+    vmctl's own output is ASCII now, but a VM's name or description is the user's, and
+    an Arabic description on a cp1252 console would do the same thing. Replacing what
+    cannot be encoded is the right failure: a question mark in a progress line, not a
+    lost operation reported as a crash. UTF-8 streams, which is every redirect on
+    Linux, are unaffected.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (ValueError, OSError):  # pragma: no cover - a stream that cannot
+            pass  # be reconfigured is one we leave alone
+
+
 def main():
     """Main CLI entry point registered by pyproject.toml."""
+    _tolerate_a_narrow_console()
     cli()
 
 

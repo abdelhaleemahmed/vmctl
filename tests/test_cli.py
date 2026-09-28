@@ -1519,3 +1519,38 @@ def test_a_bad_override_is_an_error_not_a_traceback(runner, vbox, tmp_path):
 
     assert result.exit_code != 0
     assert "field=value" in result.output
+
+
+def test_output_survives_a_console_that_cannot_encode_it(runner, vbox, tmp_path, monkeypatch):
+    """A Windows console defaults to a legacy code page -- cp1252 on the host this was
+    found on -- and writing a character it has no room for raised UnicodeEncodeError
+    from inside click.echo, *after* the work was done: `export` wrote the file, then
+    died with a traceback and exit 1 on all seven VirtualBox cases while the correct
+    export sat on disk. vmctl's own output is ASCII now, but a VM's description is the
+    user's."""
+    import io
+
+    from vmctl.cli.main import _tolerate_a_narrow_console
+
+    narrow = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
+    monkeypatch.setattr("sys.stdout", narrow)
+    _tolerate_a_narrow_console()
+
+    narrow.write("an arrow -> and Arabic عربي\n")  # must not raise
+
+    assert narrow.errors == "replace"
+
+
+def test_nothing_vmctl_prints_needs_more_than_ascii():
+    """The reason the above is a safety net rather than the fix: a line vmctl composes
+    itself must be printable on any console, so `export` says `->` and not an arrow."""
+    from pathlib import Path as _Path
+
+    source = _Path("vmctl/cli/main.py").read_text(encoding="utf-8")
+    printed = [
+        line
+        for line in source.splitlines()
+        if ("click.echo" in line or "_warn(" in line) and not line.strip().startswith("#")
+    ]
+    offenders = [line.strip() for line in printed if any(ord(ch) > 127 for ch in line)]
+    assert offenders == []
