@@ -275,11 +275,25 @@ networks
 .. code-block:: yaml
 
    networks:
-     - network_type: NAT
-     - network_type: BRIDGED
+     - network_type: nat
+       port_forwards:
+         - name: ssh          # the name is VirtualBox's own idea; vmctl fills one in
+           host_port: 2222
+           guest_port: 22
+     - network_type: bridged
        adapter_name: enp3s0
 
-**network_type** values: ``NAT``, ``BRIDGED``, ``HOSTONLY``, ``INTERNAL``, ``NATNETWORK``
+**network_type** values: ``nat``, ``bridged``, ``hostonly``, ``internal``,
+``natnetwork`` (the 1.1.x upper-case spellings are still accepted).
+
+**port_forwards** brings a host port to a guest port through a NAT adapter, which is
+what a lab NAT adapter is usually for. Each rule takes ``host_port`` and
+``guest_port``, optionally ``protocol`` (``tcp`` or ``udp``), ``host_ip`` -- empty
+means every address, and ``127.0.0.1`` keeps a forwarded port off the network -- and
+``guest_ip``. VirtualBox and plain QEMU forward ports natively; libvirt does it
+through its ``passt`` backend, and ``vmctl doctor`` says whether passt is installed;
+VMware Workstation has no per-VM setting at all and reports the rules as not applied.
+``vmctl validate`` catches a port outside 1-65535 and two rules claiming the same one.
 
 **model** values -- the chipset the guest sees: ``virtio`` (paravirtualised, the
 fastest, and invisible to a guest without drivers), ``e1000``, ``e1000e``,
@@ -302,3 +316,50 @@ boot
      ioapic: true
 
 Valid boot devices: ``disk``, ``dvd``, ``floppy``, ``network``, ``none``.
+
+Four slots, because that is what every provider addresses -- VirtualBox literally as
+``boot1``..``boot4``. An empty slot is written out as ``none`` rather than left alone:
+a new VirtualBox VM defaults to ``disk`` in the third slot, so a config asking for
+"disk, dvd, nothing, nothing" used to produce a VM that disagreed with its own file.
+
+schema_version
+--------------
+
+.. code-block:: yaml
+
+   schema_version: 2
+
+Optional, and only useful in one direction. A file that omits it is read as the
+current format, which is what it almost always is -- and every 1.1.x file omits it. A
+file written by a *newer* vmctl than the one reading it is refused with a sentence
+saying so, instead of failing on whichever field it happens to reach first.
+
+extends
+-------
+
+.. code-block:: yaml
+
+   extends: base.yaml
+
+A file can be built on one or more others, so the part every VM in a lab shares lives
+in one place. A mapping merges and the child wins; a list is replaced, because writing
+``storage:`` is stating the whole list. Paths are relative to the file that names them,
+``extends: [common.yaml, lab.yaml]`` applies left to right, and a YAML file may extend
+a JSON base. ``vmctl validate`` prints what a file is built on.
+
+The complete field list
+-----------------------
+
+This page explains the fields worth explaining. The *complete* list -- every field,
+its type, its default and what it means -- is generated from the model that reads your
+file, and cannot drift from it: see :doc:`../reference`, or ``docs/features.md`` in the
+repository.
+
+Point an editor at the same thing::
+
+   vmctl schema -o vmctl.schema.json
+
+.. code-block:: yaml
+
+   # yaml-language-server: $schema=./vmctl.schema.json
+   name: fileserver

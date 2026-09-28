@@ -137,3 +137,66 @@ Naming
 .. automodule:: vmctl.core.naming
    :members:
    :show-inheritance:
+
+Guest OS catalogue
+------------------
+
+.. automodule:: vmctl.core.oscatalog
+   :members:
+   :show-inheritance:
+
+Platform: architecture, machine, CPU topology
+---------------------------------------------
+
+.. automodule:: vmctl.core.platform
+   :members:
+   :show-inheritance:
+
+Convergence
+-----------
+
+.. automodule:: vmctl.core.apply
+   :members:
+   :show-inheritance:
+
+Copying disk contents
+---------------------
+
+.. automodule:: vmctl.core.clone
+   :members:
+   :show-inheritance:
+
+Snapshots
+---------
+
+.. automodule:: vmctl.core.snapshots
+   :members:
+   :show-inheritance:
+
+Building one config on another
+------------------------------
+
+.. automodule:: vmctl.core.include
+   :members:
+   :show-inheritance:
+
+Host and hypervisor health
+--------------------------
+
+.. automodule:: vmctl.core.doctor
+   :members:
+   :show-inheritance:
+
+Asking the hypervisor to agree
+------------------------------
+
+.. automodule:: vmctl.core.selftest
+   :members:
+   :show-inheritance:
+
+Generated documentation
+-----------------------
+
+.. automodule:: vmctl.core.docgen
+   :members:
+   :show-inheritance:

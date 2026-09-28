@@ -7,47 +7,59 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
-## [2.0.0] - 2026-09-28
+## [3.0.0] - 2026-09-28
 
 **vmctl manages VMs on four hypervisors now, and the round trip works.**
 
-1.1.x was a VirtualBox tool whose premise -- export a VM to YAML, recreate it
-anywhere -- did not hold: the example config in its own README could not be
-imported. This release is the work from [`PLAN.md`](https://github.com/abdelhaleemahmed/vmctl/blob/main/PLAN.md),
-which fixed that and then generalised it. Finding ids (F-nn, H-nn, L-nn, M-nn,
-A-nn, P-nn, E-nn) refer to that document, where each is written up with what it
-cost and how it was found.
+The premise -- export a VM to YAML, recreate it anywhere -- did not hold: the example
+config in the project's own README could not be imported. This release is the work from
+[`PLAN.md`](https://github.com/abdelhaleemahmed/vmctl/blob/main/PLAN.md), which fixed
+that and then generalised it. Finding ids (F-nn, H-nn, L-nn, M-nn, A-nn, P-nn, E-nn)
+refer to that document, where each is written up with what it cost and how it was found.
 
-The four providers are **VirtualBox**, **libvirt/QEMU-KVM**, **plain QEMU** and
-**VMware Workstation**, and a VM can be migrated between them. Every capability
-table in this release was *measured against the running product* -- not read from
-documentation -- and each provider states where its numbers came from, because a
-measured limit and a remembered one look identical in a table. Fifty-four findings
-were fixed along the way; the ones that cost the most were all of one kind: a
-hypervisor accepting a setting and not keeping it.
+The four providers are **VirtualBox**, **libvirt/QEMU-KVM**, **plain QEMU** and **VMware
+Workstation**, and a VM can be migrated between them. Every capability table here was
+*measured against the running product* -- not read from documentation -- and each
+provider states where its numbers came from, because a measured limit and a remembered
+one look identical in a table. Fifty-four findings were fixed along the way; the ones
+that cost the most were all of one kind: a hypervisor accepting a setting and not
+keeping it.
 
-### Breaking
+### Why 3.0.0 and not 2.1.0
 
-- **The Python API changed.** `DiskConfig` is now `StorageDevice`, storage is one
-  list of devices rather than a list of "disks", plans are `Plan`/`Step` objects
-  rather than `List[List[str]]`, and providers are reached through a registry.
-  Anyone importing vmctl as a library will need to adjust; `DiskConfig`,
+The public 2.0.0 (19 August) was an *earlier* snapshot of this project, published as an
+initial release: an argparse CLI with one provider. This release comes from the line of
+development that had already moved to Click, and it changes that published interface --
+so the major number moves. The numbering is not a claim that 2.0.0 came first in
+development; it is the ordering users see.
+
+### Breaking, relative to the published 2.0.0
+
+- **`--apply` is now `--execute`.** The flag that turns a dry run into a real one is
+  `--execute` on every command that changes a VM, and there is no alias: `--apply` would
+  collide with `vmctl apply`, which is a command in its own right now, and one word
+  cannot mean both "run this plan" and "converge this VM".
+- **The CLI is Click, not argparse.** Same commands, plus fourteen more, and tab
+  completion for bash, zsh and fish -- including live VM names.
+- **The Python API changed.** `DiskConfig` is now `StorageDevice`, storage is one list of
+  devices rather than a list of "disks", plans are `Plan`/`Step` objects rather than
+  `List[List[str]]`, and providers are reached through a registry. `DiskConfig`,
   `StorageControllerConfig` and `Plan.as_argv_lists()` remain as aliases.
-- **`vmctl` is no longer VirtualBox-only**, so it picks a provider: `$VMCTL_PROVIDER`,
-  then whichever hypervisor is installed. Pass `-p` to be explicit. On a machine with
-  only VirtualBox, nothing changes.
-- **A VM created by 2.0.0 is not identical to one created by 1.1.x**, because the
-  1.1.x version emitted several settings wrongly or not at all. That is the fix, and
+- **vmctl is no longer VirtualBox-only**, so it chooses a provider: `$VMCTL_PROVIDER`,
+  then whichever hypervisor is installed. `-p` says which. On a machine with only
+  VirtualBox, nothing changes.
+- **A VM created now is not identical to one created by an earlier version**, because
+  the earlier one emitted several settings wrongly or not at all. That is the fix, and
   it is worth knowing before re-creating a VM you rely on.
 
 ### Not breaking
 
-- **Configuration files from 1.1.x load unchanged, and always will.** `disks:`,
-  `ostype:`, `adapter_type: "82540EM"`, `type: HDD`, `variant:`, `controller:` and
-  the rest are accepted indefinitely -- there are tests that load committed 1.1.9
-  exports and fail if they ever stop working. `schema_version:` is *optional*: a
-  file without it is read as the current format. The plan had pencilled in dropping
-  these names at 2.0.0; keeping them costs one mapping table and breaks nobody.
+- **Configuration files load unchanged, and always will.** `disks:`, `ostype:`,
+  `adapter_type: "82540EM"`, `type: HDD`, `variant:`, `controller:` and the rest are
+  accepted indefinitely -- there are tests that load config files produced by the older
+  code and fail if they ever stop working. `schema_version:` is *optional*: a file
+  without it is read as the current format. The plan had pencilled in dropping these
+  names at a major version; keeping them costs one mapping table and breaks nobody.
 
 ### Fixed — the export/import round trip
 
@@ -139,6 +151,13 @@ things prevented that:
   VMware. Plus `examples/lab/`, which shows `extends:`. Each is validated and planned
   against *its own* provider by CI, and each was created, started, read back and deleted
   on real hardware.
+- **Both Sphinx trees** gained a Hypervisors page (the Arabic one in Arabic) and a
+  generated reference, and their guides now cover `port_forwards`, `schema_version` and
+  `extends`; installation asks for whichever hypervisor you use rather than VirtualBox
+  specifically. Fixed there: nine `core` modules and every provider's tables and
+  converters were missing from the API pages, and both trees kept their own hardcoded
+  version number -- one said 1.1.8 while the package said 1.1.9. Tests now fail when a
+  module is undocumented or a tree hardcodes a version.
 - **The user guide and both documentation trees** now describe a four-hypervisor tool:
   choosing a provider, migrating between them, snapshots, port forwards, `extends:`,
   `apply`, `diff`, `doctor`, `selftest`, JSON output, and a page per hypervisor

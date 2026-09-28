@@ -10,3 +10,7 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.serializers.base
+   :members:
+   :show-inheritance:

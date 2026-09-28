@@ -350,3 +350,54 @@ def test_the_documentation_trees_do_not_keep_their_own_version_number():
         conf = (DOCS / tree / "conf.py").read_text()
         assert "from vmctl import __version__" in conf, f"{tree} does not read the package version"
         assert not re.search(r"^release = ['\"]\d", conf, re.M), f"{tree} hardcodes a version"
+
+
+# ---------------------------------------------------------------------------
+# The Sphinx API pages
+# ---------------------------------------------------------------------------
+
+TREES = ["sphinx", "sphinx-ar"]
+
+
+@pytest.mark.parametrize("tree", TREES)
+def test_every_module_appears_in_the_api_documentation(tree):
+    """A module nobody added to `api/*.rst` is a module the API docs do not have, and
+    nothing said so: nine core modules -- apply, clone, doctor, selftest, snapshots,
+    include, docgen, oscatalog, platform -- and each provider's tables and converters
+    were missing from one tree or both."""
+    import re
+
+    documented = set()
+    for page in (DOCS / tree / "api").glob("*.rst"):
+        documented |= set(re.findall(r"automodule:: (vmctl[\w.]*)", page.read_text()))
+
+    package = Path(__file__).parent.parent / "vmctl"
+    have = {
+        ".".join(path.relative_to(package.parent).with_suffix("").parts)
+        for path in package.rglob("*.py")
+        if path.name != "__init__.py" and "__pycache__" not in str(path)
+    }
+
+    assert not (have - documented), f"{tree} does not document: {sorted(have - documented)}"
+
+
+@pytest.mark.parametrize("tree", TREES)
+def test_the_guide_covers_the_features_that_have_config_fields(tree):
+    """A configuration page that predates half the fields sends people to the generated
+    reference for the rest -- which is fine, as long as it *says* so and covers the
+    things a config file can now contain."""
+    page = (DOCS / tree / "guide" / "configuration.rst").read_text()
+
+    for field in ("port_forwards", "schema_version", "extends"):
+        assert field in page, f"{tree}/guide/configuration.rst never mentions {field}"
+    assert "reference" in page, "the page does not point at the generated field list"
+
+
+@pytest.mark.parametrize("tree", TREES)
+def test_installation_does_not_require_one_particular_hypervisor(tree):
+    """Both pages asked for VirtualBox and `VBoxManage` as *the* requirement."""
+    page = (DOCS / tree / "guide" / "install.rst").read_text()
+
+    for hypervisor in ("VirtualBox", "libvirt", "QEMU", "VMware"):
+        assert hypervisor in page, f"{tree}/guide/install.rst never mentions {hypervisor}"
+    assert "vmctl doctor" in page

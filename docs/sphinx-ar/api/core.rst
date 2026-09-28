@@ -93,3 +93,43 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.core.oscatalog
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.platform
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.apply
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.clone
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.snapshots
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.include
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.doctor
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.selftest
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.docgen
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.core.exceptions
+   :members:
+   :show-inheritance:

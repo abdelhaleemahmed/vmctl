@@ -139,3 +139,84 @@ VMware Capabilities
    :members:
    :undoc-members:
    :show-inheritance:
+
+The provider contract
+---------------------
+
+   :members:
+   :show-inheritance:
+
+VirtualBox field tables
+-----------------------
+
+.. automodule:: vmctl.providers.virtualbox.tables
+   :members:
+   :show-inheritance:
+
+VirtualBox image conversion
+---------------------------
+
+.. automodule:: vmctl.providers.virtualbox.convert
+   :members:
+   :show-inheritance:
+
+VirtualBox guest OS types
+-------------------------
+
+.. automodule:: vmctl.providers.virtualbox.ostypes
+   :members:
+   :show-inheritance:
+
+VirtualBox capabilities
+-----------------------
+
+   :members:
+   :show-inheritance:
+
+libvirt tables
+--------------
+
+.. automodule:: vmctl.providers.libvirt.tables
+   :members:
+   :show-inheritance:
+
+libvirt image conversion
+------------------------
+
+.. automodule:: vmctl.providers.libvirt.convert
+   :members:
+   :show-inheritance:
+
+QEMU tables
+-----------
+
+.. automodule:: vmctl.providers.qemu.tables
+   :members:
+   :show-inheritance:
+
+QEMU image conversion
+---------------------
+
+.. automodule:: vmctl.providers.qemu.convert
+   :members:
+   :show-inheritance:
+
+VMware tables
+-------------
+
+.. automodule:: vmctl.providers.vmware.tables
+   :members:
+   :show-inheritance:
+
+VMware image conversion
+-----------------------
+
+.. automodule:: vmctl.providers.vmware.convert
+   :members:
+   :show-inheritance:
+
+VMware capabilities
+-------------------
+
+   :members:
+   :show-inheritance:

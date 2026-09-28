@@ -2919,12 +2919,21 @@ the model (E-03, E-05) want Phase 5 first.
   rename, `ballooning`→`balloon_mb`, `ostype`→neutral `guest_os`, and make
   `schema_version` (E-14) mandatory for new files.
 
-  > **What actually shipped: one release, v2.0.0, containing all of it.** The
+  > **What actually shipped: one release, v3.0.0, containing all of it.** The
   > intermediate versions above were never cut. That was not a decision so much as a
   > consequence -- each phase landed on the same branch, every gate stayed green, and
   > there was no user of an intermediate state to release *for*. The sequencing still
   > did its job: it decided what landed together (`A-01` and `A-11` alone; no provider
   > before the conformance suite it must pass), which is what the list was for.
+  >
+  > The number is 3.0.0 rather than 2.0.0 because **2.0.0 was already taken**: an earlier
+  > snapshot of this project was published as an initial public release on 19 August
+  > 2026 -- an argparse CLI with one provider, from before the Click migration this line
+  > of development had already made in March. So the public ordering and the development
+  > ordering disagree, and the release number follows the public one. Relative to what
+  > was published, this release renames `--apply` to `--execute` (no alias: `--apply`
+  > would collide with the `apply` command), replaces argparse with Click, and adds three
+  > providers.
   >
   > **The breaking config changes in this item were deliberately not taken.** Every
   > 1.1.x key is still accepted, and `schema_version` is optional rather than mandatory

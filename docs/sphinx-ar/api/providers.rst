@@ -78,3 +78,50 @@
    :members:
    :member-order: bysource
    :show-inheritance:
+
+.. automodule:: vmctl.providers.base
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.virtualbox.tables
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.virtualbox.convert
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.virtualbox.ostypes
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.virtualbox.capabilities
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.libvirt.tables
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.libvirt.convert
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.qemu.tables
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.qemu.convert
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.vmware.tables
+   :members:
+   :show-inheritance:
+
+.. automodule:: vmctl.providers.vmware.convert
+   :members:
+   :show-inheritance:
+
+   :members:
+   :show-inheritance:
