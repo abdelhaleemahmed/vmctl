@@ -77,6 +77,15 @@ else
     info "Releasing the current version: $VERSION"
 fi
 
+# What the artifacts will actually say. A dry run does not edit the version, so it
+# builds the version already in the tree -- and comparing that against the one asked
+# for made `--dry-run 2.0.0` fail every time, on a mismatch the dry run itself created.
+BUILT_VERSION="$VERSION"
+if [ "$DRY_RUN" = 1 ] && [ "$VERSION" != "$CURRENT" ]; then
+    BUILT_VERSION="$CURRENT"
+    info "Dry run: the build will carry $CURRENT, since the bump to $VERSION is skipped."
+fi
+
 # A version with no changelog entry is a version nobody can read about.
 if ! grep -qE "^## \[?$VERSION\]?" CHANGELOG.md; then
     if grep -q "^## \[Unreleased\]" CHANGELOG.md; then
@@ -107,10 +116,23 @@ trap 'rm -rf "$TEST_ENV"' EXIT
 $PYTHON -m venv "$TEST_ENV"
 "$TEST_ENV/bin/pip" install -q dist/vmctl-*.whl
 INSTALLED=$("$TEST_ENV/bin/vmctl" --version | awk '{print $NF}')
-[ "$INSTALLED" = "$VERSION" ] || die "Installed version is $INSTALLED, expected $VERSION"
+[ "$INSTALLED" = "$BUILT_VERSION" ] \
+    || die "Installed version is $INSTALLED, expected $BUILT_VERSION"
 "$TEST_ENV/bin/vmctl" validate examples/ubuntu-server.yaml >/dev/null \
     || die "The installed package cannot validate the example config."
 ok "Wheel installs and runs (version $INSTALLED)"
+
+# The examples are checked above against the default provider; each provider's own
+# example is checked against *it*, because a VMDK-only VMware config and a virtio-blk
+# QEMU config are each invalid for the other.
+info "Checking each hypervisor's example against its own provider..."
+for pair in "virtualbox:virtualbox-desktop" "libvirt:libvirt-server" \
+            "qemu:qemu-workstation" "vmware:vmware-lab"; do
+    provider="${pair%%:*}"; file="examples/${pair##*:}.yaml"
+    "$TEST_ENV/bin/vmctl" -p "$provider" validate "$file" >/dev/null \
+        || die "$file does not validate for $provider."
+done
+ok "Per-hypervisor examples fine"
 
 # ---------------------------------------------------------------------------
 # Tag
