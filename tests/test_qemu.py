@@ -629,3 +629,28 @@ def test_settings_a_command_line_cannot_hold_are_reported(emitter, vm):
 
     reported = {drop.field for drop in translator.report.drops}
     assert {"description", "boot.ioapic"} <= reported
+
+
+def test_a_plan_can_be_emitted_on_a_machine_with_no_qemu(monkeypatch, vm, tmp_path):
+    """A QEMU VM is a script, and the script runs wherever it is kept -- not
+    necessarily here (F-13, A-09). Requiring a local QEMU to *write* one meant
+    ``--out``, a dry run and the whole conformance suite failed on a host without
+    it, which is exactly the host that most needs to write the script rather than
+    run it. Only starting a VM needs the binary to exist."""
+    import shutil
+
+    from vmctl.core.exceptions import DependencyError
+    from vmctl.providers.qemu import backend as qemu_backend
+
+    monkeypatch.setattr(qemu_backend, "BINARIES", ("no-such-qemu-binary",))
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    backend = qemu_backend.QemuBackend(state_dir=str(tmp_path))
+
+    with pytest.raises(DependencyError):
+        backend.binary  # running a VM still needs a real one
+
+    plan = backend.create_vm(vm, execute=False)
+
+    script = next(s.content for s in plan.steps if s.kind is StepKind.WRITE_FILE)
+    assert script is not None
+    assert qemu_backend.CONVENTIONAL_BINARY in script

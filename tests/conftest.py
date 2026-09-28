@@ -38,6 +38,7 @@ from vmctl.core.vmconfig import (
     BusType,
     VMConfig,
 )
+from vmctl.core.storage import directory
 from vmctl.providers.virtualbox.parser import VirtualBoxParser
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -289,6 +290,30 @@ def render_commands(commands) -> str:
     if hasattr(commands, "as_argv_lists"):
         commands = commands.as_argv_lists()
     return "\n".join(" ".join(cmd) for cmd in commands) + "\n"
+
+
+#: Where the golden files pretend VirtualBox keeps its machines.
+#:
+#: The emitter falls back to ``~/VirtualBox VMs`` when no location is given, so
+#: goldens generated without one recorded the home directory of whoever ran
+#: ``regenerate_golden.py`` -- and then failed everywhere else, including CI,
+#: which runs as ``runner`` rather than ``vagrant``. A golden file is supposed to
+#: pin the emitter's behaviour, not the machine's identity, so the golden path
+#: names an explicit folder that is the same on every host.
+GOLDEN_MACHINE_FOLDER = "/vms"
+
+
+def emit(vm) -> str:
+    """Emit ``vm``'s creation plan the way the golden files record it.
+
+    The one definition the golden test, the round-trip test and
+    ``regenerate_golden.py`` all use, so a golden can never be written with a
+    different location from the one it is later compared against.
+    """
+    from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter
+
+    location = directory(GOLDEN_MACHINE_FOLDER, nest_per_vm=True)
+    return render_commands(VirtualBoxEmitter(vm.name, location=location).emit_create_vm(vm))
 
 
 def assert_golden(name: str, actual: str) -> None:

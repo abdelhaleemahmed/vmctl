@@ -12,11 +12,7 @@ from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter
 from vmctl.serializers.json_serializer import JSONSerializer
 from vmctl.serializers.yaml_serializer import YAMLSerializer
 
-from conftest import VM_LABELS, parse_label, render_commands
-
-
-def emit(vm) -> str:
-    return render_commands(VirtualBoxEmitter(vm.name).emit_create_vm(vm))
+from conftest import VM_LABELS, emit, parse_label
 
 
 def reload_through(serializer, vm) -> VMConfig:

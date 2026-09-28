@@ -25,7 +25,7 @@ from vmctl.core.vmconfig import (
 )
 from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter
 
-from conftest import assert_golden, parse_label, render_commands
+from conftest import assert_golden, emit, parse_label
 
 
 # Builders live here (not only in conftest) so regenerate_golden.py can reuse
@@ -105,10 +105,6 @@ def build_full() -> VMConfig:
         audio_enabled=True,
         usb_enabled=True,
     )
-
-
-def emit(vm) -> str:
-    return render_commands(VirtualBoxEmitter(vm.name).emit_create_vm(vm))
 
 
 # ---------------------------------------------------------------------------

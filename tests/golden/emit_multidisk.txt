@@ -2,12 +2,12 @@ VBoxManage createvm --name multidisk --ostype RedHat_64 --register
 VBoxManage modifyvm multidisk --memory 128 --vram 16 --cpus 1 --firmware bios --acpi on --ioapic on --rtcuseutc on --pae on --nested-hw-virt off --cpuhotplug off --pagefusion off --hpet off --clipboard-mode disabled --draganddrop disabled
 VBoxManage storagectl multidisk --name SATA Controller --add sata --controller IntelAhci --portcount 2 --bootable on
 VBoxManage storagectl multidisk --name SAS-II Controller --add sas --controller LSILogicSAS --portcount 16 --bootable on
-VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA_Controller_0_0.vdi --size 64 --format VDI --variant Standard
-VBoxManage storageattach multidisk --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA_Controller_0_0.vdi
-VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA_Controller_1_0.vmdk --size 96 --format VMDK --variant Standard
-VBoxManage storageattach multidisk --storagectl SATA Controller --port 1 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SATA_Controller_1_0.vmdk
-VBoxManage createmedium disk --filename /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SAS-II_Controller_0_0.vhd --size 128 --format VHD --variant Fixed
-VBoxManage storageattach multidisk --storagectl SAS-II Controller --port 0 --device 0 --type hdd --medium /home/vagrant/VirtualBox VMs/multidisk/multidisk_disk_SAS-II_Controller_0_0.vhd
+VBoxManage createmedium disk --filename /vms/multidisk/multidisk_disk_SATA_Controller_0_0.vdi --size 64 --format VDI --variant Standard
+VBoxManage storageattach multidisk --storagectl SATA Controller --port 0 --device 0 --type hdd --medium /vms/multidisk/multidisk_disk_SATA_Controller_0_0.vdi
+VBoxManage createmedium disk --filename /vms/multidisk/multidisk_disk_SATA_Controller_1_0.vmdk --size 96 --format VMDK --variant Standard
+VBoxManage storageattach multidisk --storagectl SATA Controller --port 1 --device 0 --type hdd --medium /vms/multidisk/multidisk_disk_SATA_Controller_1_0.vmdk
+VBoxManage createmedium disk --filename /vms/multidisk/multidisk_disk_SAS-II_Controller_0_0.vhd --size 128 --format VHD --variant Fixed
+VBoxManage storageattach multidisk --storagectl SAS-II Controller --port 0 --device 0 --type hdd --medium /vms/multidisk/multidisk_disk_SAS-II_Controller_0_0.vhd
 VBoxManage modifyvm multidisk --nic1 nat --nictype1 82540EM --cableconnected1 on --macaddress1 080027987292
 VBoxManage modifyvm multidisk --boot1 floppy
 VBoxManage modifyvm multidisk --boot2 dvd

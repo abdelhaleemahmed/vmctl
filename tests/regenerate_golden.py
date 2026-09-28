@@ -11,15 +11,13 @@ then *read the diff* before committing it.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))  # conftest helpers
+# The package first, then this directory *in front of it*: the repository root
+# also has a conftest.py (the import shim for an uninstalled clone), and it would
+# otherwise shadow the one next to this script, which is where the helpers live.
 sys.path.insert(0, str(Path(__file__).parent.parent))  # the package
+sys.path.insert(0, str(Path(__file__).parent))  # conftest helpers
 
-from conftest import GOLDEN, VM_LABELS, parse_label, render_commands  # noqa: E402
-from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter  # noqa: E402
-
-
-def emit(vm):
-    return render_commands(VirtualBoxEmitter(vm.name).emit_create_vm(vm))
+from conftest import GOLDEN, VM_LABELS, emit, parse_label  # noqa: E402
 
 
 def main() -> int:

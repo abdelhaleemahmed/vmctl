@@ -1,0 +1,3 @@
+# Sphinx is configured with html_static_path = ["_static"], and warns if the
+# directory is absent -- which, with -W, fails the Pages build on a fresh clone.
+# Git does not track empty directories, so this file is what makes it exist.

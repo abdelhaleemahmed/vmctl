@@ -50,6 +50,10 @@ from .parser import QemuParser
 #: The QEMU binaries to look for, most specific first.
 BINARIES = ("/usr/libexec/qemu-kvm", "qemu-system-x86_64", "qemu-kvm")
 
+#: The name to emit when this machine has no QEMU of its own -- the portable
+#: spelling, resolved from ``PATH`` on whichever machine runs the script.
+CONVENTIONAL_BINARY = "qemu-system-x86_64"
+
 #: The file that makes a directory a VM.
 SCRIPT_NAME = "run.sh"
 
@@ -111,6 +115,27 @@ class QemuBackend(BaseProvider):
             dependency="qemu-kvm",
             install_command="Install qemu-kvm (or qemu-system-x86_64)",
         )
+
+    @property
+    def binary_for_emitting(self) -> str:
+        """Return the binary name to *write into* a command line.
+
+        A QEMU VM here is a directory with a runnable command line in it, and that
+        command line is run on whichever machine holds the directory -- which need
+        not be the machine that emitted it (F-13, A-09). So emitting must work on a
+        host with no QEMU installed: a dry run, ``--out``, ``export`` and the whole
+        conformance suite are all things a machine should be able to do for a
+        hypervisor it does not have. When there is a local QEMU its real path is
+        used, because that is the more accurate answer; otherwise the conventional
+        name is written and resolved from ``PATH`` wherever the script is run.
+
+        Only *running* a VM needs the binary to exist, and :attr:`binary` still
+        raises for that.
+        """
+        try:
+            return self.binary
+        except DependencyError:
+            return CONVENTIONAL_BINARY
 
     def version(self) -> str:
         """Return the QEMU version, e.g. ``"10.1.0"``.
@@ -267,7 +292,7 @@ class QemuBackend(BaseProvider):
         return QemuEmitter(
             vm_name,
             location=self.storage_location(),
-            binary=self.binary,
+            binary=self.binary_for_emitting,
             accel=self.accel,
             capabilities=self._capabilities,
             policy=policy,
