@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vmctl — virtual machines as code</title>
+    <meta name="description" content="A config-as-code CLI for virtual machines — export VMs to YAML/JSON, re-create them reproducibly, and manage whole fleets with batch operations across pluggable hypervisor providers.">
+    <meta property="og:title" content="vmctl — virtual machines as code">
+    <meta property="og:description" content="A config-as-code CLI for virtual machines: export to YAML/JSON, re-create reproducibly, batch-manage fleets.">
+    <meta property="og:url" content="https://abdelhaleemahmed.github.io/vmctl/">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="images/favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #2b2b3a; line-height: 1.6;
+            background: #ecedf7;
+            padding: 40px 24px;
+        }
+        .app {
+            max-width: 960px; width: 100%; margin: 0 auto;
+            background: #fff; border-radius: 26px; overflow: hidden;
+            box-shadow: 0 26px 70px rgba(45, 33, 90, .16), 0 6px 18px rgba(45, 33, 90, .06);
+        }
+        .section { padding: 58px 52px; }
+        .bg-hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .bg-dark { background: #0d1117; color: #e6edf3; }
+        .bg-light { background: #f5f6fb; color: #2b2b3a; }
+        .bg-white { background: #ffffff; color: #2b2b3a; }
+        .bg-footer { background: #14141f; color: #cfd2e6; }
+        .hero { text-align: center; }
+        .logo { width: 144px; height: 144px; margin: 0 auto 16px; display: block; }
+        h1 { font-size: 3.4rem; letter-spacing: 2px; text-shadow: 2px 2px 6px rgba(0,0,0,.22); }
+        .tagline { font-size: 1.3rem; opacity: .96; margin-top: 4px; }
+        .badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0 4px; }
+        .badges img { height: 22px; }
+        .reqs { font-size: .9rem; opacity: .85; margin-top: 14px; }
+        .lead { font-size: 1.06rem; opacity: .93; max-width: 640px; margin: 16px auto 0; }
+        .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin: 30px 0 6px; }
+        .btn {
+            display: inline-block; padding: 13px 24px; border-radius: 10px;
+            font-size: .98rem; font-weight: 700; text-decoration: none;
+            border: 2px solid rgba(255,255,255,.85); color: #fff; transition: all .2s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+        .btn.primary { background: #fff; color: #5a3d8a; border-color: #fff; }
+        .btn small { display: block; font-weight: 500; font-size: .76rem; opacity: .8; margin-top: 2px; }
+        .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 36px; }
+        .stat {
+            background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22);
+            border-radius: 12px; padding: 16px 24px; min-width: 170px;
+        }
+        .stat .num { font-size: 1.8rem; font-weight: 800; }
+        .stat .lbl { font-size: .88rem; opacity: .9; }
+        .section h2 { font-size: 1.8rem; text-align: center; margin-bottom: 8px; }
+        .section .sub { text-align: center; opacity: .7; margin-bottom: 32px; }
+        .bg-dark .sub { opacity: .6; }
+        .terminal { border-radius: 12px; overflow: hidden;
+            box-shadow: 0 16px 40px rgba(0,0,0,.4); border: 1px solid #262b36; }
+        .term-bar { background: #161b22; padding: 11px 15px; display: flex; gap: 8px; align-items: center; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot.r { background: #ff5f56; } .dot.y { background: #ffbd2e; } .dot.g { background: #27c93f; }
+        .term-title { margin-left: 10px; color: #7d8590; font-size: .82rem; }
+        .terminal pre {
+            background: #0d1117; padding: 20px; margin: 0; overflow-x: auto;
+            font-family: 'DejaVu Sans Mono', 'Cascadia Code', Consolas, monospace;
+            font-size: .84rem; line-height: 1.7; color: #c9d1d9;
+        }
+        .term .p { color: #a5d6ff; } .term .c { color: #fff; }
+        .term .ok { color: #56d364; } .term .hi { color: #d2a8ff; } .term .dim { color: #6e7681; }
+        .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; }
+        .flow-wrap { overflow-x: auto; margin: 6px 0 26px; }
+        .flow { display: block; height: auto; margin: 0 auto; width: 100%; min-width: 640px; max-width: 960px; }
+        .step { background: #fff; border-radius: 12px; padding: 20px; border-bottom: 4px solid #667eea;
+            box-shadow: 0 8px 22px rgba(80,70,140,.08); }
+        .step .n { display: inline-flex; width: 32px; height: 32px; border-radius: 50%;
+            background: #667eea; color: #fff; font-weight: 800; align-items: center; justify-content: center; margin-bottom: 10px; }
+        .step h3 { color: #5a4b9c; font-size: 1.05rem; margin-bottom: 4px; }
+        .step p { font-size: .9rem; color: #555; }
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px,1fr)); gap: 16px; margin-bottom: 32px; }
+        .feature { background: #f8f9fe; border-radius: 12px; padding: 18px 20px; border-left: 4px solid #667eea; }
+        .feature h3 { font-size: 1.02rem; margin-bottom: 5px; color: #4a3f7a; }
+        .feature p { font-size: .9rem; color: #555; }
+        .cmds { text-align: center; }
+        .cmds h3 { font-size: 1.02rem; margin-bottom: 12px; color: #4a3f7a; }
+        .pill { display: inline-block; margin: 5px; padding: 7px 14px; border-radius: 20px;
+            background: #eef0fb; color: #5a4b9c; font-family: 'DejaVu Sans Mono', Consolas, monospace;
+            font-size: .84rem; font-weight: 600; }
+        .install-row { display: flex; align-items: stretch; border-radius: 10px; overflow: hidden;
+            box-shadow: 0 8px 22px rgba(80,70,140,.12); }
+        .install-row code {
+            flex: 1; background: #1b2130; color: #f3f0ff; padding: 16px 18px; overflow-x: auto;
+            font-family: 'DejaVu Sans Mono', Consolas, monospace; font-size: .86rem; white-space: nowrap; }
+        .copy-btn { background: #667eea; color: #fff; border: 0; padding: 0 22px; font-weight: 700;
+            cursor: pointer; font-size: .9rem; transition: background .2s ease; }
+        .copy-btn:hover { background: #5568d3; }
+        .install-note { text-align: center; font-size: .9rem; color: #666; margin-top: 14px; }
+        .install-note a { color: #667eea; }
+        footer { text-align: center; }
+        footer a { color: #fff; text-decoration: none; border-bottom: 2px solid rgba(255,255,255,.4); }
+        footer a:hover { border-bottom-color: #fff; }
+        .footer-links { margin-top: 12px; opacity: .9; }
+        .reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
+        .reveal.in { opacity: 1; transform: none; }
+        @media (max-width: 640px) {
+            body { padding: 16px 12px; }
+            .app { border-radius: 18px; }
+            .section { padding: 40px 24px; }
+            h1 { font-size: 2.6rem; }
+            .tagline { font-size: 1.05rem; }
+            .install-row code { white-space: normal; word-break: break-all; }
+        }
+    </style>
+</head>
+<body>
+    <main class="app">
+
+        <!-- HERO -->
+        <section class="section bg-hero">
+            <div class="hero">
+                <img class="logo" src="images/vmctl-icon.png" alt="vmctl logo">
+                <h1>vmctl</h1>
+                <p class="tagline">virtual machines as code</p>
+
+                <div class="badges">
+                    <img alt="CI" src="https://github.com/abdelhaleemahmed/vmctl/actions/workflows/ci.yml/badge.svg">
+                    <img alt="version" src="https://img.shields.io/github/v/release/abdelhaleemahmed/vmctl?color=blueviolet">
+                    <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
+                    <img alt="python" src="https://img.shields.io/badge/python-3.8%2B-blue">
+                </div>
+
+                <p class="lead">
+                    A command-line tool for managing virtual machines with <strong>config-as-code</strong>.
+                    Export a VM's configuration to <strong>YAML / JSON</strong>, re-create it reproducibly,
+                    and manage whole fleets with batch operations — across a pluggable set of hypervisor
+                    providers.
+                </p>
+                <p class="reqs">Python 3.8+ &nbsp;·&nbsp; VirtualBox &nbsp;·&nbsp; libvirt/QEMU-KVM &nbsp;·&nbsp; plain QEMU &nbsp;·&nbsp; VMware Workstation</p>
+
+                <div class="actions">
+                    <a class="btn primary" href="https://github.com/abdelhaleemahmed/vmctl">
+                        Clone the repo <small>github.com/abdelhaleemahmed/vmctl</small>
+                    </a>
+                    <a class="btn" href="https://github.com/abdelhaleemahmed/vmctl/releases/latest">
+                        Download release <small>latest .whl / .tar.gz</small>
+                    </a>
+                    <a class="btn" href="docs/">
+                        Read the docs <small>install &amp; usage guide</small>
+                    </a>
+                </div>
+
+                <div class="stats">
+                    <div class="stat"><div class="num">YAML/JSON</div><div class="lbl">config-as-code</div></div>
+                    <div class="stat"><div class="num">dry-run</div><div class="lbl">safe by default</div></div>
+                    <div class="stat"><div class="num">batch</div><div class="lbl">whole fleets</div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEE IT IN ACTION -->
+        <section class="section bg-dark">
+            <h2 class="reveal">See it in action</h2>
+            <p class="sub reveal">Capture a VM, preview the plan, then <code>--execute</code> to build it. Nothing changes until you do.</p>
+            <div class="terminal reveal">
+                <div class="term-bar">
+                    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                    <span class="term-title">vmctl — a real run</span>
+                </div>
+<pre class="term"><span class="p">$ vmctl list</span>
+<span class="dim">NAME                 STATUS</span>
+ubuntu-server        <span class="ok">running</span>
+windows-dev          stopped
+
+<span class="p">$ vmctl export</span> <span class="c">ubuntu-server -o ubuntu-server.yaml</span>
+<span class="dim">Exported to ubuntu-server.yaml (yaml)</span>
+
+<span class="p">$ vmctl import</span> <span class="c">ubuntu-server.yaml --new-name test-server</span>
+<span class="hi">Dry-run — nothing changed.</span> <span class="dim">Add --execute to build it:</span>
+  1: VBoxManage createvm --name test-server --ostype Ubuntu_64 --register
+  2: VBoxManage modifyvm test-server --memory 4096 --cpus 4 ...
+
+<span class="p">$ vmctl import</span> <span class="c">ubuntu-server.yaml --new-name test-server <span class="hi">--execute</span></span>
+<span class="ok">✓</span> Created test-server
+
+<span class="dim"># the same file, on a different hypervisor</span>
+<span class="p">$ vmctl -p libvirt import</span> <span class="c">ubuntu-server.yaml --new-name test-server <span class="hi">--execute</span></span>
+<span class="dim">Warning: storage[0].format: vdi is not supported, used qcow2 instead</span>
+<span class="ok">✓</span> Created test-server
+
+<span class="dim"># and keep it that way</span>
+<span class="p">$ vmctl diff</span> <span class="c">test-server ubuntu-server.yaml</span>
+~ memory.mb  vm 4096  file 8192
+<span class="p">$ vmctl apply</span> <span class="c">ubuntu-server.yaml <span class="hi">--execute</span></span>
+<span class="ok">✓</span> Applied — 1 change, nothing else touched</pre>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section class="section bg-light">
+            <h2 class="reveal">How it works</h2>
+            <p class="sub reveal">Data-driven, and safe by default.</p>
+            <div class="flow-wrap reveal"><img class="flow" src="images/how-vmctl-works.png" alt="How vmctl works: describe a VM, then apply it, then clone it, then scale to a fleet"></div>
+            <div class="steps">
+                <div class="step reveal"><span class="n">1</span><h3>Export</h3><p>Capture a live VM — CPU, memory, firmware, disks, networks — into a YAML/JSON document.</p></div>
+                <div class="step reveal"><span class="n">2</span><h3>Version</h3><p>Commit the config to Git. Your infrastructure is now reviewable, diffable, reproducible.</p></div>
+                <div class="step reveal"><span class="n">3</span><h3>Validate</h3><p>Check the config against the provider's capabilities before anything is built.</p></div>
+                <div class="step reveal"><span class="n">4</span><h3>Apply</h3><p>Every build is a <strong>dry-run by default</strong> — it prints the exact commands. Add <code>--execute</code> to actually create the VM(s), or <code>vmctl apply</code> to change only what drifted.</p></div>
+            </div>
+        </section>
+
+        <!-- FEATURES -->
+        <section class="section bg-white">
+            <h2 class="reveal">Features</h2>
+            <p class="sub reveal">One CLI, config-as-code underneath.</p>
+            <div class="features">
+                <div class="feature reveal"><h3>📄 Config-as-Code</h3><p>Export and import VM configurations as <strong>YAML</strong> or <strong>JSON</strong> — version-control your infrastructure.</p></div>
+                <div class="feature reveal"><h3>🧩 Four hypervisors</h3><p>One interface, one config file: <strong>VirtualBox</strong>, <strong>libvirt/QEMU-KVM</strong>, <strong>plain QEMU</strong> and <strong>VMware Workstation</strong>. A provider can also ship as its own package.</p></div>
+                <div class="feature reveal"><h3>🔄 Full lifecycle</h3><p><code>list</code>, <code>start</code>, <code>stop</code> (graceful or <code>--force</code>), <code>status</code>, <code>edit</code>, <code>delete</code> — all from one tool.</p></div>
+                <div class="feature reveal"><h3>📦 Batch operations</h3><p>Stamp out many VMs from a single template file with per-instance overrides: <code>batch create cluster.yaml</code>.</p></div>
+                <div class="feature reveal"><h3>🛟 Dry-run by default</h3><p>Every state-changing command prints the exact provider commands first. Nothing runs without <code>--execute</code> — and <code>--out</code> saves the plan as a script, or the hypervisor's own artifact.</p></div>
+                <div class="feature reveal"><h3>✅ Validated up front</h3><p><code>validate</code> checks a config against the provider's capabilities — each one measured against the running product — and surfaces problems before you build.</p></div>
+                <div class="feature reveal"><h3>🔁 Drift, and the fix</h3><p><code>diff</code> shows how a VM differs from its file and exits 1 when it does; <code>apply</code> changes <em>only</em> what drifted. Only what the file states is applied, so a short file stays a narrow instruction.</p></div>
+                <div class="feature reveal"><h3>📸 Snapshots</h3><p><code>snapshot take · list · restore · delete</code> on all four hypervisors, with the differences stated: where a description is stored, and which disk formats can hold one at all.</p></div>
+                <div class="feature reveal"><h3>🚚 Migrate between them</h3><p>Move a VM from VirtualBox to libvirt, or QEMU to VMware. What does not carry over exactly is <strong>reported, never dropped</strong> — and <code>--with-disks</code> converts the images too.</p></div>
+                <div class="feature reveal"><h3>🔌 Reach the guest</h3><p>NAT <strong>port forwarding</strong> as part of the config, so <code>ssh -p 2222 localhost</code> survives a round trip. <code>extends:</code> keeps the shared half of a lab in one file.</p></div>
+                <div class="feature reveal"><h3>🩺 Does it work here?</h3><p><code>doctor</code> checks the host, the hypervisor and the disk space. <code>selftest</code> goes further: it creates a throwaway VM, reads it back, snapshots, starts, stops and deletes it — asserting each step.</p></div>
+            </div>
+            <div class="cmds reveal">
+                <h3>Commands</h3>
+                <span class="pill">list</span><span class="pill">read</span><span class="pill">export</span><span class="pill">import</span><span class="pill">create</span><span class="pill">edit</span><span class="pill">apply</span><span class="pill">diff</span><span class="pill">start</span><span class="pill">stop</span><span class="pill">status</span><span class="pill">delete</span><span class="pill">validate</span><span class="pill">batch</span><span class="pill">snapshot</span><span class="pill">migrate</span><span class="pill">convert</span><span class="pill">capabilities</span><span class="pill">providers</span><span class="pill">doctor</span><span class="pill">selftest</span><span class="pill">schema</span><span class="pill">completion</span>
+            </div>
+        </section>
+
+        <!-- SUPPORTED HARDWARE -->
+        <section class="section bg-light">
+            <h2 class="reveal">Supported hardware</h2>
+            <p class="sub reveal">What a VM config can describe. Which hypervisor can do which part is not a guess: every table was measured against the running product, and <code>vmctl capabilities</code> prints it with its provenance.</p>
+            <div class="features">
+                <div class="feature reveal"><h3>💽 Buses</h3><p><strong>IDE</strong> · <strong>SATA</strong> · <strong>SCSI</strong> · <strong>SAS</strong> · <strong>NVMe</strong> · <strong>virtio-blk</strong> · <strong>virtio-scsi</strong> · <strong>USB</strong> · <strong>floppy</strong>, with a measured matrix of which carries which device kind.</p></div>
+                <div class="feature reveal"><h3>📀 Devices</h3><p><strong>Disks</strong> · <strong>CD/DVD</strong> · <strong>floppy</strong> in one list, because that is what they are. Mark a disk solid-state, pass TRIM through, insert a medium, set the boot order.</p></div>
+                <div class="feature reveal"><h3>🗂️ Disk formats</h3><p><strong>VDI</strong> · <strong>VMDK</strong> · <strong>VHD</strong> · <strong>VHDX</strong> · <strong>qcow2</strong> · <strong>QED</strong> · <strong>Parallels</strong> · <strong>RAW</strong>, thin or thick — and each provider declares which it can <em>create</em> rather than merely attach.</p></div>
+                <div class="feature reveal"><h3>🔐 Firmware</h3><p><strong>BIOS</strong> · <strong>EFI</strong> (32/64) · <strong>Secure Boot</strong> · <strong>TPM</strong>.</p></div>
+                <div class="feature reveal"><h3>🌐 Networking</h3><p><strong>NAT</strong> · <strong>Bridged</strong> · <strong>Host-only</strong> · <strong>Internal</strong> · <strong>NAT Network</strong>, with the card named by what the guest sees — <strong>virtio</strong>, <strong>e1000</strong>, <strong>e1000e</strong>, <strong>vmxnet3</strong> and more — plus NAT port forwarding.</p></div>
+                <div class="feature reveal"><h3>⚙️ Machine &amp; CPU</h3><p>Boot from <strong>disk · dvd · floppy · network</strong>. Architecture, chipset (<code>q35</code>, <code>pc</code>), a CPU <strong>topology</strong> and model where the hypervisor has them — and a clear report where it does not.</p></div>
+            </div>
+        </section>
+
+        <!-- INSTALL -->
+        <section class="section bg-white">
+            <h2 class="reveal">Quick install</h2>
+            <p class="sub reveal">A wheel from the latest release — pulls in its one dependency (PyYAML) automatically.</p>
+            <div class="reveal">
+                <div class="install-row">
+                    <code id="cmd">pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl</code>
+                    <button class="copy-btn" id="copyBtn" type="button">Copy</button>
+                </div>
+                <p class="install-note">
+                    You also need the tools for the hypervisor you use — <strong>VBoxManage</strong>, <strong>virsh</strong>, <strong>qemu-img</strong> or <strong>vmrun</strong>. <code>vmctl doctor</code> says what it found, and <code>vmctl providers</code> which are usable here.
+                    For a virtual-environment setup and the full usage guide, see the
+                    <a href="docs/01-overview.html">installation guide</a>.
+                </p>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="section bg-footer">
+            <p>MIT licensed &nbsp;·&nbsp; by <a href="https://github.com/abdelhaleemahmed">Ahmed Abdelhaleem</a></p>
+            <p class="footer-links">
+                <a href="https://abdelhaleemahmed.github.io/">Portfolio</a>
+                &nbsp;·&nbsp;
+                <a href="https://github.com/abdelhaleemahmed/vmctl">GitHub</a>
+                &nbsp;·&nbsp;
+                <a href="docs/">Documentation</a>
+            </p>
+        </footer>
+
+    </main>
+
+    <script>
+        (function () {
+            var btn = document.getElementById('copyBtn');
+            if (btn) btn.addEventListener('click', function () {
+                var txt = document.getElementById('cmd').textContent;
+                navigator.clipboard.writeText(txt).then(function () {
+                    var old = btn.textContent; btn.textContent = 'Copied!';
+                    setTimeout(function () { btn.textContent = old; }, 1600);
+                });
+            });
+        })();
+        (function () {
+            var el = document.getElementById('cmd');
+            if (!el || !window.fetch) return;
+            fetch('https://api.github.com/repos/abdelhaleemahmed/vmctl/releases/latest', {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data || !data.tag_name) return;
+                var tag = data.tag_name;
+                var ver = tag.replace(/^v/, '');
+                el.textContent = 'pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/'
+                    + tag + '/vmctl-' + ver + '-py3-none-any.whl';
+            })
+            .catch(function () { /* offline / rate-limited: keep the fallback */ });
+        })();
+        (function () {
+            var els = document.querySelectorAll('.reveal');
+            if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+            }, { threshold: 0.12 });
+            els.forEach(function (e) { io.observe(e); });
+        })();
+    </script>
+</body>
+</html>

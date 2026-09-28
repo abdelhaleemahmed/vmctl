@@ -1,0 +1,10 @@
+# Normalize line endings: store as LF in the repo, check out native.
+* text=auto
+
+# Binary assets — never normalize.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

@@ -16,8 +16,11 @@ machine.
 ## Install
 
 ```bash
-pip install vmctl
+pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
 ```
+
+Or from source: `git clone https://github.com/abdelhaleemahmed/vmctl.git && cd vmctl && pip install -e .`
+(vmctl is not on PyPI yet, so `pip install vmctl` will not find it.)
 
 Requires a supported hypervisor:
 

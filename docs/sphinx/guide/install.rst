@@ -35,12 +35,16 @@ And one proves the hypervisor agrees, by creating a throwaway VM and deleting it
 
    vmctl selftest
 
-From PyPI
----------
+From a release
+--------------
 
 .. code-block:: bash
 
-   pip install vmctl
+   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
+
+vmctl is not on PyPI yet, so ``pip install vmctl`` will not find it; install the
+wheel from the `releases page <https://github.com/abdelhaleemahmed/vmctl/releases>`_
+or from source.
 
 From Source
 -----------

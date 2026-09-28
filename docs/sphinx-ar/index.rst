@@ -1,20 +1,25 @@
 توثيق vmctl
 ===========
 
-**vmctl** أداة سطر أوامر لإدارة الأجهزة الافتراضية في VirtualBox مع دعم كامل لمبدأ
-"الإعدادات كأكواد برمجية". صدِّر أي جهاز افتراضي إلى ملف YAML أو JSON، وأعد إنشاءه
-في أي مكان، وأنشئ مجموعات كاملة من الأجهزة بأمر واحد.
+**vmctl** يصف الجهاز الافتراضي في ملف، ثم يصنع جهازاً حقيقياً منه --- على VirtualBox
+أو libvirt/QEMU-KVM أو QEMU المجرّد أو VMware Workstation، بالأوامر نفسها والملفات
+نفسها. صدِّر جهازاً لديك، وأعد إنشاءه على مُشرف افتراضي آخر، وشاهد ما انحرف عن الملف،
+ثم أعده إلى ما يقوله الملف.
 
 .. code-block:: bash
 
-   pip install vmctl
+   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
 
    # تصدير جهاز افتراضي موجود
    vmctl export my-vm -o my-vm.yaml
 
-   # إعادة إنشائه (تشغيل تجريبي أولاً)
+   # إعادة إنشائه هنا، أو على مُشرف افتراضي آخر (تشغيل تجريبي أولاً)
    vmctl import my-vm.yaml --new-name test-vm
-   vmctl import my-vm.yaml --new-name test-vm --execute
+   vmctl -p libvirt import my-vm.yaml --policy nearest --execute
+
+   # ما لم يعد مطابقاً للملف، ثم إعادته إلى ما يقوله الملف
+   vmctl diff test-vm my-vm.yaml
+   vmctl apply my-vm.yaml --execute
 
    # تشغيل مجموعة كاملة من الأجهزة
    vmctl batch create cluster.yaml --execute

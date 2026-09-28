@@ -1,0 +1,12 @@
+# Build dependencies for the vmctl documentation.
+#
+# Two Sphinx trees are built from this directory: `sphinx` (English) and `sphinx-ar`
+# (Arabic). Both need the CLI and Markdown extensions, because the command reference is
+# generated from Click and the generated tables are Markdown included into the tree.
+sphinx>=7.0
+sphinx-rtd-theme>=2.0
+sphinx-click>=5.0
+myst-parser>=2.0
+# vmctl itself is imported by autodoc, so its runtime deps are needed too:
+PyYAML>=6.0
+click>=8.0

@@ -1,0 +1,55 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install the package + Sphinx toolchain
+        run: pip install -e . -r docs/requirements.txt
+      # Two trees now: the guides are translated prose, so English and Arabic are
+      # separate sources rather than one tree with switchable strings. `-W` keeps a
+      # documentation warning a build failure -- both trees are clean.
+      - name: Assemble the site (landing page at root, docs under /docs, Arabic under /docs/ar)
+        run: |
+          mkdir -p _site
+          cp -r landing/. _site/
+          python -m sphinx -b html docs/sphinx _site/docs -W
+          python -m sphinx -b html docs/sphinx-ar _site/docs/ar -W
+          touch _site/.nojekyll
+      - name: The generated tables must match the code
+        run: |
+          python scripts/generate-docs.py
+          git diff --exit-code docs/features.md docs/providers.md docs/commands.md
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

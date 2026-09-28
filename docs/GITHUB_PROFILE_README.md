@@ -9,16 +9,21 @@ I build tools that make infrastructure management easier.
 ## Featured Projects
 
 ### [vmctl](https://github.com/abdelhaleemahmed/vmctl)
-A powerful CLI for managing virtual machines with config-as-code support.
+Describe a virtual machine in a file, then make a real one --- on VirtualBox,
+libvirt/QEMU-KVM, plain QEMU or VMware Workstation, with the same commands and the
+same files.
 
 ```bash
-pip install vmctl
+pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
 ```
 
 - Export/import VM configs as YAML/JSON
-- Multi-provider support (VirtualBox, libvirt coming soon)
+- Four hypervisors, one set of commands; migrate a VM between them
+- `diff` shows what drifted from the file, `apply` converges it back
+- Snapshots, cloning, port forwarding, `extends:` inheritance
 - Batch VM creation from templates
 - Full lifecycle management (start/stop/status)
+- `doctor` and `selftest` say what this machine can actually do
 
 ### [mhvtl-gui](https://github.com/ahmedhal/mhvtl-gui)
 Web-based management interface for MHVTL (Virtual Tape Library).

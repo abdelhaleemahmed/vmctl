@@ -35,12 +35,15 @@ Python 3.8 أو أحدث، وأدوات سطر الأوامر لمُشرف اف�
 
    vmctl selftest
 
-التثبيت من PyPI
----------------
+التثبيت من إصدار جاهز
+---------------------
 
 .. code-block:: bash
 
-   pip install vmctl
+   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v3.0.0/vmctl-3.0.0-py3-none-any.whl
+
+vmctl ليس على PyPI بعد، لذا لن يجده الأمر ``pip install vmctl``؛ ثبِّت الحزمة من
+`صفحة الإصدارات <https://github.com/abdelhaleemahmed/vmctl/releases>`_ أو من المصدر.
 
 التثبيت من المصدر
 -----------------
