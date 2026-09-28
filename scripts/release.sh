@@ -29,9 +29,26 @@ done
 echo -e "${GREEN}=== vmctl release ===${NC}"
 [ "$DRY_RUN" = 1 ] && info "Dry run: no files will be changed and nothing will be tagged."
 
-PYTHON="${PYTHON:-python3}"
-[ -d venv ] && PYTHON="venv/bin/python"
+# An explicit PYTHON wins. A local venv is only the default, and overriding the
+# caller with it silently released from the wrong interpreter: this repository's venv
+# is a 3.9 one, which since the floor moved to 3.13 cannot even install the package --
+# reported as a pip error about a "different Python" rather than a choice this script
+# had made.
+if [ -z "${PYTHON:-}" ]; then
+    PYTHON="python3"
+    [ -x venv/bin/python ] && PYTHON="venv/bin/python"
+fi
 command -v "$PYTHON" >/dev/null 2>&1 || die "$PYTHON not found"
+
+# And it must be able to run what it is about to release, or the first sign of trouble
+# is a pip message in the middle of a build.
+FLOOR=$(sed -n 's/^requires-python = ">=\(.*\)"/\1/p' pyproject.toml)
+"$PYTHON" -c "
+import sys
+floor = tuple(int(part) for part in '$FLOOR'.split('.'))
+if sys.version_info[: len(floor)] < floor:
+    raise SystemExit(f'{sys.version.split()[0]} is below the $FLOOR this project requires')
+" || die "$PYTHON cannot run vmctl (requires-python >= $FLOOR). Set PYTHON to one that can."
 
 # ---------------------------------------------------------------------------
 # Refuse to release a dirty or untested tree
