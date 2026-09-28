@@ -4,9 +4,8 @@ vmctl talks to a hypervisor through a small contract, and the contract is public
 provider can live in its own package, be installed separately, and appear in
 `vmctl providers` with no change to vmctl itself (E-15 in `PLAN.md`).
 
-There is a worked example in [`examples/vmctl-null/`](../examples/vmctl-null/) — a
-provider that plans everything and does nothing, which exists so that this page can be
-checked rather than believed:
+There is a worked example in `examples/vmctl-null/` — a provider that plans everything
+and does nothing, which exists so that this page can be checked rather than believed:
 
 ```bash
 pip install ./examples/vmctl-null

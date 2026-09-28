@@ -140,6 +140,9 @@ class VMwareCapabilities:
             # Workstation has no per-VM port forwarding: it is configured host-wide
             # in `vmnetnat.conf` (present on the test host), which is not something
             # vmctl will edit behind a user's back. Asking for one is reported.
+            # Measured: adding `ethernetN.vnet` to a host-only adapter makes
+            # `vmrun start` answer "The operation was canceled". VMware picks the vmnet.
+            self_named_networks=("nat", "hostonly"),
             port_forwards=Support.UNSUPPORTED,
             snapshots=Support.NATIVE,
             # `uefi.secureBoot.enabled` is written and read back like any other key.

@@ -1,0 +1,27 @@
+# A second VM from the same base, differing in the two ways that matter.
+#
+#   vmctl apply examples/lab/db-01.yaml
+#
+# Note that its forwarded port is 8081, not 8080: everything in a base is in every
+# VM built on it, and two VMs cannot both forward the same host port.
+extends: base.yaml
+name: db-01
+
+cpu:
+  count: 4
+
+storage:
+  - name: system
+    size_mb: 30720
+    bootable: true
+  - name: data
+    size_mb: 61440
+    slot: 1
+
+networks:
+  - network_type: nat
+    port_forwards:
+      - name: postgres
+        host_ip: 127.0.0.1
+        host_port: 8081
+        guest_port: 5432

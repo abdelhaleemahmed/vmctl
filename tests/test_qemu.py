@@ -583,3 +583,49 @@ def test_renaming_does_not_claim_the_old_vms_images(emitter, vm):
     plan = emitter.emit_modify_vm(current, desired)
 
     assert [step for step in plan if (step.argv or [None])[0] == "qemu-img"]
+
+
+# ---------------------------------------------------------------------------
+# F-50/F-51: what a host cannot do, and what a command line cannot hold
+# ---------------------------------------------------------------------------
+
+
+def test_cpu_host_becomes_max_without_kvm(vm):
+    """Measured by running it: `qemu-kvm: CPU model 'host' requires KVM or HVF`. The
+    emitted command line was correct and would not start, which is the worst kind of
+    correct -- so the nearest thing QEMU *can* do is used and reported (F-50)."""
+    from vmctl.providers.qemu.emitter import QemuEmitter
+
+    emitter = QemuEmitter("demo", location=directory("/vms", nest_per_vm=True), accel="tcg")
+    vm.cpu.model = "host"
+    translator = Translator(emitter.capabilities, Policy.NEAREST)
+
+    argv = emitter.build_argv(vm, translator)
+
+    assert argv[argv.index("-cpu") + 1] == "max"
+    assert any("needs KVM" in s.reason for s in translator.report.substitutions)
+
+
+def test_cpu_host_is_kept_when_there_is_kvm(vm):
+    from vmctl.providers.qemu.emitter import QemuEmitter
+
+    emitter = QemuEmitter("demo", location=directory("/vms", nest_per_vm=True), accel="kvm")
+    vm.cpu.model = "host"
+
+    argv = emitter.build_argv(vm)
+
+    assert argv[argv.index("-cpu") + 1] == "host"
+
+
+def test_settings_a_command_line_cannot_hold_are_reported(emitter, vm):
+    """They were dropped in silence, and then showed up as permanent drift in `diff`:
+    a command line has nowhere to keep a description, and QEMU's machine types provide
+    an I/O APIC with no setting for it (F-51)."""
+    vm.description = "why this VM exists"
+    vm.boot.ioapic = True
+    translator = Translator(emitter.capabilities, Policy.NEAREST)
+
+    emitter.build_argv(vm, translator)
+
+    reported = {drop.field for drop in translator.report.drops}
+    assert {"description", "boot.ioapic"} <= reported

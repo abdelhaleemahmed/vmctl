@@ -59,6 +59,9 @@ UNTRANSLATABLE = (
     ("machine", "the chipset follows virtualHW.version rather than a machine type"),
     ("memory.page_fusion", "page sharing is a host-wide setting in VMware"),
     ("cpu.pae", "PAE is decided by the guest OS type"),
+    # No key for it: VMware's chipset provides one and decides. Reported so a config
+    # asking for it is told, rather than reading back as off for ever.
+    ("boot.ioapic", "VMware's chipset provides an I/O APIC; there is no setting"),
 )
 
 #: The tool that makes a VMDK. Not the same binary as the one that runs VMs.
@@ -293,6 +296,18 @@ class VMwareEmitter:
             if net.network_type.value == "internal" and net.adapter_name:
                 # `custom` needs the VMnet named; VMware has no unnamed internal net.
                 keys[f"{prefix}.vnet"] = net.adapter_name
+            elif net.adapter_name and translator is not None:
+                # Measured: adding `ethernetN.vnet` to a *hostonly* adapter makes
+                # `vmrun start` answer "The operation was canceled" -- VMware's
+                # host-only and NAT adapters use the vmnet it decides, and naming one
+                # is only valid for a custom (internal) network. Reported rather than
+                # written, since writing it stops the VM starting at all.
+                translator.drop(
+                    f"networks[{index}].adapter_name",
+                    net.adapter_name,
+                    f"VMware chooses the vmnet for a {net.network_type.value} adapter; "
+                    f"only a custom (internal) network is named",
+                )
             if net.mac_address:
                 keys[f"{prefix}.addressType"] = "static"
                 keys[f"{prefix}.address"] = _format_mac(net.mac_address)

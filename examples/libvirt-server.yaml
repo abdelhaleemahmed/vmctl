@@ -1,0 +1,68 @@
+# A libvirt / QEMU-KVM domain, written the way libvirt would have it.
+#
+#   vmctl -p libvirt validate examples/libvirt-server.yaml
+#   vmctl -p libvirt import   examples/libvirt-server.yaml            # dry-run
+#   vmctl -p libvirt import   examples/libvirt-server.yaml --execute
+#
+# What makes this libvirt's dialect:
+#   * qcow2 is its format, and it is the *only* one snapshots work in here --
+#     libvirt's snapshots live inside the image
+#   * virtio-scsi carries both disks and optical drives; virtio-blk is faster
+#     and cannot carry a CD-ROM at all
+#   * it wants an architecture and a machine type in every domain, and it can
+#     express a CPU topology and a CPU model, none of which VirtualBox can
+#   * port forwarding goes through the passt backend, so `vmctl doctor` will
+#     tell you if passt is not installed
+schema_version: 2
+name: libvirt-server
+guest_os: ubuntu24.04
+description: A headless server domain
+
+arch: x86_64
+machine: q35           # leave it out for "whatever this libvirt prefers"
+
+cpu:
+  count: 4
+  sockets: 1
+  cores: 4
+  threads: 1           # must multiply out to `count`; vmctl checks
+  model: host-model    # or `host` to pass the host CPU through
+memory:
+  mb: 4096
+
+firmware:
+  type: efi64
+  tpm: true
+
+boot:
+  order: [disk, network, none, none]
+  ioapic: true
+
+storage:
+  - name: root
+    size_mb: 51200
+    format: qcow2      # thin by default, and what snapshots need
+    bus: virtio-scsi
+    bootable: true
+    nonrotational: true   # tells the guest it is an SSD
+    discard: true
+  - name: cdrom
+    kind: cdrom
+    bus: sata          # virtio-blk cannot carry ejectable media
+
+networks:
+  - network_type: nat
+    model: virtio
+    port_forwards:
+      - host_port: 2222     # a name is optional here: only VirtualBox needs one
+        guest_port: 22
+# A second adapter, once the network it names exists. libvirt's hostonly, internal and
+# natnetwork modes all name a *libvirt network* (`virsh net-list`), and bridged names a
+# host bridge -- `vmctl validate` checks both against this machine and says which names
+# it does have, so a wrong one is caught before the domain fails to start:
+#   - network_type: bridged
+#     model: virtio
+#     adapter_name: br0
+#   - network_type: internal
+#     model: virtio
+#     adapter_name: lab-internal      # needs: virsh net-define / net-start

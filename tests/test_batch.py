@@ -128,3 +128,25 @@ def test_loading_the_batch_file_does_not_consume_the_base_definition(tmp_path):
     # empty because building the first emptied the shared mapping.
     assert all(len(vm.storage) == 1 for vm in vms)
     assert all(vm.storage[0].size_mb == 1024 for vm in vms)
+
+
+def test_an_inline_base_needs_no_name_of_its_own(tmp_path, monkeypatch):
+    """Every instance supplies its own name and the base's is overwritten, so requiring
+    one made a file invent a name it never uses -- and the example in the user guide,
+    which omitted it, could not be run."""
+    path = tmp_path / "batch.yaml"
+    path.write_text(
+        "name: test-cluster\n"
+        "base_vm:\n"
+        "  guest_os: ubuntu22.04\n"
+        "  cpu:\n    count: 2\n"
+        "  memory:\n    mb: 2048\n"
+        "  storage:\n    - name: system\n      size_mb: 20480\n"
+        "  networks:\n    - network_type: nat\n"
+        "instances:\n  - name: node-01\n  - name: node-02\n"
+    )
+
+    vms = BatchCreator(FakeEngine()).create_from_file(path)
+
+    assert [vm.name for vm in vms] == ["node-01", "node-02"]
+    assert all(vm.guest_os == "ubuntu22.04" for vm in vms)

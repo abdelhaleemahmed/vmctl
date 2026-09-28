@@ -397,3 +397,60 @@ def test_a_partial_topology_counts_the_unset_parts_as_one(validator, vm_minimal)
     vm_minimal.cpu.count = 2
     vm_minimal.cpu.sockets = 2
     assert isinstance(validator.validate(vm_minimal), list)
+
+
+# ---------------------------------------------------------------------------
+# F-49: "there are none" and "I could not ask" are different answers
+# ---------------------------------------------------------------------------
+
+
+def test_a_network_name_is_refused_when_the_host_has_none(vm_minimal):
+    """The distinction an empty tuple cannot make. A libvirt session connection with no
+    networks defined makes *every* name wrong -- and without this, a domain naming one
+    passed validation and failed when it started, which is what E-05 exists to prevent.
+    """
+    from dataclasses import replace
+
+    from vmctl.core.vmconfig import NetworkConfig, NetworkType
+    from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+
+    caps = replace(
+        LibvirtCapabilities.get(),
+        host_interfaces={"internal": ()},  # asked, and there are none
+    )
+    vm_minimal.networks = [
+        NetworkConfig(network_type=NetworkType.INTERNAL, adapter_name="lab-internal")
+    ]
+
+    warnings = VMValidator(caps).validate(vm_minimal)
+
+    assert any("no internal network at all" in w for w in warnings)
+
+
+def test_a_network_name_is_left_alone_when_the_host_was_not_asked(vm_minimal):
+    """An unprobed mode validates nothing: a conservative answer beats a wrong one."""
+    from dataclasses import replace
+
+    from vmctl.core.vmconfig import NetworkConfig, NetworkType
+    from vmctl.providers.libvirt.capabilities import LibvirtCapabilities
+
+    caps = replace(LibvirtCapabilities.get(), host_interfaces={})
+    vm_minimal.networks = [
+        NetworkConfig(network_type=NetworkType.INTERNAL, adapter_name="lab-internal")
+    ]
+
+    assert not [w for w in VMValidator(caps).validate(vm_minimal) if "does not have" in w]
+
+
+def test_a_provider_that_names_its_own_networks_wants_no_name(vm_minimal):
+    """VMware picks the vmnet for a host-only adapter, and naming one stops the VM
+    starting -- so warning that a name is *missing* was advice that breaks the VM."""
+    from vmctl.core.vmconfig import NetworkConfig, NetworkType
+    from vmctl.providers.vmware.capabilities import VMwareCapabilities
+
+    vm_minimal.networks = [NetworkConfig(network_type=NetworkType.HOSTONLY)]
+    vm_minimal.storage[0].format = None
+
+    warnings = VMValidator(VMwareCapabilities.get()).validate(vm_minimal)
+
+    assert not [w for w in warnings if "names no adapter" in w]

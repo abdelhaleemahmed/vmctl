@@ -210,7 +210,9 @@ def run(
         return report
     record(Outcome("the name is free", "pass", name))
 
-    explained: set = set()
+    # What the provider *says* it decides for itself, before anything is created: a
+    # domain libvirt always gives a USB controller is not the hypervisor disagreeing.
+    explained: set = set(backend.unexpressible_fields(vm))
     created = step("create", lambda: _created(backend, vm, explained))
     if not created:
         return report
@@ -286,11 +288,7 @@ def _round_trip(backend, vm: VMConfig, explained: Optional[set] = None) -> str:
     live = backend.read_vm(vm.name)
     stated = stated_paths(vm.to_dict())
     explained = explained or set()
-    changes = [
-        change
-        for change in diff(live, vm, stated)
-        if change.path not in explained and change.path.split(".")[0] not in explained
-    ]
+    changes = [change for change in diff(live, vm, stated) if not _is_explained(change, explained)]
     if changes:
         raise AssertionError(
             "what came back differs: " + "; ".join(change.render().strip() for change in changes)
@@ -363,3 +361,16 @@ def _deleted(backend, name: str) -> str:
     if backend.vm_exists(name) or name in _existing(backend):
         raise AssertionError("deleted it and the hypervisor still has it")
     return "gone"
+
+
+def _is_explained(change, explained: set) -> bool:
+    """Whether a difference is one the provider said would happen.
+
+    Matched with the device address removed, because a provider declares the *field*
+    (``storage.bootable``) while a difference names the device it was found on
+    (``storage[scsi/0].bootable``).
+    """
+    from .diff import _without_indices
+
+    path = _without_indices(change.path)
+    return path in explained or change.path in explained or path.split(".")[0] in explained

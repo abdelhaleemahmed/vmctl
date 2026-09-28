@@ -1,0 +1,19 @@
+# The half of a lab that every VM shares. Not a VM on its own: it has no name, so
+# it cannot be imported directly -- a file that extends it supplies that.
+#
+# See web-01.yaml and db-01.yaml beside it.
+schema_version: 2
+guest_os: ubuntu22.04
+
+cpu:
+  count: 2
+memory:
+  mb: 1024
+  vram_mb: 16
+
+boot:
+  order: [disk, dvd, none, none]
+  ioapic: true
+
+networks:
+  - network_type: nat

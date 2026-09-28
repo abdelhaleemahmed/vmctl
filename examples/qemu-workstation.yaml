@@ -1,0 +1,65 @@
+# A plain QEMU VM -- no daemon, no registry. The VM *is* a directory holding its
+# disks and a runnable command line, and that script is what vmctl reads back.
+#
+#   vmctl -p qemu validate examples/qemu-workstation.yaml
+#   vmctl -p qemu import   examples/qemu-workstation.yaml            # dry-run
+#   vmctl -p qemu import   examples/qemu-workstation.yaml --execute
+#   cat ~/.local/share/vmctl/qemu/qemu-workstation/run.sh
+#
+# What makes this plain QEMU's dialect:
+#   * virtio-blk is the disk bus worth having, and it cannot carry a CD-ROM --
+#     an optical drive goes on SATA or IDE
+#   * `hostfwd` is how a user-mode network reaches the guest, and it is the only
+#     networking that needs no root and no bridge
+#   * there is no guest OS field at all: QEMU boots whatever the disk contains,
+#     so `guest_os` is reported as not applied and kept in the config for the
+#     other providers
+#   * snapshots live inside the qcow2, so a raw disk cannot have any
+schema_version: 2
+name: qemu-workstation
+guest_os: debian12
+description: A QEMU VM with virtio disks and a forwarded SSH port
+
+arch: x86_64
+machine: q35
+
+cpu:
+  count: 2
+  model: host          # `-cpu host`: fastest, and needs /dev/kvm
+memory:
+  mb: 2048
+
+firmware:
+  type: bios           # EFI works too; it needs an OVMF firmware file present
+
+boot:
+  order: [disk, dvd, none, none]
+  ioapic: true
+
+storage:
+  - name: root
+    size_mb: 20480
+    format: qcow2      # what snapshots need: they live inside the image
+    bus: virtio-blk
+    bootable: true
+    discard: true
+  - name: scratch
+    size_mb: 4096
+    format: raw        # fine for data, but `vmctl snapshot` will refuse it
+    bus: virtio-blk
+    slot: 1
+  - name: installer
+    kind: cdrom
+    bus: sata          # not virtio-blk: it cannot carry ejectable media
+    # source: /srv/iso/debian-12.iso    # uncomment to insert a medium
+
+networks:
+  - network_type: nat  # QEMU's user-mode networking
+    model: virtio
+    port_forwards:
+      - host_port: 2222
+        guest_port: 22
+      - protocol: udp
+        host_ip: 127.0.0.1
+        host_port: 15353
+        guest_port: 53

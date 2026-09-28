@@ -163,3 +163,178 @@ def test_a_group_lists_its_subcommands():
 def test_a_summary_is_not_truncated_to_the_terminal_width():
     """Which is what reading `--help` output gave: "Change the CPU, memory, ... of an..."."""
     assert "of an existing VM." in docgen.command_reference()
+
+
+# ---------------------------------------------------------------------------
+# The examples (one per hypervisor)
+# ---------------------------------------------------------------------------
+
+EXAMPLES = Path(__file__).parent.parent / "examples"
+
+#: Which provider each per-hypervisor example is written for. The filename says it, so
+#: a new example cannot be added without saying which dialect it is in.
+PER_PROVIDER = {
+    "virtualbox-desktop.yaml": "virtualbox",
+    "libvirt-server.yaml": "libvirt",
+    "qemu-workstation.yaml": "qemu",
+    "vmware-lab.yaml": "vmware",
+}
+
+
+@pytest.mark.parametrize("filename,provider", sorted(PER_PROVIDER.items()))
+def test_each_example_is_valid_for_its_own_provider(filename, provider):
+    """The point of a per-hypervisor example is that it is idiomatic for *that* one, so
+    validating them all against a default provider would prove nothing: a VMDK-only
+    VMware config and a virtio-blk QEMU config are each invalid for the other."""
+    from vmctl.core import registry
+    from vmctl.core.include import resolve
+    from vmctl.core.vmconfig import VMConfig
+    from vmctl.validators.vm_validator import VMValidator
+
+    vm = VMConfig.from_dict(resolve(EXAMPLES / filename))
+    warnings = VMValidator(registry.create(provider).capabilities).validate(vm)
+
+    assert isinstance(warnings, list)
+
+
+@pytest.mark.parametrize("filename,provider", sorted(PER_PROVIDER.items()))
+def test_each_example_produces_a_plan_for_its_own_provider(filename, provider, monkeypatch):
+    """A config that validates and then emits nothing is not an example of anything."""
+    from vmctl.core import registry
+    from vmctl.core.include import resolve
+    from vmctl.core.storage import directory
+    from vmctl.core.translate import Policy
+    from vmctl.core.vmconfig import VMConfig
+
+    backend = registry.create(provider)
+    monkeypatch.setattr(
+        type(backend), "storage_location", lambda self: directory("/tmp/examples", nest_per_vm=True)
+    )
+    if provider == "vmware":
+        monkeypatch.setattr(type(backend), "tool_or_name", lambda self, name: name)
+
+    plan = backend.create_vm(
+        VMConfig.from_dict(resolve(EXAMPLES / filename)),
+        execute=False,
+        policy=Policy.NEAREST,
+    )
+
+    assert len(plan) >= 2
+
+
+@pytest.mark.parametrize("filename", ["lab/web-01.yaml", "lab/db-01.yaml"])
+def test_the_lab_examples_inherit_from_their_base(filename):
+    """They exist to show `extends:`, so the thing to check is that it worked."""
+    from vmctl.core.include import bases_of, resolve
+
+    data = resolve(EXAMPLES / filename)
+
+    assert bases_of(EXAMPLES / filename) == ["base.yaml"]
+    assert data["guest_os"] == "ubuntu22.04", "the base's guest OS did not come through"
+    assert data["boot"]["ioapic"] is True, "the base's boot settings did not come through"
+
+
+def test_the_two_lab_vms_do_not_claim_the_same_host_port():
+    """Everything in a base is in every VM built on it, and two VMs cannot both forward
+    the same host port -- which is the trap the example is there to show."""
+    from vmctl.core.include import resolve
+
+    ports = set()
+    for filename in ("lab/web-01.yaml", "lab/db-01.yaml"):
+        for adapter in resolve(EXAMPLES / filename).get("networks", []):
+            for rule in adapter.get("port_forwards", []):
+                port = rule["host_port"]
+                assert port not in ports, f"{filename} reuses host port {port}"
+                ports.add(port)
+
+
+def test_the_examples_readme_lists_every_example():
+    """A directory of examples with an index that has fallen behind it is worse than no
+    index, because the index is what a reader trusts."""
+    readme = (EXAMPLES / "README.md").read_text()
+
+    for path in sorted(EXAMPLES.glob("*.yaml")) + sorted(EXAMPLES.glob("lab/*.yaml")):
+        relative = path.relative_to(EXAMPLES).as_posix()
+        assert relative in readme, f"{relative} is not mentioned in examples/README.md"
+
+
+# ---------------------------------------------------------------------------
+# The hand-written documentation
+# ---------------------------------------------------------------------------
+
+DOC_PAGES = [
+    Path(__file__).parent.parent / "README.md",
+    DOCS / "USER_GUIDE.md",
+    DOCS / "writing-a-provider.md",
+    Path(__file__).parent.parent / "examples" / "README.md",
+]
+
+
+@pytest.mark.parametrize("page", DOC_PAGES, ids=lambda p: f"{p.parent.name}/{p.name}")
+def test_every_documented_command_exists(page):
+    """Documentation that names a command vmctl does not have is worse than none. This
+    is the drift that H-06 was about, and the only thing that stops it is asking."""
+    import re
+
+    from vmctl.cli.main import cli
+
+    known = set(cli.commands)
+    for group, command in cli.commands.items():
+        known |= {f"{group} {name}" for name in getattr(command, "commands", {})}
+
+    text = page.read_text()
+    # Only where a command is actually *written* as one -- fenced blocks and inline code.
+    # In prose, "vmctl accepts a hypervisor's own string" is a sentence, not a command.
+    code = "\n".join(re.findall(r"```[a-z]*\n(.*?)```", text, re.S))
+    code += "\n" + "\n".join(re.findall(r"`([^`\n]+)`", text))
+
+    # The global options come before the command, and `-p` takes a value: without
+    # removing it, `vmctl -p libvirt list` reads as a command called "libvirt".
+    code = re.sub(r"(?:-p|--provider)\s+\S+", "", code)
+    code = re.sub(r"\s(?:-v|-q|--verbose|--quiet)\b", " ", code)
+
+    named = set()
+    for line in code.splitlines():
+        match = re.match(r"\s*(?:\$\s*)?vmctl\s+([a-z][a-z-]*)", line)
+        if not match:
+            continue
+        word = match.group(1)
+        following = line.split(word, 1)[1].strip().split()
+        pair = f"{word} {following[0]}" if following else word
+        named.add(pair if pair in known else word)
+
+    unknown = named - known
+    assert not unknown, f"{page.name} names commands that do not exist: {sorted(unknown)}"
+
+
+def test_the_user_guide_covers_every_command():
+    """A manual missing a third of the commands sends people to `--help` for the rest,
+    which is where they stop trusting the manual."""
+    from vmctl.cli.main import cli
+
+    text = (DOCS / "USER_GUIDE.md").read_text()
+    missing = [name for name in cli.commands if f"vmctl {name}" not in text]
+
+    assert not missing, f"the user guide does not mention: {missing}"
+
+
+def test_the_user_guide_is_not_still_virtualbox_only():
+    """It described a VirtualBox tool long after there were four providers."""
+    text = (DOCS / "USER_GUIDE.md").read_text()
+
+    for provider in ("VirtualBox", "libvirt", "QEMU", "VMware"):
+        assert provider in text, f"the user guide never mentions {provider}"
+    assert "Choosing a Hypervisor" in text
+
+
+def test_the_documented_config_examples_use_todays_field_names():
+    """The manual taught the 1.1.x spelling -- `ostype`, `disks`, `type: HDD` -- in its
+    "write one from scratch" section, which is the one place a new user copies from."""
+    text = (DOCS / "USER_GUIDE.md").read_text()
+    scratch = text.split("## Writing VM Configuration from Scratch")[1].split("## Workflows")[0]
+    # ...except the part that is *about* the old names, which has to name them.
+    scratch = scratch.split("### The 1.1.x spelling still works")[0]
+
+    for legacy in ("ostype:", "disks:", "type: HDD", "controller: SATA"):
+        assert legacy not in scratch, f"the scratch section still teaches {legacy!r}"
+    assert "storage:" in scratch and "guest_os:" in scratch

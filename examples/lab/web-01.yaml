@@ -1,0 +1,25 @@
+# A VM built on base.yaml.
+#
+#   vmctl validate examples/lab/web-01.yaml       # prints what it is built on
+#   vmctl apply    examples/lab/web-01.yaml       # dry-run; --execute to apply
+#
+# A mapping merges and this file wins; a list is replaced, because writing
+# `networks:` means stating the whole list. So the adapter below *replaces* the
+# base's plain NAT adapter rather than adding to it.
+extends: base.yaml
+name: web-01
+
+memory:
+  mb: 2048          # the base's vram_mb: 16 is kept
+
+storage:
+  - name: system
+    size_mb: 20480
+    bootable: true
+
+networks:
+  - network_type: nat
+    port_forwards:
+      - name: http
+        host_port: 8080
+        guest_port: 80

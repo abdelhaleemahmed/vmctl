@@ -60,6 +60,10 @@ UNTRANSLATABLE = (
     ("draganddrop", "drag and drop needs a SPICE agent channel"),
     ("firmware.tpm", "a TPM needs an external swtpm socket"),
     ("firmware.secure_boot", "secure boot needs an OVMF variables file per VM"),
+    ("description", "a command line has nowhere to keep a description"),
+    # There is no flag: q35 has an I/O APIC and QEMU decides. Reported so that a
+    # config asking for it is told, rather than reading back as off for ever.
+    ("boot.ioapic", "QEMU's machine types provide an I/O APIC; there is no setting"),
 )
 
 
@@ -142,7 +146,7 @@ class QemuEmitter:
         argv += ["-m", str(vm.memory.mb)]
         argv += ["-smp", self._smp(vm)]
 
-        cpu = self._cpu_model(vm)
+        cpu = self._cpu_model(vm, translator)
         if cpu:
             argv += ["-cpu", cpu]
 
@@ -198,15 +202,32 @@ class QemuEmitter:
                 parts.append(f"{name}={value}")
         return ",".join(parts)
 
-    @staticmethod
-    def _cpu_model(vm: VMConfig) -> Optional[str]:
+    def _cpu_model(self, vm: VMConfig, translator: Optional[Translator] = None) -> Optional[str]:
         """Return the ``-cpu`` value, or None to leave QEMU's default.
 
-        Nested virtualisation needs the host's own CPU exposed, which is what
-        ``host`` means here -- the same reason libvirt uses host-passthrough.
+        Nested virtualisation needs the host's own CPU exposed, which is what ``host``
+        means here -- the same reason libvirt uses host-passthrough.
+
+        **But ``host`` needs an accelerator**: without ``/dev/kvm``, qemu-kvm refuses to
+        start with "CPU model 'host' requires KVM or HVF". Measured by running it. So on
+        a host with no acceleration the nearest thing QEMU *can* do is used and reported,
+        rather than emitting a command line that will not run -- the same shape as
+        choosing ``-accel tcg`` instead of failing.
         """
         model = (vm.cpu.model or "").strip()
-        if vm.cpu.nested_virt or model == CPU_HOST_PASSTHROUGH:
+        wants_host = vm.cpu.nested_virt or model == CPU_HOST_PASSTHROUGH
+        if wants_host and self.accel == "tcg":
+            if translator is not None:
+                translator.report.substitutions.append(
+                    Substitution(
+                        "cpu.model",
+                        model or "host (for nested virtualisation)",
+                        CPU_HOST_MODEL,
+                        "'-cpu host' needs KVM, and this host has none",
+                    )
+                )
+            return "max"
+        if wants_host:
             return "host"
         if model == CPU_HOST_MODEL:
             # QEMU's nearest equivalent: the best model it can name for this host.

@@ -169,6 +169,10 @@ class Capabilities:
     name_max_length: int = 128
 
     supports_tpm: bool = True
+    #: Whether a TPM, once switched on, can be read back. VirtualBox 7.1.18 reports no
+    #: TPM state in ``showvminfo`` at all -- in either output format -- so a VM created
+    #: with one reads back without it, the same shape as secure boot (F-17, F-54).
+    tpm_readable: bool = True
     #: Secure boot can be switched on, but cannot be read back -- see F-17.
     secure_boot_readable: bool = False
 
@@ -192,6 +196,12 @@ class Capabilities:
     removable_extensions: Tuple[str, ...] = ()
 
     supported_network_types: Tuple[str, ...] = ()
+    #: Network modes where the *provider* chooses the network, so a configuration that
+    #: names none is complete. VMware's host-only and NAT adapters use the vmnet it
+    #: decides -- naming one is only valid for a custom network -- while VirtualBox and
+    #: libvirt need a name for anything but NAT. Without this, a perfectly good VMware
+    #: config was warned about for omitting a name it must not give.
+    self_named_networks: Tuple[str, ...] = ()
     #: Whether a NAT adapter's host-to-guest port forwards can be expressed (E-10).
     #: Measured: VirtualBox's ``--natpf`` and QEMU's ``hostfwd=`` are native; libvirt
     #: needs the passt backend and says so if it is missing, which is why this is one
@@ -282,6 +292,18 @@ class Capabilities:
     def interfaces_for(self, network_type: str) -> Tuple[str, ...]:
         """Return the host's interfaces for a network mode, or empty when unprobed."""
         return tuple(self.host_interfaces.get(network_type, ()))
+
+    def probed_interfaces(self, network_type: str) -> bool:
+        """Whether this host was actually *asked* about a network mode.
+
+        The distinction the empty tuple cannot make: "there are none" and "vmctl could
+        not ask" are different answers, and only the first one makes a stated interface
+        name definitely wrong. A libvirt session connection with no networks defined is
+        exactly that case -- and without this, an ``internal`` adapter naming a network
+        that does not exist passed validation and failed when the domain started, which
+        is the thing E-05 exists to prevent.
+        """
+        return network_type in self.host_interfaces
 
     def native_nic_model(self, model: NicModel) -> Optional[str]:
         """Return this provider's name for a NIC model, or None when it has none."""

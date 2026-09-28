@@ -36,7 +36,7 @@ from ...core.vmconfig import VMConfig
 from ..base import BaseProvider
 from .capabilities import LibvirtCapabilities
 from .convert import QemuImgConverter
-from .emitter import LibvirtEmitter
+from .emitter import DECIDED_BY_LIBVIRT, DECIDED_BY_LIBVIRT_FOR, LibvirtEmitter, _get
 from ...core.snapshots import Snapshot
 from .parser import LibvirtParser
 
@@ -127,6 +127,24 @@ class LibvirtBackend(BaseProvider):
         images flat, unlike VirtualBox's per-VM folders.
         """
         return directory(self.image_dir, nest_per_vm=False)
+
+    def unexpressible_fields(self, vm=None):
+        """What libvirt decides for itself, whatever a configuration says (E-19).
+
+        Three things, all measured by reading a domain back: it gives every domain a USB
+        controller, so ``usb_enabled: false`` cannot be asked for; it resolves a machine
+        *alias* to the versioned type it picked, so ``q35`` returns as
+        ``pc-q35-rhel9.8.0``; and it resolves ``host`` or ``host-model`` into a concrete
+        CPU model, so ``host-model`` returns as ``EPYC`` on this host.
+
+        The last one depends on the value, which is why this takes the VM: a CPU model
+        named outright is either honoured or a genuine disagreement.
+        """
+        fields = list(DECIDED_BY_LIBVIRT)
+        for path, values in DECIDED_BY_LIBVIRT_FOR.items():
+            if vm is None or _get(vm, path) in values:
+                fields.append(path)
+        return tuple(fields)
 
     def diagnostics(self):
         """Add what is specific to libvirt: which libvirt, and whether it answers.
@@ -229,15 +247,18 @@ class LibvirtBackend(BaseProvider):
         from the host itself.
         """
         found: Dict[str, Tuple[str, ...]] = {}
-        networks = [
-            line.split()[0]
-            for line in self._virsh("net-list", "--all", "--name", check=False).splitlines()
-            if line.strip()
-        ]
-        if networks:
-            found["hostonly"] = tuple(networks)
-            found["natnetwork"] = tuple(networks)
-            found["internal"] = tuple(networks)
+        try:
+            listing = self._virsh("net-list", "--all", "--name", check=True)
+        except (ProviderError, DependencyError):
+            listing = None  # could not ask, which is not the same as "there are none"
+        if listing is not None:
+            # Recorded even when empty: a connection with no networks defined makes any
+            # stated network name wrong, and saying so at validate time is the whole
+            # point of asking (E-05). `qemu:///session` commonly has none.
+            networks = tuple(line.split()[0] for line in listing.splitlines() if line.strip())
+            found["hostonly"] = networks
+            found["natnetwork"] = networks
+            found["internal"] = networks
         bridges = host_bridges()
         if bridges:
             found["bridged"] = bridges

@@ -96,6 +96,38 @@ things prevented that:
 
 ### Added
 
+- **A worked example per hypervisor** in `examples/`, each written in that provider's
+  dialect and explaining in comments why it looks that way: VDI on SATA with named
+  port-forward rules for VirtualBox, qcow2 on virtio-scsi with a CPU topology for
+  libvirt, virtio-blk with `hostfwd` for plain QEMU, VMDK on LSI Logic with vmxnet3 for
+  VMware. Plus `examples/lab/`, which shows `extends:`. Each is validated and planned
+  against *its own* provider by CI, and each was created, started, read back and deleted
+  on real hardware.
+- **The user guide and both documentation trees** now describe a four-hypervisor tool:
+  choosing a provider, migrating between them, snapshots, port forwards, `extends:`,
+  `apply`, `diff`, `doctor`, `selftest`, JSON output, and a page per hypervisor
+  explaining what differs. The "write a config from scratch" section teaches today's
+  field names instead of the 1.1.x ones.
+- Fixed, all six found by writing and running those examples:
+  - a libvirt config naming a network that does not exist passed validation and failed
+    when the domain started -- vmctl could not tell "this host has none" from "vmctl
+    could not ask";
+  - `cpu.model: host` on a host without KVM produced a command line QEMU refuses to
+    start; the nearest model it can use is substituted and reported;
+  - `description` and `boot.ioapic` were dropped silently on QEMU, and `boot.ioapic` on
+    VMware;
+  - a VM read back could differ from the file that made it with nothing said, in the
+    handful of fields a hypervisor decides for itself (libvirt resolves `machine: q35`
+    to a versioned type and `host-model` to a concrete CPU, and always adds a USB
+    controller) or cannot report (VirtualBox's TPM and secure boot; neither it nor
+    VMware has a per-disk boot flag). Those are now declared, so `apply` and `selftest`
+    stop reporting them as drift;
+  - on VirtualBox, `audio_enabled: true` produced a sound device with both streams
+    switched off -- audio that was neither on for the guest nor read back as on;
+  - a VMware host-only adapter given a named vmnet would not start at all; the name is
+    reported as not applied instead.
+- Fixed: the batch file example in the user guide could not be run -- an inline `base_vm`
+  was required to have a `name` that every instance then overwrites.
 - **`vmctl selftest`** creates a throwaway VM (128 MB, one small empty disk), reads it
   back and compares it to what was asked for, snapshots it, starts it, stops it and
   deletes it -- asserting each step. The VM is deleted even when a step fails, what a

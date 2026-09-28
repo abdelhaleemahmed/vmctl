@@ -178,6 +178,15 @@ class VMwareBackend(BaseProvider):
             self._version = match.group(1) if match else "unknown"
         return self._version
 
+    def unexpressible_fields(self, vm=None):
+        """What VMware decides for itself (E-19).
+
+        A ``.vmx`` has no per-disk boot flag: booting is ``bios.bootOrder``, a VM-level
+        list of *kinds*. So which device is "the bootable one" is the provider's answer
+        and not the file's, and a VM read back marks whichever disk it found first.
+        """
+        return ("storage.bootable",)
+
     def diagnostics(self):
         """Report VMware's own two tools, which are usually not on PATH.
 

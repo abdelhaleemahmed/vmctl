@@ -421,6 +421,74 @@ re-measured by starting a domain per model.
 One provider's table is not evidence for another's, even when one of them is a
 manager of the other.
 
+### F-49…F-54 — Six findings from writing one example per hypervisor · M *(fixed)*
+
+The documentation pass produced a worked configuration for each of the four providers
+(`examples/*.yaml`), and each was *run*: validated, created, started, read back, deleted.
+Writing a file that is idiomatic for a hypervisor exercises the parts a portable config
+never touches, and six things fell out.
+
+**F-49 — "there are none" read as "I could not ask."**
+`vmctl/core/capabilities.py`, `vmctl/validators/vm_validator.py`,
+`vmctl/providers/libvirt/backend.py`
+
+The libvirt example named an `internal` network, validation passed, and the domain failed
+to start: *"Network not found: no network with matching name 'lab-internal'"*. Exactly what
+`E-05` probing exists to catch, and it did not, because `host_interfaces` could not
+distinguish **there are no such networks** from **vmctl could not ask**: both were an
+empty tuple, and the validator checks nothing when the list is empty. A
+`qemu:///session` connection with no networks defined is the first case, and every name
+is then wrong. A key present with an empty value now means "asked, and none exist", and
+the warning says so rather than printing "available: " with nothing after it.
+
+**F-50 — a command line that was correct and would not run.**
+`vmctl/providers/qemu/emitter.py`
+
+The QEMU example asked for `cpu.model: host`, which is right for a machine with KVM. On
+this one, `qemu-kvm` refuses to start: *"CPU model 'host' requires KVM or HVF"*. vmctl
+already chooses `-accel tcg` rather than failing when there is no `/dev/kvm`; it now makes
+the matching choice for the CPU model, substituting the nearest thing QEMU can do and
+reporting it.
+
+**F-51 — settings dropped in silence.** QEMU had no entry for `description` (a command
+line has nowhere to keep one) or `boot.ioapic` (its machine types provide one and there is
+no flag), and VMware none for `boot.ioapic`. So a config asking for them was accepted,
+lost the value, and then disagreed with the file for ever in `vmctl diff`. All three are
+reported now.
+
+**F-52 — a VM that differed from the file that made it, with nothing said.**
+`vmctl/providers/*/backend.py`, `vmctl/core/selftest.py`, `vmctl/cli/main.py`
+
+The class `E-19` uncovered, and there turned out to be six members of it across three
+providers. libvirt **resolves** a machine alias (`q35` returns as `pc-q35-rhel9.8.0`) and
+`host-model` (returns as `EPYC`), and always adds a USB controller. VirtualBox reports no
+TPM state at all (F-54, below) and no secure-boot state (F-17), and has no per-disk boot
+flag -- nor does VMware, whose booting is `bios.bootOrder`, a VM-level list of kinds.
+
+None of those is the hypervisor disagreeing; they are answers it decides or cannot report.
+`BaseProvider.unexpressible_fields(vm)` is the one declaration, taking the VM because some
+depend on the *value*: `host-model` is resolved, while a CPU model named outright is either
+honoured or a real disagreement worth reporting. `apply` and `selftest` both consult it,
+matching with the device address removed -- a provider declares `storage.bootable` and a
+difference names `storage[scsi/0].bootable`.
+
+**F-53 — audio enabled, and silent.** `vmctl/providers/virtualbox/emitter.py`
+
+VirtualBox 7.1.18 given only `--audio-enabled on` reports `audio_out="off"` and
+`audio_in="off"`: a sound device with both streams shut. The parser reads those two keys --
+correctly, since `audio=` names the driver and not the state (`F-21`) -- so the VM
+disagreed with its file *and* the guest had no audio. Both streams are switched on now.
+
+**F-54 — a TPM that cannot be read back.** `vmctl/providers/virtualbox/capabilities.py`
+
+`--tpm-type 2.0` works and then `showvminfo` says nothing about it, in either output
+format. Declared (`tpm_readable=False`) the way secure boot already was, so a round trip
+does not report it as drift.
+
+And one more, from the manual rather than the examples: the documented inline `base_vm` in
+a batch file **could not be run** -- it needed a `name` that every instance then
+overwrites. An inline base without a name is accepted now.
+
 ### F-48 — VirtualBox kept its own default in a boot slot · M *(fixed)*
 `vmctl/providers/virtualbox/emitter.py`
 
@@ -2989,6 +3057,7 @@ Phase 1  [x] F-01 synthesize controllers  [x] F-02 firmware case + EFI64/32
          [x] F-46 a stated list reset the fields it did not mention
          [x] F-47 a conformance rule that read a docstring
          [x] F-48 VirtualBox kept its own default in a boot slot
+         [x] F-49..F-54 six findings from writing one example per hypervisor
 Phase 2  [x] F-06 friendly config errors  [x] F-07 from_dict must not mutate
          [x] F-08 real warnings; pure validator; port-collision check
 Phase 3  [x] F-09 completion env var      [x] F-10 make `edit` edit

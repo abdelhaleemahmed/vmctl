@@ -87,6 +87,23 @@ class VirtualBoxBackend(BaseProvider):
         """Return the ``VBoxManage clonemedium`` converter."""
         return CloneMediumConverter()
 
+    def unexpressible_fields(self, vm=None):
+        """What VirtualBox cannot report back, whatever it was asked for (E-19).
+
+        Two settings it accepts and then will not say anything about: secure boot
+        (F-17) and a TPM (F-54). `showvminfo` has no key for either, in either output
+        format, so a VM created with them reads back without them -- which is the
+        hypervisor's limitation and not a disagreement worth reporting as drift.
+        """
+        fields = ["firmware.secure_boot"]
+        if not self.capabilities.tpm_readable:
+            fields.append("firmware.tpm")
+        # VirtualBox has no per-disk boot flag either: booting is the VM's boot order
+        # plus a controller's `--bootable`, so the field is decorative and the parser
+        # marks whichever disk comes first.
+        fields.append("storage.bootable")
+        return tuple(fields)
+
     def diagnostics(self):
         """Add the machine folder and, on Linux, the kernel module.
 

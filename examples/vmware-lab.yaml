@@ -1,0 +1,65 @@
+# A VMware Workstation VM. A VM here is a directory with a `.vmx` in it, and that
+# file *is* the configuration -- vmctl writes it, makes the disks with
+# vmware-vdiskmanager and drives the lifecycle with vmrun.
+#
+#   vmctl -p vmware validate examples/vmware-lab.yaml
+#   vmctl -p vmware import   examples/vmware-lab.yaml            # dry-run
+#   vmctl -p vmware import   examples/vmware-lab.yaml --execute
+#
+# What makes this VMware's dialect:
+#   * VMDK is the only format it can attach at all, so a VM arriving from
+#     libvirt or QEMU has to be converted -- `vmctl migrate --with-disks` does it
+#   * LSI Logic SCSI is where it puts a disk; NVMe works for disks but not for
+#     optical drives ("Communication with the virtual machine might have been
+#     interrupted" -- measured, see tests/fixtures/vmware_attach_matrix.json)
+#   * vmxnet3 is its own paravirtual card, and it has no virtio at all
+#   * it can express a CPU topology but not a CPU model
+#   * it has **no per-VM port forwarding**: NAT forwards live host-wide in
+#     vmnetnat.conf, so `port_forwards:` here would be reported as not applied
+schema_version: 2
+name: vmware-lab
+guest_os: ubuntu22.04   # reported as recorded as plain `ubuntu`: see the note above
+description: A Workstation VM for a lab
+
+cpu:
+  count: 4
+  sockets: 2
+  cores: 2
+  threads: 1
+memory:
+  mb: 4096
+
+firmware:
+  type: efi64          # native here, unlike efi32
+  # tpm: true          # Workstation needs the VM *encrypted* for a virtual TPM:
+                       # with `vtpm.present` and no encryption, `vmrun start` answers
+                       # "The operation was canceled" and the VM does not run.
+
+boot:
+  order: [disk, dvd, none, none]
+  ioapic: true
+
+storage:
+  - name: system
+    size_mb: 40960
+    format: vmdk       # the only format VMware attaches
+    bus: scsi          # LSI Logic, which is what Workstation defaults to
+    bootable: true
+  - name: fast
+    size_mb: 10240
+    format: vmdk
+    bus: nvme          # disks only: an NVMe optical drive is refused
+    slot: 0
+  - name: installer
+    kind: cdrom
+    bus: sata
+
+networks:
+  - network_type: nat
+    model: vmxnet3     # VMware's paravirtual card; e1000e also works
+  - network_type: hostonly
+    model: e1000e
+    # No adapter_name: VMware picks the vmnet for a host-only or NAT adapter, and
+    # naming one is only valid for a custom (internal) network. vmctl reports the
+    # name as not applied rather than writing it, because writing it stops the VM
+    # starting at all.

@@ -450,7 +450,10 @@ class VMValidator:
                     f"{', '.join(sorted(buses))}"
                 )
 
+        picked_by_provider = self.capabilities.self_named_networks
         for i, net in enumerate(vm.networks):
+            if net.network_type.value in picked_by_provider:
+                continue  # this provider chooses the network; a name is not wanted
             if net.needs_adapter_name and not net.adapter_name:
                 warnings.append(
                     f"networks[{i}] is {net.network_type.value} but names no "
@@ -460,11 +463,22 @@ class VMValidator:
             # What this host actually has, when the provider was able to ask (E-05).
             # `adapter_name: eth0` is valid everywhere and correct almost nowhere, and
             # without this the mistake surfaces partway through a create.
-            on_this_host = self.capabilities.interfaces_for(net.network_type.value)
-            if on_this_host and net.adapter_name and net.adapter_name not in on_this_host:
+            mode = net.network_type.value
+            if not net.adapter_name or not self.capabilities.probed_interfaces(mode):
+                continue
+            on_this_host = self.capabilities.interfaces_for(mode)
+            if net.adapter_name not in on_this_host:
+                # Empty is an answer too: a libvirt session connection with no networks
+                # defined makes every name wrong, and "available: " with nothing after
+                # it reads like a bug rather than the finding it is.
+                detail = (
+                    f"available: {', '.join(on_this_host)}"
+                    if on_this_host
+                    else f"this host has no {mode} network at all"
+                )
                 warnings.append(
                     f"networks[{i}] names {net.adapter_name!r}, which this host does "
-                    f"not have; available: {', '.join(on_this_host)}"
+                    f"not have; {detail}"
                 )
 
         self._validate_port_forwards(vm, warnings)

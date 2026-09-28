@@ -25,6 +25,7 @@
 
    guide/install
    guide/quickstart
+   guide/providers
    guide/configuration
    guide/batch
    guide/completion

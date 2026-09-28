@@ -36,8 +36,9 @@ def _caps(snapshots=Support.NATIVE):
 class FakeBackend:
     """A hypervisor that works, and can be told to misbehave in one specific way."""
 
-    def __init__(self, caps=None, fail_at=None, drift=None, report=None):
+    def __init__(self, caps=None, fail_at=None, drift=None, report=None, decides=()):
         self.name = "fake"
+        self.decides = decides
         self.capabilities = caps or _caps()
         self.fail_at = fail_at
         self.drift = drift or {}
@@ -51,6 +52,10 @@ class FakeBackend:
 
     def probe(self):
         return self.capabilities
+
+    def unexpressible_fields(self, vm=None):
+        """What this provider decides for itself, whatever a config says (E-19)."""
+        return self.decides
 
     def list_vms(self):
         return sorted(self.vms)
@@ -254,6 +259,21 @@ def test_a_difference_the_provider_announced_is_not_counted_against_it():
     )
 
 
+def test_a_field_the_provider_decides_for_itself_is_not_a_failure():
+    """libvirt gives every domain a USB controller, so `usb_enabled: false` cannot be
+    asked for -- and since that is also the model's *default*, warning about it on every
+    create would put a line in every report. It is declared instead, and the selftest
+    reads the declaration (E-19)."""
+    backend = FakeBackend(drift={"rtc_utc": False}, decides=("rtc_utc",))
+
+    report = selftest.run(backend)
+
+    assert report.ok
+    assert (
+        "reported difference" in dict((o.name, o.detail) for o in report.outcomes)["read it back"]
+    )
+
+
 def test_a_provider_without_snapshots_skips_them_rather_than_failing():
     backend = FakeBackend(caps=_caps(snapshots=Support.UNSUPPORTED))
 
@@ -332,3 +352,60 @@ def test_the_command_reports_each_step_and_exits_on_failure(monkeypatch):
     data = _json.loads(result.output)
     assert data["ok"] is False
     assert any(step["state"] == "fail" for step in data["steps"])
+
+
+# ---------------------------------------------------------------------------
+# What each real provider says it decides for itself (E-19, F-52)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "provider,expected",
+    [
+        ("libvirt", {"usb_enabled", "machine"}),
+        ("virtualbox", {"firmware.secure_boot", "firmware.tpm", "storage.bootable"}),
+        ("vmware", {"storage.bootable"}),
+        ("qemu", set()),
+    ],
+)
+def test_the_providers_declare_what_they_decide(provider, expected):
+    """Each of these was found by reading a created VM back: libvirt resolves a machine
+    alias and always adds USB, VirtualBox reports no TPM state at all, and neither it
+    nor VMware has a per-disk boot flag. Declared, so that a round trip does not report
+    the hypervisor's own decisions as the hypervisor disagreeing."""
+    import vmctl.providers  # noqa: F401
+    from vmctl.core import registry
+
+    declared = set(registry.create(provider).unexpressible_fields())
+
+    assert expected <= declared
+
+
+def test_libvirt_only_claims_a_cpu_model_it_resolves():
+    """`host-model` comes back as a concrete CPU, so that difference is libvirt's own
+    decision. A model named outright is either honoured or a real disagreement, and
+    excluding it would hide one."""
+    import vmctl.providers  # noqa: F401
+    from vmctl.core import registry
+    from vmctl.core.platform import CPU_HOST_MODEL
+
+    backend = registry.create("libvirt")
+    keyword = selftest.sample_vm("x", backend.capabilities)
+    keyword.cpu.model = CPU_HOST_MODEL
+    named = selftest.sample_vm("x", backend.capabilities)
+    named.cpu.model = "Nehalem"
+
+    assert "cpu.model" in backend.unexpressible_fields(keyword)
+    assert "cpu.model" not in backend.unexpressible_fields(named)
+
+
+def test_a_field_declared_for_a_device_matches_the_device_it_is_found_on():
+    """A provider declares `storage.bootable`; a difference names
+    `storage[scsi/0].bootable`. Without removing the address, the declaration matched
+    nothing and VMware's selftest failed on a field it had already explained."""
+    from vmctl.core.diff import Change, ChangeKind
+
+    change = Change("storage[scsi/0].bootable", ChangeKind.CHANGED, live=False, desired=True)
+
+    assert selftest._is_explained(change, {"storage.bootable"})
+    assert not selftest._is_explained(change, {"storage.size_mb"})

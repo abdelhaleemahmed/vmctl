@@ -2020,15 +2020,19 @@ def cmd_apply(ctx, config_file, execute, policy, clone_disks, out):
                 else f"Nothing to change on '{convergence.vm.name}'"
             )
 
+        # What the provider *decides for itself* -- libvirt resolves `machine: q35` to
+        # the versioned type it chose -- plus whatever it reported when emitting. Both
+        # are differences it announced rather than the hypervisor disagreeing (E-19).
+        decided = set(engine.backend.unexpressible_fields(convergence.vm))
         _show_plan(plan, execute, done, out)
-        _say_if_that_is_as_close_as_it_gets(convergence, plan)
+        _say_if_that_is_as_close_as_it_gets(convergence, plan, decided)
         if execute:
-            _report_what_did_not_converge(engine, desired, stated, plan)
+            _report_what_did_not_converge(engine, desired, stated, plan, decided)
     except VMToolError as e:
         _fail(e)
 
 
-def _say_if_that_is_as_close_as_it_gets(convergence, plan) -> None:
+def _say_if_that_is_as_close_as_it_gets(convergence, plan, decided=frozenset()) -> None:
     """Say so when every difference left is one this hypervisor cannot express.
 
     Otherwise ``apply`` reports the same drift on every run with no explanation of
@@ -2037,14 +2041,19 @@ def _say_if_that_is_as_close_as_it_gets(convergence, plan) -> None:
     The drift is real and worth printing; what was missing was the sentence that
     tells a user it is not going to change.
     """
-    if not convergence.changes or plan.report is None:
+    if not convergence.changes:
         return
-    explained = plan.report.paths()
-    if all(
-        change.path in explained or _head(change.path) in explained
-        for change in convergence.changes
-    ):
-        click.echo("That is as close as this hypervisor gets; the warnings above say why.")
+    explained = set(decided) | (plan.report.paths() if plan.report is not None else set())
+    if not explained:
+        return
+    if all(_explained(change.path, explained) for change in convergence.changes):
+        reported = plan.report is not None and plan.report.paths()
+        because = (
+            "the warnings above say why"
+            if reported
+            else f"{plan.provider} decides or cannot report those"
+        )
+        click.echo(f"That is as close as this hypervisor gets; {because}.")
 
 
 def _head(path: str) -> str:
@@ -2054,6 +2063,19 @@ def _head(path: str) -> str:
     translation report names a loss at.
     """
     return path.split("[")[0].split(".")[0]
+
+
+def _explained(path: str, explained) -> bool:
+    """Whether a difference was announced in advance, at any of three levels.
+
+    A provider declares a *field* (``storage.bootable``), a translation report names the
+    path it reported (``guest_os``), and a difference names the device it was found on
+    (``storage[scsi/0].bootable``) -- so the address is removed before comparing.
+    """
+    from vmctl.core.diff import _without_indices
+
+    bare = _without_indices(path)
+    return path in explained or bare in explained or _head(path) in explained
 
 
 def _live_or_none(engine, name: str):
@@ -2077,7 +2099,7 @@ def _live_or_none(engine, name: str):
         return None
 
 
-def _report_what_did_not_converge(engine, desired, stated, plan) -> None:
+def _report_what_did_not_converge(engine, desired, stated, plan, decided=frozenset()) -> None:
     """Read the VM back and report anything the file asked for that did not happen.
 
     Asking again is the only honest way to know a converge worked, and it is the
@@ -2095,11 +2117,9 @@ def _report_what_did_not_converge(engine, desired, stated, plan) -> None:
         live = engine.read_vm(desired.name)
     except VMToolError:
         return  # the create or edit already reported whatever went wrong
-    explained = plan.report.paths() if plan.report is not None else set()
+    explained = set(decided) | (plan.report.paths() if plan.report is not None else set())
     remaining = [
-        change
-        for change in diff(live, desired, stated)
-        if change.path not in explained and _head(change.path) not in explained
+        change for change in diff(live, desired, stated) if not _explained(change.path, explained)
     ]
     if not remaining:
         return

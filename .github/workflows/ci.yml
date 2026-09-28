@@ -84,6 +84,23 @@ jobs:
         run: vmctl import examples/ubuntu-server.yaml --new-name ci-check
       - name: Plan the batch example (dry-run)
         run: vmctl batch create examples/lab-cluster.yaml
+      # One example per hypervisor, each checked against *its own* provider: a
+      # VMDK-only VMware config and a virtio-blk QEMU config are each invalid for the
+      # other, so validating them all against one provider would prove nothing.
+      - name: Validate and plan each hypervisor's example (dry-run)
+        run: |
+          set -e
+          for pair in "virtualbox:virtualbox-desktop" "libvirt:libvirt-server" \
+                      "qemu:qemu-workstation" "vmware:vmware-lab"; do
+            provider="${pair%%:*}"; file="examples/${pair##*:}.yaml"
+            vmctl -p "$provider" validate "$file"
+            vmctl -p "$provider" import "$file" --new-name ci-check
+          done
+      - name: Plan the extends examples (dry-run)
+        run: |
+          vmctl validate examples/lab/web-01.yaml
+          vmctl import examples/lab/web-01.yaml --new-name ci-check
+          vmctl import examples/lab/db-01.yaml --new-name ci-check
       - name: Generated batch template must be valid input
         run: |
           vmctl batch template -o /tmp/template.yaml

@@ -147,6 +147,11 @@ class VMwareParser:
         vm.cpu.nested_virt = lowered.get("vhv.enable", "").upper() == "TRUE"
         if vm.cpu.cores and vm.cpu.count:
             vm.cpu.sockets = max(1, vm.cpu.count // vm.cpu.cores)
+            # Stated, not left empty: VMware has no SMT control, so a topology it
+            # reports is always one thread per core -- and a config asking for
+            # `threads: 1` otherwise read back as unset, which is a round trip
+            # disagreeing about a number with only one possible value.
+            vm.cpu.threads = 1
         vm.guest_os = GUEST_OS_FROM_VMWARE.get(vm.guest_os, vm.guest_os)
         vm.audio_enabled = lowered.get("sound.present", "").upper() == "TRUE"
         vm.usb_enabled = lowered.get("usb.present", "").upper() == "TRUE"

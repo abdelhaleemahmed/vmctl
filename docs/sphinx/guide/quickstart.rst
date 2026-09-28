@@ -1,6 +1,23 @@
 Quick Start
 ===========
 
+Which hypervisor
+----------------
+
+Every command below works the same way on VirtualBox, libvirt/QEMU-KVM, plain QEMU
+and VMware Workstation. vmctl picks one — ``$VMCTL_PROVIDER`` if set, otherwise
+whichever it finds installed — and ``-p`` says which:
+
+.. code-block:: bash
+
+   vmctl providers                 # what is usable here; * marks the default
+   vmctl doctor                    # and whether this machine can run a VM at all
+   vmctl -p libvirt list
+   export VMCTL_PROVIDER=libvirt   # or set it once
+
+See :doc:`providers` for what differs between them, and ``examples/`` for a worked
+configuration per hypervisor.
+
 List VMs
 --------
 
@@ -8,6 +25,7 @@ List VMs
 
    vmctl list
    vmctl list --format simple   # names only
+   vmctl list --format json     # for a script
 
 Export a VM
 -----------
@@ -46,12 +64,14 @@ Then execute:
 Clone from an existing VM
 --------------------------
 
-``create`` reads the source config live from VirtualBox instead of a file:
+``create`` reads the source configuration live from the hypervisor instead of from a
+file:
 
 .. code-block:: bash
 
    vmctl create ubuntu-server --new-name ubuntu-clone --execute
    vmctl create ubuntu-server --new-name small-clone --cpus 2 --memory 2048 --execute
+   vmctl create ubuntu-server --new-name full-clone --clone-disks --execute
 
 Lifecycle commands
 ------------------
@@ -65,9 +85,44 @@ Lifecycle commands
    vmctl delete old-vm                 # asks for confirmation
    vmctl delete old-vm --force         # skips confirmation
 
+Keep a VM matching its file
+---------------------------
+
+.. code-block:: bash
+
+   vmctl diff  web-01 web-01.yaml      # read-only; exits 1 when they differ
+   vmctl apply web-01.yaml             # dry-run: what it would change
+   vmctl apply web-01.yaml --execute   # change only what drifted
+
+Only what the file actually states is applied, so a short file changes what it
+mentions and leaves the rest as the hypervisor has it.
+
+Snapshots
+---------
+
+.. code-block:: bash
+
+   vmctl snapshot take web-01 before-upgrade -d "why"
+   vmctl snapshot list web-01
+   vmctl snapshot restore web-01 before-upgrade
+   vmctl snapshot delete web-01 before-upgrade
+
 Validate a config file
 ----------------------
 
 .. code-block:: bash
 
    vmctl validate my-config.yaml
+   vmctl -p libvirt validate my-config.yaml   # what is valid depends on the provider
+   vmctl validate my-config.yaml --format json
+
+Check that it all works here
+----------------------------
+
+.. code-block:: bash
+
+   vmctl doctor      # the host, the hypervisor, the image directory, free space
+   vmctl selftest    # create, check, start, stop and delete a throwaway VM
+
+``doctor`` only looks; ``selftest`` uses the hypervisor, which is how a setup that
+validates but cannot run a VM is told apart from one that works.

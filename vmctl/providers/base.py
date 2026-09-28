@@ -9,7 +9,7 @@ import os
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 try:  # pragma: no cover - typing_extensions fallback for older interpreters
     from typing import Protocol, runtime_checkable
@@ -216,6 +216,32 @@ class BaseProvider(ABC):
             # being created, and vmctl is not going to guess a threshold.
             checks.append(Check("free space there", f"{free} MB"))
         return checks
+
+    def unexpressible_fields(self, vm: Optional[VMConfig] = None) -> Tuple[str, ...]:
+        """Return the fields this provider decides for itself (E-19).
+
+        Not "cannot express" in the translator's sense -- those are reported when a VM
+        is created, because a configuration *asked* for them. These are the other shape:
+        a value the hypervisor supplies whatever the file says, so a VM read back
+        disagrees with the file that made it and nothing was ever refused. libvirt gives
+        every domain a USB controller, so ``usb_enabled: false`` is not something it can
+        be asked for.
+
+        Declared rather than warned about, because the value that cannot be honoured is
+        usually the model's *default*: a warning would then appear for every VM, and a
+        line in every report is how people learn to skip reports.
+
+        Args:
+            vm: The configuration in question, when the caller has one. Some of these
+                depend on the *value* rather than the field: libvirt resolves
+                ``cpu.model: host-model`` to a concrete CPU, but a model named outright
+                is either honoured or a real disagreement worth reporting.
+
+        Returns:
+            tuple[str, ...]: dotted field paths, empty for a provider that honours
+            everything it accepts.
+        """
+        return ()
 
     def probe(self) -> Capabilities:
         """Return this provider's capabilities, refined by asking the host (E-05).

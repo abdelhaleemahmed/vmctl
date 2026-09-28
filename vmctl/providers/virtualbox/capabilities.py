@@ -185,6 +185,9 @@ class VirtualBoxCapabilities:
             name_pattern=r'^(?!\.\.?$)[^/\\:*?"<>|\x00-\x1f]+$',
             name_max_length=128,
             supports_tpm=True,
+            # Switched on with `--tpm-type 2.0`, and then invisible: 7.1.18 reports no
+            # TPM state in `showvminfo`, machine-readable or not (F-54).
+            tpm_readable=False,
             # Measured on 7.1.18: `snapshot take/list/restore/delete` all work on a
             # stopped VM, descriptions are kept and returned by
             # `list --machinereadable`, and there is no format restriction -- a

@@ -25,6 +25,7 @@ anywhere, and spin up entire clusters from a single batch file.
 
    guide/install
    guide/quickstart
+   guide/providers
    guide/configuration
    guide/batch
    guide/completion

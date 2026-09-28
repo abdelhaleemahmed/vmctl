@@ -571,3 +571,46 @@ def test_tools_on_path_still_count_as_installed(monkeypatch):
 
     assert vmware_backend.VMwareBackend.find_tools() == ""
     assert vmware_backend.VMwareBackend.is_available() is True
+
+
+# ---------------------------------------------------------------------------
+# F-52/F-55: what a .vmx cannot say
+# ---------------------------------------------------------------------------
+
+
+def test_a_host_only_adapter_is_not_given_a_named_vmnet(emitter, vm):
+    """Measured: adding `ethernetN.vnet` to a host-only adapter makes `vmrun start`
+    answer "The operation was canceled", so the VM does not run at all. VMware picks the
+    vmnet; only a custom (internal) network is named. Reported, not written."""
+    from vmctl.core.translate import Policy, Translator
+    from vmctl.core.vmconfig import NetworkConfig, NetworkType
+
+    vm.networks = [NetworkConfig(network_type=NetworkType.HOSTONLY, adapter_name="VMnet1")]
+    translator = Translator(emitter.capabilities, Policy.NEAREST)
+
+    keys = emitter.build_vmx(vm, translator)
+
+    assert not any(key.endswith(".vnet") for key in keys)
+    assert any("chooses the vmnet" in drop.reason for drop in translator.report.drops)
+
+
+def test_an_internal_network_is_still_named(emitter, vm):
+    """The one mode where a name is both valid and required."""
+    from vmctl.core.vmconfig import NetworkConfig, NetworkType
+
+    vm.networks = [NetworkConfig(network_type=NetworkType.INTERNAL, adapter_name="VMnet5")]
+
+    keys = emitter.build_vmx(vm)
+
+    assert keys["ethernet0.vnet"] == "VMnet5"
+
+
+def test_a_cpu_topology_read_back_states_one_thread(parser):
+    """VMware has no SMT control, so a topology it reports is one thread per core. Left
+    unset, a config asking for `threads: 1` read back as "unset" -- a round trip
+    disagreeing about a number with one possible value."""
+    text = 'numvcpus = "4"\ncpuid.coresPerSocket = "2"\nmemsize = "1024"\n'
+
+    vm = parser.parse_text("demo", text)
+
+    assert (vm.cpu.count, vm.cpu.cores, vm.cpu.sockets, vm.cpu.threads) == (4, 2, 2, 1)

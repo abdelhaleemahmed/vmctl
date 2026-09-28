@@ -124,8 +124,13 @@ class BatchCreator:
         base_vm_ref = batch_def.get("base_vm")
 
         if isinstance(base_vm_ref, dict):
-            # Base VM is defined inline
-            return VMConfig.from_dict(base_vm_ref)
+            # Base VM is defined inline. Its `name` is ceremony: every instance supplies
+            # its own, and the base's is overwritten -- so a file that omits it is
+            # accepted rather than made to invent one it never uses. (The documented
+            # example in the user guide omitted it, and could not be run.)
+            inline = dict(base_vm_ref)
+            inline.setdefault("name", str(batch_def.get("name") or "base"))
+            return VMConfig.from_dict(inline)
         elif isinstance(base_vm_ref, str):
             # Base VM is a reference to existing VM or file
             if base_vm_ref.endswith((".json", ".yaml", ".yml")):

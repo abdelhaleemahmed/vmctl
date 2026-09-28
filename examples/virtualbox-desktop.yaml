@@ -1,0 +1,63 @@
+# A VirtualBox VM, written the way VirtualBox would have it.
+#
+#   vmctl -p virtualbox validate examples/virtualbox-desktop.yaml
+#   vmctl -p virtualbox import   examples/virtualbox-desktop.yaml            # dry-run
+#   vmctl -p virtualbox import   examples/virtualbox-desktop.yaml --execute
+#
+# What makes this VirtualBox's dialect rather than a generic config:
+#   * vdi is its own disk format, and SATA the bus it puts a disk on
+#   * it has no `machine` (chipset) and no CPU topology at all -- one CPU count
+#   * `ioapic: true` is required for more than one CPU on x86
+#   * its NAT adapter forwards ports, and each rule has a name of its own
+#
+# `vmctl -p virtualbox capabilities` is the authority for all of that.
+schema_version: 2
+name: vbox-desktop
+guest_os: ubuntu22.04
+description: A desktop VM with a forwarded SSH port
+
+cpu:
+  count: 2
+memory:
+  mb: 2048
+  vram_mb: 64
+
+firmware:
+  type: efi64          # BIOS, EFI, EFI32 and EFI64 all work here
+  tpm: true
+
+boot:
+  order: [disk, dvd, none, none]
+  ioapic: true         # needed for count > 1; vmctl warns if you forget
+
+storage:
+  - name: system
+    size_mb: 40960
+    format: vdi        # VirtualBox's own format; thin by default
+    bus: sata
+    bootable: true
+  - name: data
+    size_mb: 20480
+    format: vdi
+    bus: sata
+    slot: 1
+    discard: true      # pass TRIM through to the host filesystem
+  - name: installer    # an empty optical drive: `source:` inserts a medium
+    kind: cdrom
+    bus: ide
+
+networks:
+  - network_type: nat
+    model: e1000       # VirtualBox's 82540EM; `virtio` also works
+    port_forwards:
+      - name: ssh      # the name is VirtualBox's own idea, and must be unique
+        host_port: 2222
+        guest_port: 22
+      - name: http
+        host_ip: 127.0.0.1   # keep it off the network
+        host_port: 8080
+        guest_port: 80
+
+audio_enabled: true
+usb_enabled: true
+clipboard_mode: bidirectional

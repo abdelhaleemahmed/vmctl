@@ -264,6 +264,16 @@ class VirtualBoxEmitter:
                     "on",
                     "--audiocontroller",
                     "hda",
+                    # The two that actually make sound: measured on 7.1.18, a VM given
+                    # only `--audio-enabled on` reports `audio_out="off"` and
+                    # `audio_in="off"`, so it had a sound device with both streams shut.
+                    # The parser reads those two keys -- correctly, since `audio=` names
+                    # the driver and not the state (F-21) -- so the VM disagreed with the
+                    # file that made it, and the guest had no audio either (F-53).
+                    "--audio-out",
+                    "on",
+                    "--audio-in",
+                    "on",
                 ]
             )
 

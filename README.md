@@ -6,7 +6,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI version](https://img.shields.io/pypi/v/vmctl)](https://pypi.org/project/vmctl/)
 
-Export VM configurations to YAML or JSON, recreate identical VMs anywhere, and spin up entire clusters with one command. Think of it as Infrastructure as Code for your local VirtualBox lab.
+Export a VM to YAML or JSON, recreate it anywhere, and spin up a whole lab with one
+command — on VirtualBox, libvirt/QEMU-KVM, plain QEMU or VMware Workstation, with the
+same commands and the same files. Infrastructure as Code for the VMs on your own
+machine.
 
 ---
 
@@ -91,7 +94,7 @@ vmctl names them rather than quietly producing an empty VM.
 
 ### More Than One Hypervisor
 
-The same config file works against either provider. vmctl translates it and tells
+The same config file works against any of the four. vmctl translates it and tells
 you what does not carry over, rather than dropping it silently:
 
 ```
@@ -103,9 +106,17 @@ Warning: memory.vram_mb is set but video memory is a device property in libvirt
     4: virsh define /tmp/dev.xml
 ```
 
-VirtualBox is driven with `VBoxManage` calls; libvirt gets a domain XML document
-and one `virsh define`. Both are described by the same plan, so `--execute` and
-dry-run behave identically whichever you use.
+VirtualBox is driven with `VBoxManage` calls; libvirt gets a domain XML document and one
+`virsh define`; plain QEMU gets a directory with a runnable command line in it; VMware
+gets a `.vmx`. All four are described by the same plan, so `--execute`, dry-run, `-v` and
+`--out` behave identically whichever you use.
+
+A config that names nothing only one hypervisor has is portable between all of them. One
+that is written for a particular hypervisor should say so, and
+[`examples/`](examples/) has one per hypervisor — VDI on SATA with named port-forward
+rules for VirtualBox, qcow2 on virtio-scsi with a CPU topology for libvirt, virtio-blk
+and `hostfwd` for plain QEMU, VMDK on LSI Logic with vmxnet3 for VMware — each explaining
+in comments why it looks that way.
 
 ### Disk Image Conversion
 
@@ -419,10 +430,18 @@ networks:
 ```
 
 This file lives in the repo as [`examples/ubuntu-server.yaml`](examples/ubuntu-server.yaml)
-and CI validates it on every push, so it cannot drift from what vmctl accepts.
+and CI validates it on every push, so it cannot drift from what vmctl accepts. It names
+nothing only one hypervisor has, so it works on all four; the files in
+[`examples/`](examples/) written *for* a particular hypervisor are checked against that
+one.
+
+The complete field list is [`docs/features.md`](docs/features.md), generated from the
+model that reads your file. `vmctl schema -o vmctl.schema.json` gives your editor the
+same thing.
 
 ### Dry-Run Mode
-Every create/import/batch command shows you the exact `VBoxManage` commands it would run before touching anything:
+Every command that changes a VM shows you the exact commands it would run before touching
+anything:
 
 ```
 $ vmctl import server.yaml --new-name dev-server
@@ -492,37 +511,43 @@ vmctl delete <vm>           # Unregister and delete disk files
 
 ### Disk and Storage Support
 
-| Format | Description |
-|--------|-------------|
-| VDI    | VirtualBox native (default) |
-| VMDK   | VMware-compatible |
-| VHD    | Microsoft Virtual Hard Disk |
-| RAW    | Raw disk image (always fixed-size) |
+Disks, optical drives and floppies are one list (`storage:`), because that is what they
+are: each device says what `kind` it is, which `bus` it hangs off, and where it sits.
+The vocabulary is `vdi`, `vmdk`, `vhd`, `vhdx`, `qcow2`, `qed`, `parallels` and `raw`
+across `ide`, `sata`, `scsi`, `sas`, `nvme`, `virtio-blk`, `virtio-scsi`, `usb` and
+`floppy`, thin or thick.
 
-Controllers: IDE, SATA, SCSI, SAS, NVMe, virtio-scsi, USB and floppy. Thin
-(dynamic) and thick (fixed) allocation.
-CD-ROM drives with ISO images are correctly identified as optical media.
+Which of those a given hypervisor can *create*, merely *attach*, or not handle at all is
+not a matter of opinion — it was measured against each running product:
+
+```bash
+vmctl capabilities              # including which device kinds attach to which bus
+```
+
+[`docs/providers.md`](docs/providers.md) is the same for all four at once, generated from
+the code. Leave `format` and `bus` out of a config and each provider uses its own
+idiomatic pair, so the file stays portable.
 
 ### Network Adapter Types
 
-| Type | Description |
-|------|-------------|
-| NAT | Outbound internet via host |
-| Bridged | Direct connection to physical network |
-| Host-only | Isolated host-to-VM network |
-| Internal | VM-to-VM isolated network |
-| NatNetwork | NAT with DHCP (multi-VM) |
+Five modes — `nat`, `bridged`, `hostonly`, `internal`, `natnetwork` — and the card the
+guest sees is named by what it is (`virtio`, `e1000`, `e1000e`, `rtl8139`, `pcnet`,
+`ne2k`, `vmxnet3`) rather than by one hypervisor's chipset id. A model a hypervisor does
+not have is reported, not silently swapped.
 
-Up to 8 adapters per VM. Bridged, host-only and NAT-network adapters keep the
-interface or network they are attached to.
+A NAT adapter can forward host ports into the guest (`port_forwards:`), which VirtualBox
+and QEMU do natively, libvirt does through passt, and VMware cannot do per VM at all.
+Bridged and host-only adapters keep the interface they are attached to, and
+`vmctl validate` checks that *this host* actually has it.
 
 ### Firmware Options
-BIOS, EFI, EFI64 and EFI32, with TPM 2.0.
 
-Secure boot is enrolled with `VBoxManage modifynvram` and requires an EFI
-firmware type. Note that VirtualBox does not report secure-boot state in its
-machine-readable output, so `vmctl export` cannot capture it from an existing
-VM — set it in the config file.
+BIOS, EFI, EFI64 and EFI32, with TPM 2.0 — each declared per provider, since not all four
+have all of them (libvirt has no 32-bit EFI, for instance).
+
+Secure boot is enrolled with `VBoxManage modifynvram` and requires an EFI firmware type.
+VirtualBox does not report secure-boot state in its machine-readable output, so
+`vmctl export` cannot capture it from an existing VM — set it in the config file.
 
 ---
 

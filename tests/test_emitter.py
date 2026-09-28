@@ -497,3 +497,18 @@ def test_settings_virtualbox_cannot_express_are_reported():
     emitter.emit_create_vm(vm)
     dropped = {d.field for d in emitter.report.drops}
     assert {"cpu", "cpu.model", "machine", "arch"} <= dropped
+
+
+def test_audio_turns_the_streams_on_not_just_the_device(vm_full):
+    """F-53: measured on 7.1.18, a VM given only `--audio-enabled on` reports
+    `audio_out="off"` and `audio_in="off"` -- a sound device with both streams shut. The
+    parser reads those two keys (correctly: `audio=` names the driver, not the state,
+    which was F-21), so the VM disagreed with the file that made it, and the guest had
+    no audio either."""
+    vm_full.audio_enabled = True
+
+    cmds = VirtualBoxEmitter(vm_full.name).emit_create_vm(vm_full).as_argv_lists()
+    audio = [c for c in cmds if "--audio-driver" in c][0]
+
+    assert audio[audio.index("--audio-out") + 1] == "on"
+    assert audio[audio.index("--audio-in") + 1] == "on"

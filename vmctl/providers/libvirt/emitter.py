@@ -69,22 +69,30 @@ UNTRANSLATABLE = (
     ("draganddrop", "drag and drop needs a SPICE agent channel"),
 )
 
-#: Settings libvirt decides for itself, whatever the configuration says. Reported as
-#: substitutions rather than drops, because the value does not disappear -- it comes back
-#: as something else, and a round trip that quietly disagrees is worse than one that
-#: explains itself (found by ``vmctl selftest``, E-19).
+#: Settings libvirt decides for itself, whatever a configuration says -- so a VM read
+#: back disagrees with the file that made it, in these fields and only these. Answered
+#: to callers through :meth:`LibvirtBackend.unexpressible_fields`, which is what
+#: ``vmctl selftest`` consults (E-19 found this).
 #:
-#: Measured: a domain vmctl emits contains no USB at all, and libvirt's own copy of it
-#: has ``<controller type='usb' model='qemu-xhci'/>``. So ``usb_enabled: false`` is not
-#: something this libvirt can be asked for.
-DECIDED_BY_LIBVIRT = (
-    (
-        "usb_enabled",
-        False,
-        True,
-        "libvirt gives every domain a USB controller; it cannot be switched off",
-    ),
-)
+#: Measured, both of them. A domain vmctl emits contains no USB at all, and libvirt's own
+#: copy of it has ``<controller type='usb' model='qemu-xhci'/>``. And a domain asking for
+#: ``machine='q35'`` comes back as ``machine='pc-q35-rhel9.8.0'``: libvirt resolves the
+#: alias to the versioned type it picked, so the two are the same request and reporting
+#: the difference as drift would make ``apply`` exit 1 for a VM that is exactly what was
+#: asked for.
+#:
+#: Declared rather than reported per create: the value that cannot be honoured is
+#: ``usb_enabled: false``, which is the *model's default*, so a warning would appear for
+#: every VM nobody asked to have USB switched off -- and a line in every report is how
+#: people learn to skip reports.
+DECIDED_BY_LIBVIRT = ("usb_enabled", "machine")
+
+#: The same, but only for particular *values*: libvirt resolves ``host`` and
+#: ``host-model`` into a concrete CPU at define time, and the domain does not remember
+#: which was asked for -- measured, a domain asking for ``host-model`` comes back as
+#: ``<cpu mode='custom'><model>EPYC</model>``. A model named outright is a different
+#: matter: if libvirt does not honour that, it is a real disagreement.
+DECIDED_BY_LIBVIRT_FOR = {"cpu.model": (CPU_HOST_PASSTHROUGH, CPU_HOST_MODEL)}
 
 
 class LibvirtEmitter:
@@ -360,12 +368,6 @@ class LibvirtEmitter:
                 # put a line in every report and teach people to skip them.
                 if asks_for_something(vm, path):
                     translator.drop(path, _get(vm, path), reason)
-            for path, asked, given, reason in DECIDED_BY_LIBVIRT:
-                # The other shape: not a setting that disappears, but one that comes
-                # back as something else. Reported only when the configuration really
-                # asked for the value libvirt will not give it.
-                if _get(vm, path) == asked:
-                    translator.report.substitutions.append(Substitution(path, asked, given, reason))
 
     def _arch(self, vm: VMConfig, translator: Optional[Translator]) -> str:
         """Return the architecture to emit, reporting one this build cannot run.
