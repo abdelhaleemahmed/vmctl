@@ -58,6 +58,39 @@ from .tables import (
     TARGET_PREFIX,
 )
 
+
+def _indent(element: "ET.Element", space: str = "  ") -> None:
+    """Indent *element* in place, the way ``ET.indent`` does.
+
+    ``ET.indent`` arrived in Python 3.9 and this project supports 3.8, where
+    calling it is an AttributeError -- which took the whole libvirt provider
+    down, not just the formatting, because every domain document goes through
+    here. The fallback is the same algorithm rather than "skip indenting on
+    3.8", so a domain XML written on one Python is byte-identical to one
+    written on another: these documents are compared by `diff`, kept in files
+    and read by people.
+    """
+    indent = getattr(ET, "indent", None)
+    if indent is not None:
+        indent(element, space=space)
+        return
+
+    def walk(node: "ET.Element", level: int) -> None:
+        if len(node) == 0:
+            return
+        child_pad = "\n" + space * (level + 1)
+        if not (node.text or "").strip():
+            node.text = child_pad
+        for child in node:
+            walk(child, level + 1)
+            if not (child.tail or "").strip():
+                child.tail = child_pad
+        if not (node[-1].tail or "").strip():
+            node[-1].tail = "\n" + space * level
+
+    walk(element, 0)
+
+
 #: Settings vmctl's model carries that a libvirt domain has no direct equivalent
 #: for. Reported once per plan instead of disappearing.
 UNTRANSLATABLE = (
@@ -261,7 +294,7 @@ class LibvirtEmitter:
         if vm.audio_enabled:
             ET.SubElement(devices, "sound", model="ich9")
 
-        ET.indent(domain, space="  ")
+        _indent(domain, space="  ")
         return ET.tostring(domain, encoding="unicode") + "\n"
 
     def _add_storage(

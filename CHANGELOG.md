@@ -36,6 +36,13 @@ on, which found four things that only held here.
   form, which current setuptools accepts until 2027-02-18. Python 3.8 has been
   end-of-life since October 2024 and this is the second thing it has cost; when
   `requires-python` rises to 3.9, the string form goes back in.
+- **The libvirt provider did not work on Python 3.8 at all.** Every domain
+  document goes through `ET.indent`, which arrived in 3.9 -- so on the oldest
+  supported Python, creating, editing, exporting or diffing a libvirt VM raised
+  `AttributeError`. It now falls back to the same algorithm, verified to produce
+  byte-identical XML on every example config, because a domain document is
+  compared by `diff` and read by people. A sweep found no other 3.9-or-later API
+  in the package, and no syntax newer than 3.8.
 - Smaller: `docs/sphinx/_static` is tracked, so a fresh clone does not warn (and
   with `-W`, fail) when building the documentation; the stderr-separation test
   works on Click 8.1 and 8.2+, which removed `mix_stderr`; `regenerate_golden.py`
