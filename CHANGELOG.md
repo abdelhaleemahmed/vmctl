@@ -7,7 +7,9 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
-## [Unreleased]
+## [4.0.3] - 2026-09-29
+
+One fix, for a regression this project shipped twice.
 
 ### Fixed
 
