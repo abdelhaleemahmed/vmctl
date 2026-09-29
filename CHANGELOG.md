@@ -7,7 +7,13 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
-## [Unreleased]
+## [4.0.2] - 2026-09-29
+
+One code change, and the rest is the page and the toolchain. The code change is the
+last of the "vmctl says something that is not so" family this round turned up: libvirt
+was asked for an I/O APIC it cannot be asked for, and wrote an element that changed
+nothing. The rest removes two invented things from the public page -- output vmctl does
+not print, and two superseded landing pages that still called it a VirtualBox tool.
 
 ### Added
 
