@@ -25,6 +25,16 @@ restating it.
   the example leaves the format out, which each hypervisor then fills with its own,
   and the page says why instead of implying any file is portable everywhere.
 
+### Changed
+
+- **The landing page's demo is now a real session.** It was titled "a real run" and
+  showed output vmctl does not produce -- `Exported to ubuntu-server.yaml (yaml)`,
+  `Dry-run — nothing changed.`, `✓ Created test-server` -- and left out the warnings a
+  real run prints. Replaced with captured output from a genuine session against
+  libvirt and QEMU: the same file on two hypervisors, the three settings QEMU could
+  not carry over and said so, a field drifting, and `apply` changing only that. Long
+  command lists are cut with an ellipsis; nothing else is edited.
+
 ### Removed
 
 - `docs/index.html` and `docs/index_2.html`, the GitHub Pages landing pages from

@@ -166,42 +166,58 @@
         <!-- SEE IT IN ACTION -->
         <section class="section bg-dark">
             <h2 class="reveal">See it in action</h2>
-            <p class="sub reveal">Capture a VM, preview the plan, then <code>--execute</code> to build it. Nothing changes until you do.</p>
+            <p class="sub reveal">Captured from a real session against libvirt and QEMU &mdash; not a mock-up. Long command lists are cut with <code>…</code>; nothing else is edited.</p>
             <div class="terminal reveal">
                 <div class="term-bar">
                     <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-                    <span class="term-title">vmctl — a real run</span>
+                    <span class="term-title">vmctl 4.0.1 — a real run</span>
                 </div>
 <pre class="term"><span class="p">$ vmctl list</span>
-<span class="dim">NAME                 STATUS</span>
-ubuntu-server        <span class="ok">running</span>
-windows-dev          stopped
+<span class="dim">NAME                           STATUS</span>
+ubuntu-server                  stopped
 
 <span class="p">$ vmctl export</span> <span class="c">ubuntu-server -o ubuntu-server.yaml</span>
-<span class="dim">Exported to ubuntu-server.yaml (yaml)</span>
+Exported 'ubuntu-server' -&gt; ubuntu-server.yaml
 
+<span class="dim"># dry-run by default: it prints what it would do and changes nothing</span>
 <span class="p">$ vmctl import</span> <span class="c">ubuntu-server.yaml --new-name test-server</span>
-<span class="hi">Dry-run — nothing changed.</span> <span class="dim">Add --execute to build it:</span>
-  1: VBoxManage createvm --name test-server --ostype Ubuntu_64 --register
-  2: VBoxManage modifyvm test-server --memory 4096 --cpus 4 ...
+<span class="dim">Overrides applied:</span>
+<span class="dim">  name = 'test-server' (from --new-name, was 'ubuntu-server')</span>
+<span class="hi">Dry-run mode.  Commands that would be executed:</span>
+    1: mkdir -p ~/.local/share/libvirt/images
+    2: qemu-img create -f qcow2 ~/.local/share/libvirt/images/test-server_sda.qcow2 51200M
+    3: qemu-img create -f qcow2 ~/.local/share/libvirt/images/test-server_sdb.qcow2 204800M
+    4: write /tmp/test-server.xml (1643 bytes)
+    5: virsh define /tmp/test-server.xml
 
 <span class="p">$ vmctl import</span> <span class="c">ubuntu-server.yaml --new-name test-server <span class="hi">--execute</span></span>
-<span class="ok">✓</span> Created test-server
+<span class="ok">Created VM 'test-server'</span> from ubuntu-server.yaml
 
-<span class="dim"># the same file, on a different hypervisor</span>
-<span class="p">$ vmctl -p libvirt import</span> <span class="c">ubuntu-server.yaml --new-name test-server <span class="hi">--execute</span></span>
-<span class="dim">Warning: storage[0].format: vdi is not supported, used qcow2 instead</span>
-<span class="ok">✓</span> Created test-server
+<span class="dim"># the same file, on a different hypervisor — and it says what it could not carry over</span>
+<span class="p">$ vmctl -p qemu import</span> <span class="c">ubuntu-server.yaml --new-name test-server --policy nearest --execute</span>
+<span class="dim">Warning: guest_os: ubuntu22.04 was not applied (QEMU has no guest OS field; it boots
+         what the disk contains)</span>
+<span class="dim">Warning: firmware.secure_boot: True was not applied (secure boot needs an OVMF
+         variables file per VM)</span>
+<span class="dim">Warning: description: Production web server was not applied (a command line has
+         nowhere to keep a description)</span>
+<span class="ok">Created VM 'test-server'</span> from ubuntu-server.yaml
 
-<span class="dim"># and keep it that way</span>
-<span class="p">$ vmctl diff</span> <span class="c">test-server ubuntu-server.yaml</span>
-~ memory.mb  vm 4096  file 8192
+<span class="dim"># someone edits the file — or the VM. Either way, what no longer matches?</span>
+<span class="p">$ vmctl diff</span> <span class="c">ubuntu-server ubuntu-server.yaml</span>
+ubuntu-server vs ubuntu-server.yaml: <span class="hi">1 changed</span>
+  ~ memory.mb  vm 8192  file 16384
+
+<span class="dim"># and change only that, not the whole machine</span>
 <span class="p">$ vmctl apply</span> <span class="c">ubuntu-server.yaml <span class="hi">--execute</span></span>
-<span class="ok">✓</span> Applied — 1 change, nothing else touched</pre>
+ubuntu-server differs from the file in 1 place(s)
+  ~ memory.mb  vm 8192  file 16384
+<span class="ok">Applied ubuntu-server.yaml</span> to 'ubuntu-server'
+    1: write /tmp/ubuntu-server.xml (1709 bytes)
+    2: virsh define /tmp/ubuntu-server.xml
+</pre>
             </div>
         </section>
-
-        <!-- HOW IT WORKS -->
         <section class="section bg-white">
             <h2 class="reveal">What the file looks like</h2>
             <p class="sub reveal">One document per machine, in the vocabulary of the machine rather than of any one hypervisor. It reads in a text editor, reviews in a pull request &mdash; and this one, as written, validates on all four.</p>
