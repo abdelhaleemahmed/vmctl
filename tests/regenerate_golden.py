@@ -8,6 +8,7 @@ then *read the diff* before committing it.
     python tests/regenerate_golden.py
     git diff tests/golden/
 """
+
 import sys
 from pathlib import Path
 

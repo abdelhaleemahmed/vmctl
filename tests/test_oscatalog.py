@@ -12,7 +12,6 @@ from vmctl.core import oscatalog
 from vmctl.core.oscatalog import OSFamily
 from vmctl.core.vmconfig import VMConfig
 
-
 # ---------------------------------------------------------------------------
 # The catalogue
 # ---------------------------------------------------------------------------

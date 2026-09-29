@@ -2,6 +2,7 @@
 """
 VirtualBox backend implementation
 """
+
 import os
 import re
 import subprocess

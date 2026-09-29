@@ -23,7 +23,6 @@ from vmctl.providers.virtualbox.tables import FIELDS, MODIFIABLE
 
 from conftest import VM_LABELS, parse_label
 
-
 # ---------------------------------------------------------------------------
 # Codecs
 # ---------------------------------------------------------------------------

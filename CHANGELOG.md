@@ -27,6 +27,12 @@ restating it.
 
 ### Changed
 
+- **`black` raised to the 2026 style year** (`>=26,<27`), in its own commit. The
+  reformatting is 19 blank lines around module docstrings across 20 files and nothing
+  else -- checked by asserting that every changed line is empty. Still pinned to one
+  style year: an open upper bound means a release nobody has made yet can fail CI and
+  leave the tree formatted differently from every checkout, which is what happened
+  when it said `>=22.0`.
 - **The landing page's demo is now a real session.** It was titled "a real run" and
   showed output vmctl does not produce -- `Exported to ubuntu-server.yaml (yaml)`,
   `Dry-run — nothing changed.`, `✓ Created test-server` -- and left out the warnings a

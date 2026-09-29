@@ -58,7 +58,6 @@ from .tables import (
     TARGET_PREFIX,
 )
 
-
 #: Settings vmctl's model carries that a libvirt domain has no direct equivalent
 #: for. Reported once per plan instead of disappearing.
 UNTRANSLATABLE = (

@@ -2,6 +2,7 @@
 """
 Emit VirtualBox commands from VMConfig
 """
+
 import os
 import re
 import sys

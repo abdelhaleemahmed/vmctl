@@ -27,7 +27,6 @@ from vmctl.providers.virtualbox.emitter import VirtualBoxEmitter
 
 from conftest import assert_golden, emit, parse_label
 
-
 # Builders live here (not only in conftest) so regenerate_golden.py can reuse
 # them without importing pytest fixtures.
 

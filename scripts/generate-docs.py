@@ -17,6 +17,7 @@ Regenerate after any change to the model or to a provider's capability declarati
 
     python scripts/generate-docs.py
 """
+
 import sys
 from pathlib import Path
 

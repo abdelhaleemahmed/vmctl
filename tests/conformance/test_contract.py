@@ -18,7 +18,6 @@ from vmctl.core.plan import Plan, StepKind
 from vmctl.core.vmconfig import DeviceKind
 from vmctl.providers.base import BaseProvider
 
-
 # ---------------------------------------------------------------------------
 # Shape
 # ---------------------------------------------------------------------------

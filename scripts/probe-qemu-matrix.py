@@ -8,6 +8,7 @@ refuse anything it cannot; the process is then killed.
 
     python scripts/probe-qemu-matrix.py > tests/fixtures/qemu_attach_matrix.json
 """
+
 import json
 import os
 import re

@@ -2,6 +2,7 @@
 """
 JSON serializer for VM configurations
 """
+
 import json
 from pathlib import Path
 from .base import VMConfigSerializer

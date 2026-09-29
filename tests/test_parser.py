@@ -20,7 +20,6 @@ from vmctl.core.platform import NicModel
 
 from conftest import parse_label, read_fixture
 
-
 # ---------------------------------------------------------------------------
 # Decoding the machine-readable key/value format
 # ---------------------------------------------------------------------------

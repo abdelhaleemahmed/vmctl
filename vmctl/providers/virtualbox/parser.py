@@ -2,6 +2,7 @@
 """
 Parse VirtualBox VM configuration into VMConfig
 """
+
 import subprocess
 import re
 from typing import Any, Callable, Dict, List, Optional

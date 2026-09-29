@@ -2,6 +2,7 @@
 """
 Base serializer interface
 """
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 from ..core.vmconfig import VMConfig

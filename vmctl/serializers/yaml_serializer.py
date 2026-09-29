@@ -2,6 +2,7 @@
 """
 YAML serializer for VM configurations
 """
+
 from pathlib import Path
 import yaml
 from .base import VMConfigSerializer

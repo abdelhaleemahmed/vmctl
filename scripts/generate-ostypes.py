@@ -12,6 +12,7 @@ Capture and regenerate:
     ssh winhost "VBoxManage list ostypes" > tests/fixtures/vbox_ostypes.txt
     python scripts/generate-ostypes.py
 """
+
 import re
 import sys
 from pathlib import Path
