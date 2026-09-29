@@ -7,6 +7,33 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
+## [Unreleased]
+
+### Added
+
+- **A guide page that creates a VM with `virsh` alone**, then creates the same VM with
+  vmctl, in both documentation trees (`guide/virsh-by-hand`). It exists so the
+  comparison is concrete rather than asserted, and so the reader knows what vmctl is
+  doing on their behalf -- it emits `virsh` commands and is not a substitute for
+  knowing them.
+
+  Every command and message on the page was run on a real host, including the two
+  attempts that failed, and the domain XML it prints was copied back out of the page
+  and defined again to prove it works as written. What the run turned up is the
+  interesting part:
+
+  - a hand-written domain is not portable: `<domain type='kvm'>` will not define on a
+    host without `/dev/kvm`, and the emulator path differs by distribution
+  - libvirt stores a different document from the one you hand it -- 38 lines in, 146
+    out -- so `dumpxml` never matches your file and cannot be diffed against it
+  - `setmaxmem --config` is accepted on a running domain and changes only the stored
+    definition, so the persistent and live values differ with no warning
+  - `undefine --remove-all-storage` **leaves the disk behind** when the image is not in
+    a libvirt storage pool. It says so and undefines the domain anyway, so a script
+    checking the exit status alone believes it cleaned up.
+
+  Against 13 lines of YAML and one command, whose teardown does remove the image.
+
 ## [4.0.3] - 2026-09-29
 
 One fix, for a regression this project shipped twice.

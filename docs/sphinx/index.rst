@@ -31,6 +31,7 @@ different hypervisor, see what has drifted away from the file, and converge it b
    guide/install
    guide/quickstart
    guide/providers
+   guide/virsh-by-hand
    guide/configuration
    guide/batch
    guide/completion

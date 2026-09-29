@@ -31,6 +31,7 @@
    guide/install
    guide/quickstart
    guide/providers
+   guide/virsh-by-hand
    guide/configuration
    guide/batch
    guide/completion
