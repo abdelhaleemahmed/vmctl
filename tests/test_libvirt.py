@@ -150,7 +150,11 @@ def test_bios_needs_no_firmware_attribute(emitter, vm):
 def test_features_follow_the_configuration(emitter, vm):
     root = ET.fromstring(emitter.build_domain_xml(vm))
     assert root.find("features/acpi") is not None
-    assert root.find("features/apic") is not None
+    # `<apic/>` is deliberately absent, whatever `boot.ioapic` says: it is the local
+    # APIC flag rather than the I/O APIC, and writing it changed nothing -- libvirt
+    # produced a byte-identical QEMU command line with and without it.
+    assert vm.boot.ioapic is True
+    assert root.find("features/apic") is None
     assert root.find("clock/timer[@name='hpet']").get("present") == "yes"
     assert root.find("clock").get("offset") == "utc"
 
@@ -277,7 +281,11 @@ def test_a_real_domain_parses(parser, real_domain):
     assert vm.cpu.count == 2
     assert vm.memory.mb == 512
     assert vm.firmware.type == FirmwareType.EFI64
-    assert vm.boot.acpi and vm.boot.ioapic and vm.boot.hpet
+    assert vm.boot.acpi and vm.boot.hpet
+    # The fixture's domain carries `<apic/>`, as one written by an older vmctl does.
+    # It is ignored, so the field reads back as the model's default the way it does on
+    # QEMU and VMware, rather than reporting an I/O APIC setting libvirt has not got.
+    assert vm.boot.ioapic is False
     assert vm.firmware.tpm is True
 
 
@@ -868,7 +876,7 @@ def test_a_family_without_a_version_is_approximated_not_dropped(emitter, vm):
     xml = emitter.build_domain_xml(vm, translator)
 
     assert "http://libosinfo.org/linux/2022" in xml
-    assert not translator.report.drops
+    assert "guest_os" not in [drop.field for drop in translator.report.drops]
     assert ("guest_os", "linux") in [(s.field, s.used) for s in translator.report.substitutions]
 
 
@@ -1018,3 +1026,35 @@ def test_virtualbox_still_warns_because_there_it_really_is_a_setting():
     warnings = VMValidator(VirtualBoxCapabilities.get()).validate(vm)
 
     assert [w for w in warnings if "ioapic" in w]
+
+
+def test_libvirt_reports_ioapic_as_something_it_cannot_be_asked_for(emitter, vm):
+    """Measured twice before deciding this. `virsh domxml-to-native qemu-argv` gives a
+    byte-identical command line for the same domain with and without `<apic/>`, so
+    writing it changed nothing; and `info qtree` on q35 and on pc reports `dev: ioapic`
+    with a `/lapic (apic)` per CPU when nothing asks for either, so neither device can
+    be removed. libvirt therefore cannot be asked for this any more than QEMU or VMware
+    can, and it now says so rather than writing an element that meant nothing."""
+    vm.boot.ioapic = True
+    translator = Translator(emitter.capabilities, Policy.NEAREST)
+
+    xml = emitter.build_domain_xml(vm, translator)
+
+    assert "<apic" not in xml
+    dropped = {drop.field: drop.reason for drop in translator.report.drops}
+    assert "boot.ioapic" in dropped
+    assert "no setting" in dropped["boot.ioapic"]
+
+
+def test_a_domain_written_by_an_older_vmctl_still_loads(emitter, vm):
+    """Old domains carry `<apic/>`. Ignoring it must not make them unreadable, and the
+    field has to come back as the model's default so a file that never mentioned it does
+    not show drift for ever."""
+    xml = emitter.build_domain_xml(vm)
+    with_apic = xml.replace("<acpi />", "<acpi />\n    <apic />", 1)
+    assert "<apic" in with_apic  # the shape an older vmctl produced
+
+    again = LibvirtParser().parse_text("old", with_apic)
+
+    assert again.boot.acpi is True
+    assert again.boot.ioapic is False

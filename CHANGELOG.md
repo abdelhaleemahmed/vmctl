@@ -27,6 +27,32 @@ restating it.
 
 ### Changed
 
+- **`boot.ioapic` is declared un-expressible on libvirt**, as it already was on QEMU
+  and VMware, rather than being written as `<apic/>`. Two measurements decided it:
+  `virsh domxml-to-native qemu-argv` produces a **byte-identical** QEMU command line
+  for the same domain with and without `<apic/>`, so writing it changed nothing; and
+  `info qtree` reports `dev: ioapic` with a `/lapic (apic)` per CPU on both `q35` and
+  `pc` when nothing asks for either, so neither device can be removed. The element was
+  also the wrong one -- `<apic/>` is the local APIC flag; the I/O APIC is
+  `<ioapic driver=…/>`, which only picks the component that emulates one.
+
+  So a file that asks for it is told once, in the provider's own words, instead of
+  getting an element that meant nothing:
+
+  ```
+  Warning: boot.ioapic: True was not applied (libvirt's machines provide an I/O APIC;
+           there is no setting)
+  ```
+
+  `<apic/>` is no longer read back either, so the field reads as the model's default
+  the way it does on QEMU and VMware. A domain written by an older vmctl still carries
+  the element; it is ignored rather than reported, so such a VM still matches the file
+  it came from -- checked against a real domain that has it.
+
+  VirtualBox is unchanged and still honours the field, because there it is real:
+  measured on the Windows host, `VBoxManage modifyvm --ioapic off` is accepted and
+  `showvminfo` reports `ioapic="off"` back.
+
 - **`black` raised to the 2026 style year** (`>=26,<27`), in its own commit. The
   reformatting is 19 blank lines around module docstrings across 20 files and nothing
   else -- checked by asserting that every changed line is empty. Still pinned to one

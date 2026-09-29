@@ -144,7 +144,11 @@ class LibvirtParser:
 
         features = root.find("features")
         flat["feature_acpi"] = "on" if _present(features, "acpi") else "off"
-        flat["feature_apic"] = "on" if _present(features, "apic") else "off"
+        # `<apic/>` is deliberately not read into `boot.ioapic`: it is the local APIC
+        # flag rather than the I/O APIC, and reading it would report an I/O APIC setting
+        # that libvirt does not have. A domain written by an older vmctl may still carry
+        # the element; it is ignored, so the field reads back as the model's default the
+        # way it does on QEMU and VMware.
 
         clock = root.find("clock")
         if clock is not None:

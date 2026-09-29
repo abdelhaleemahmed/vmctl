@@ -60,15 +60,20 @@ FOUND = [
         "`usb-storage` takes `port`.",
     ),
     (
-        "libvirt warned that the I/O APIC was off, which it cannot be",
+        "libvirt warned that the I/O APIC was off, and could not be asked for it either",
         'Every libvirt case printed "an x86 guest needs an I/O APIC to use them, and '
         'libvirt will not give it one" -- for a VM that was fine. Measured before '
         "changing anything: `info qtree` on q35 with `-smp 2` and nothing asking for an "
         "interrupt controller reports `dev: ioapic`, and each CPU carries a `/lapic "
         "(apic)`; the same on `pc`. Neither can be removed -- libvirt's `<ioapic>` only "
         "selects which component emulates one -- so the warning named a knob that does "
-        "not exist. VirtualBox still warns, because `--ioapic off` there is a real "
-        "setting with a real effect.",
+        "not exist. Following it up found the field was writing `<apic/>` -- the "
+        "*local* APIC flag, not the I/O APIC -- and that doing so changed nothing: "
+        "`virsh domxml-to-native qemu-argv` gives a byte-identical command line with "
+        "and without it. So libvirt declares the field un-expressible now, as QEMU and "
+        "VMware already did, and says so once instead of writing an element that meant "
+        "nothing. VirtualBox is untouched, because there it is real: `VBoxManage "
+        "modifyvm --ioapic off` is accepted and reported back.",
     ),
     (
         "`export` wrote the file and then died printing that it had, on Windows",

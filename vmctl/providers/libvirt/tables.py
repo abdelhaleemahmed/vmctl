@@ -200,7 +200,6 @@ FIELDS = (
     Field("cpu.count", "vcpu", Int(minimum=1)),
     Field("firmware.type", "firmware", EnumCodec(FirmwareType), None),
     Field("boot.acpi", "feature_acpi", OnOff()),
-    Field("boot.ioapic", "feature_apic", OnOff()),
     Field("boot.hpet", "timer_hpet", OnOff()),
     Field("rtc_utc", "clock_utc", OnOff()),
     Field("description", "description", Str()),

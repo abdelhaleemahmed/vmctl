@@ -61,6 +61,10 @@ from .tables import (
 #: Settings vmctl's model carries that a libvirt domain has no direct equivalent
 #: for. Reported once per plan instead of disappearing.
 UNTRANSLATABLE = (
+    (
+        "boot.ioapic",
+        "libvirt's machines provide an I/O APIC; there is no setting",
+    ),
     ("memory.vram_mb", "video memory is a device property in libvirt, not a VM setting"),
     ("cpu.execution_cap", "a CPU cap needs <cputune> quota, which vmctl does not emit yet"),
     ("cpu.hotplug", "CPU hotplug is expressed as a vcpu 'current' count"),
@@ -235,17 +239,16 @@ class LibvirtEmitter:
         features = ET.SubElement(domain, "features")
         if vm.boot.acpi:
             ET.SubElement(features, "acpi")
-        if vm.boot.ioapic:
-            # libvirt's `<apic/>` is the *local* APIC feature flag, not the I/O APIC
-            # -- that is `<ioapic driver=.../>`, which only selects the component
-            # that emulates one. Neither device can be removed: both are measured
-            # present on q35 and pc with nothing asking for them (see
-            # capabilities.py). So this field switches a feature flag rather than a
-            # device's existence, which is why it is not warned about any more. The
-            # mapping is kept as it is because it round-trips: `<apic/>` is written
-            # when the field is set and read back into it, and a VM's `diff` against
-            # the file it came from is clean either way.
-            ET.SubElement(features, "apic")
+        # `boot.ioapic` used to be written here as `<apic/>`, which was two mistakes.
+        # `<apic/>` is the *local* APIC feature flag, not the I/O APIC -- that is
+        # `<ioapic driver=.../>`, and it only selects which component emulates one. And
+        # it made no difference to the machine: asked for the same domain with and
+        # without it, libvirt produced a byte-identical QEMU command line
+        # (`virsh domxml-to-native qemu-argv`). Both APICs are there either way --
+        # `info qtree` on q35 and on pc reports `dev: ioapic`, and each CPU carries a
+        # `/lapic (apic)`. So libvirt cannot be asked for this any more than QEMU or
+        # VMware can, and it says so through UNTRANSLATABLE instead of writing an
+        # element that meant nothing (E-19, F-51's family).
         if vm.firmware.secure_boot:
             # Secure boot needs an SMM-capable machine as well as EFI firmware.
             ET.SubElement(features, "smm", state="on")
