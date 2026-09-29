@@ -1,8 +1,10 @@
 """Provider registry tests (A-03)."""
 
+import subprocess
+import sys
+
 import pytest
 
-import vmctl.providers  # noqa: F401  (registers the built-in providers)
 from vmctl.core import registry
 from vmctl.core.exceptions import ValidationError
 
@@ -14,8 +16,30 @@ def no_env(monkeypatch):
 
 
 def test_built_in_providers_are_registered():
-    assert "virtualbox" in registry.names()
-    assert "libvirt" in registry.names()
+    """This file used to import ``vmctl.providers`` itself, with a comment saying it
+    registered the built-ins -- so the test was doing the thing it was testing, and it
+    passed for a year while the registry depended on some *other* module happening to
+    import a provider package. It does its own loading now, and this reads it cold."""
+    assert sorted(registry.names()) == ["libvirt", "qemu", "virtualbox", "vmware"]
+
+
+@pytest.mark.allow_subprocess
+def test_the_providers_command_lists_them_in_a_fresh_interpreter():
+    """The one that would have caught it. In-process this cannot fail: by the time any
+    test runs, some earlier module has imported a provider package and populated the
+    registry. A user gets a fresh interpreter, and there `vmctl providers` printed a
+    table with no rows in it -- in 4.0.1 and 4.0.2, because the CLI had stopped
+    importing `VirtualBoxCapabilities` for the `--disk-format` list and that import was
+    accidentally what registered all four."""
+    result = subprocess.run(
+        [sys.executable, "-m", "vmctl.cli.main", "providers"],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    for name in ("virtualbox", "libvirt", "qemu", "vmware"):
+        assert name in result.stdout, result.stdout
 
 
 def test_entries_carry_a_description():

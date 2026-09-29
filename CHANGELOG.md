@@ -7,6 +7,29 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
+## [Unreleased]
+
+### Fixed
+
+- **`vmctl providers` printed a table with no rows in it, in 4.0.1 and 4.0.2.** The
+  four built-in providers register themselves when `vmctl.providers` is imported, and
+  nothing in the registry did that -- it happened because `cli/main.py` imported
+  `VirtualBoxCapabilities` to build the `--disk-format` choice list. 4.0.1 removed that
+  import along with the list, and the registration went with it. Every other command
+  still worked, because the engine imports the package explicitly, so only the one
+  command that reads the registry without building an engine was affected.
+
+  The registry loads its own contents now; nothing outside it has to remember to.
+
+  It survived 1240 tests because `tests/test_registry.py` imported `vmctl.providers`
+  itself, with a comment saying that was what registered the built-ins -- the test file
+  was doing the thing it was testing. That import is gone, and a new test runs
+  `vmctl providers` in a **fresh interpreter**, which is the only place the failure was
+  visible. It fails without the fix.
+
+  Found while updating a project index by running `vmctl providers` to count the
+  providers, rather than by any test.
+
 ## [4.0.2] - 2026-09-29
 
 One code change, and the rest is the page and the toolchain. The code change is the

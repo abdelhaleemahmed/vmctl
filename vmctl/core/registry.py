@@ -74,12 +74,28 @@ def register(name: str, loader: Callable[[], type], description: str = "") -> No
     _REGISTRY[name] = ProviderEntry(name=name, loader=loader, description=description)
 
 
-def _load_entry_points() -> None:
-    """Add providers advertised by installed packages, once."""
+def _load_providers() -> None:
+    """Make sure every provider is registered, once: the built-ins and the plugins.
+
+    The built-ins register themselves as a side effect of importing
+    :mod:`vmctl.providers`, and for a while nothing in the registry did that -- it
+    happened because *some other module* imported a provider package for its own
+    reasons. `vmctl/cli/main.py` imported `VirtualBoxCapabilities` to build the
+    `--disk-format` list, and when that import went away with the list, `vmctl
+    providers` printed a table with no rows in it. Every other command still worked,
+    because the engine imports the package explicitly.
+
+    So the registry loads its own contents now. Nothing outside it has to remember to.
+    """
     global _ENTRY_POINTS_LOADED
     if _ENTRY_POINTS_LOADED:
         return
     _ENTRY_POINTS_LOADED = True
+
+    # Imported for the side effect of registering the four built-in providers. Inside
+    # the function because vmctl.providers imports this module back.
+    from .. import providers  # noqa: F401
+
     from importlib.metadata import entry_points
 
     try:
@@ -94,13 +110,13 @@ def _load_entry_points() -> None:
 
 def names() -> List[str]:
     """Return every registered provider name, sorted."""
-    _load_entry_points()
+    _load_providers()
     return sorted(_REGISTRY)
 
 
 def entries() -> List[ProviderEntry]:
     """Return every registered provider, sorted by name."""
-    _load_entry_points()
+    _load_providers()
     return [_REGISTRY[n] for n in sorted(_REGISTRY)]
 
 
@@ -117,7 +133,7 @@ def provider_class(name: str) -> type:
         ValidationError: If no provider is registered under that name.
         DependencyError: If the provider's dependencies are missing.
     """
-    _load_entry_points()
+    _load_providers()
     entry = _REGISTRY.get(name)
     if entry is None:
         raise ValidationError(
