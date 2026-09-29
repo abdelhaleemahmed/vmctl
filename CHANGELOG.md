@@ -7,6 +7,32 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
+## [Unreleased]
+
+### Added
+
+- The landing page gained two sections carried over from the page it replaced:
+  **"What the file looks like"**, a complete annotated config, and **"Real-world
+  scenarios"** -- disaster-recovery rehearsal, team dev environments, and
+  infrastructure-as-code with drift. Both were rewritten rather than transcribed:
+  the old ones used the 1.1.x spelling (`ostype:`, `disks:`, uppercase enums) and
+  described a VirtualBox-only tool.
+
+  The config shown is checked against all four providers, which is how it was found
+  that the first version of it could not be: it named `qcow2` and put a disk on
+  `virtio-blk`, and **no image format is creatable by all four** -- VirtualBox
+  creates seven, libvirt and QEMU two, VMware one, and the intersection is empty. So
+  the example leaves the format out, which each hypervisor then fills with its own,
+  and the page says why instead of implying any file is portable everywhere.
+
+### Removed
+
+- `docs/index.html` and `docs/index_2.html`, the GitHub Pages landing pages from
+  v1.1.8 (March). Neither had been served since the site moved to `landing/` plus
+  Sphinx, nothing referenced them, and both still announced "vmctl - Config-as-Code
+  CLI for VirtualBox" and told the reader to `pip install vmctl`. The two sections
+  worth keeping are above; the rest is in git history.
+
 ## [4.0.1] - 2026-09-29
 
 ### Fixed

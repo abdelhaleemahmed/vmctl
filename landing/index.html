@@ -69,6 +69,10 @@
             font-size: .84rem; line-height: 1.7; color: #c9d1d9;
         }
         .term .p { color: #a5d6ff; } .term .c { color: #fff; }
+        .snip { background: #0d1117; border: 1px solid #262b36; border-radius: 8px;
+            padding: 12px 14px; margin-top: 12px; overflow-x: auto; font-size: .78rem;
+            line-height: 1.65; color: #c9d1d9;
+            font-family: 'DejaVu Sans Mono', 'Cascadia Code', Consolas, monospace; }
         .term .ok { color: #56d364; } .term .hi { color: #d2a8ff; } .term .dim { color: #6e7681; }
         .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; }
         .flow-wrap { overflow-x: auto; margin: 6px 0 26px; }
@@ -198,6 +202,54 @@ windows-dev          stopped
         </section>
 
         <!-- HOW IT WORKS -->
+        <section class="section bg-white">
+            <h2 class="reveal">What the file looks like</h2>
+            <p class="sub reveal">One document per machine, in the vocabulary of the machine rather than of any one hypervisor. It reads in a text editor, reviews in a pull request &mdash; and this one, as written, validates on all four.</p>
+            <div class="terminal reveal">
+                <div class="term-bar">
+                    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                    <span class="term-title">ubuntu-server.yaml</span>
+                </div>
+<pre class="term">name: <span class="c">ubuntu-server</span>
+guest_os: <span class="c">ubuntu22.04</span>
+description: <span class="c">Production web server</span>
+
+cpu:
+  count: <span class="c">4</span>
+memory:
+  mb: <span class="c">8192</span>
+  vram_mb: <span class="c">16</span>
+firmware:
+  type: <span class="c">efi64</span>
+  secure_boot: <span class="c">false</span>
+
+storage:
+  - name: <span class="c">system</span>
+    size_mb: <span class="c">51200</span>
+    bus: <span class="c">sata</span>        <span class="dim"># ide · sata · scsi · sas · nvme · virtio-blk · virtio-scsi · usb</span>
+    allocation: <span class="c">thin</span>
+    bootable: <span class="c">true</span>
+  - name: <span class="c">backup</span>
+    size_mb: <span class="c">204800</span>
+    bus: <span class="c">sata</span>
+
+networks:
+  - network_type: <span class="c">bridged</span>
+    adapter_name: <span class="c">br0</span>
+    model: <span class="c">virtio</span>
+  - network_type: <span class="c">nat</span>
+    port_forwards:
+      - name: <span class="c">ssh</span>     <span class="dim"># ssh to localhost:2222 reaches the guest</span>
+        host_port: <span class="c">2222</span>
+        guest_port: <span class="c">22</span>
+
+boot:
+  order: [<span class="c">disk</span>, <span class="c">dvd</span>, <span class="c">none</span>, <span class="c">none</span>]
+  acpi: <span class="c">true</span>
+</pre>
+            </div>
+            <p class="install-note reveal">Only <code>name</code> is required; everything else has a default, and <code>vmctl validate</code> checks the file against what the chosen hypervisor can actually do before anything is built. Note what is <em>absent</em>: no disk format. There is no image format all four can create &mdash; VirtualBox creates seven, libvirt and QEMU two, VMware one &mdash; so leaving it out lets each use its own, and naming one explicitly ties the file to the hypervisors that can. Point it at another and <code>--policy nearest</code> substitutes the closest and tells you what it changed.</p>
+        </section>
         <section class="section bg-light">
             <h2 class="reveal">How it works</h2>
             <p class="sub reveal">Data-driven, and safe by default.</p>
@@ -248,6 +300,41 @@ windows-dev          stopped
         </section>
 
         <!-- INSTALL -->
+        <section class="section bg-dark">
+            <h2 class="reveal">Real-world scenarios</h2>
+            <p class="sub reveal">What the round trip is actually for.</p>
+            <div class="features">
+                <div class="feature reveal">
+                    <h3>🔥 Disaster-recovery rehearsal</h3>
+                    <p>Capture a production VM's hardware, rebuild it blank beside the original, restore into it from backup, verify it boots &mdash; then throw it away. As often as you like, without touching the machine that matters.</p>
+<pre class="term snip"><span class="dim"># capture what production is</span>
+<span class="p">$</span> <span class="c">vmctl export prod-server -o prod.yaml</span>
+<span class="dim"># same hardware, blank disks, new name</span>
+<span class="p">$</span> <span class="c">vmctl import prod.yaml --new-name bmr --execute</span>
+<span class="dim"># restore, verify, and remove the rehearsal</span>
+<span class="p">$</span> <span class="c">vmctl delete bmr --force</span></pre>
+                </div>
+                <div class="feature reveal">
+                    <h3>👩‍💻 Team dev environments</h3>
+                    <p>Keep the lab in Git as one batch file, with the parts every machine shares in a base that the others <code>extends:</code>. A new joiner clones the repo and runs one command to get the same machines as everybody else.</p>
+<pre class="term snip"><span class="p">$</span> <span class="c">git clone https://github.com/team/lab &amp;&amp; cd lab</span>
+<span class="dim"># every VM in the file, in one go</span>
+<span class="p">$</span> <span class="c">vmctl batch create cluster.yaml --execute</span>
+<span class="dim"># more RAM on this machine, without editing the file</span>
+<span class="p">$</span> <span class="c">vmctl import web-01.yaml --set memory.mb=8192 --execute</span></pre>
+                </div>
+                <div class="feature reveal">
+                    <h3>🏗️ Infrastructure as code, and drift</h3>
+                    <p>Commit the config and the change is reviewable. Later, when someone has clicked something in the GUI, <code>diff</code> says what no longer matches the file and <code>apply</code> changes only that &mdash; not the whole machine.</p>
+<pre class="term snip"><span class="p">$</span> <span class="c">vmctl export web-01 -o infra/web-01.yaml</span>
+<span class="p">$</span> <span class="c">git commit -m "web-01: 8 GB"</span> infra/web-01.yaml
+<span class="dim"># weeks later: what drifted?</span>
+<span class="p">$</span> <span class="c">vmctl diff web-01 infra/web-01.yaml</span>
+<span class="dim">~ memory.mb  vm 4096  file 8192</span>
+<span class="p">$</span> <span class="c">vmctl apply infra/web-01.yaml --execute</span></pre>
+                </div>
+            </div>
+        </section>
         <section class="section bg-white">
             <h2 class="reveal">Quick install</h2>
             <p class="sub reveal">A wheel from the latest release — pulls in its one dependency (PyYAML) automatically.</p>
