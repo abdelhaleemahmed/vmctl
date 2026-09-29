@@ -40,7 +40,7 @@ Python 3.13 أو أحدث، وأدوات سطر الأوامر لمُشرف اف
 
 .. code-block:: bash
 
-   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v4.0.0/vmctl-4.0.0-py3-none-any.whl
+   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v4.0.1/vmctl-4.0.1-py3-none-any.whl
 
 vmctl ليس على PyPI بعد، لذا لن يجده الأمر ``pip install vmctl``؛ ثبِّت الحزمة من
 `صفحة الإصدارات <https://github.com/abdelhaleemahmed/vmctl/releases>`_ أو من المصدر.

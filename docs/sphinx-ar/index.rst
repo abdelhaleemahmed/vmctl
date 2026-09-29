@@ -8,7 +8,7 @@
 
 .. code-block:: bash
 
-   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v4.0.0/vmctl-4.0.0-py3-none-any.whl
+   pip install https://github.com/abdelhaleemahmed/vmctl/releases/download/v4.0.1/vmctl-4.0.1-py3-none-any.whl
 
    # تصدير جهاز افتراضي موجود
    vmctl export my-vm -o my-vm.yaml

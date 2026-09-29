@@ -7,11 +7,17 @@ All notable changes to vmctl are recorded here. The format follows
 This file is the single source: the Sphinx documentation includes it rather than
 restating it.
 
-## [Unreleased]
+## [4.0.1] - 2026-09-29
 
 ### Fixed
 
-Four things in shared code that still assumed VirtualBox was the only provider.
+Four things in shared code that still assumed VirtualBox was the only provider. All
+four are things a user meets before anything else, and all four were found by driving
+the command line rather than by the suite -- one of them only by driving the real
+shell-completion protocol, because the first, plausible-looking fix was still wrong.
+
+Re-verified afterwards on all four hypervisors, since the changes were in shared code
+rather than in any one provider: 21 real VMs, 336 checks, 0 failed.
 
 - **`--disk-format` offered every provider VirtualBox's formats.** The list was built
   once when the module loaded, so `vmctl -p vmware import f.yaml --disk-format vdi`
